@@ -1,0 +1,266 @@
+package com.quincyjo.jsonpath.parser
+
+import cats.data.OptionT
+import JsonPathParser.*
+import cats.implicits.*
+import com.quincyjo.jsonpath.JsonPath
+import com.quincyjo.jsonpath.JsonPath.*
+import com.quincyjo.jsonpath.parser.JsonPathParser.Token
+
+import scala.collection.mutable
+
+class JsonPathReader(input: String) {
+
+  private val parser: JsonPathParser = new JsonPathParser(input)
+
+  def parseInput(): ParseResult[JsonPath] = for {
+    maybeRoot <- parseRoot()
+    builder = List.newBuilder[ParseResult[JsonPathNode]]
+    _ = while (parser.hasNext) builder addOne parseNext()
+    path <- builder.result.sequence
+  } yield JsonPath(maybeRoot, path)
+
+  private def parseRoot(): ParseResult[Option[JsonPathRoot]] =
+    OptionT(parser.peek())
+      .flatMapF {
+        case Token.Root | Token.Current if parser.index == 0 =>
+          parser.nextToken().map(Some(_))
+        case other => Parsed(None)
+      }
+      .semiflatMap {
+        case Token.Root    => Parsed(Root)
+        case Token.Current => Parsed(Current)
+        case invalidToken =>
+          ParseError.invalidToken(
+            invalidToken,
+            parser.index,
+            input,
+            Token.Root,
+            Token.Current
+          )
+      }
+      .value
+
+  private def parseNext(): ParseResult[JsonPathNode] =
+    parser.nextToken().flatMap {
+      case Token.RecursiveDescent => parseRecursiveDescent()
+      case Token.StartSelector    => parseSelector().map(Child.apply)
+      case Token.DotSelector      => parseDotSelectorChild().map(Child.apply)
+      case invalidToken =>
+        ParseError.invalidToken(
+          invalidToken,
+          parser.index,
+          input,
+          Token.RecursiveDescent,
+          Token.StartSelector,
+          Token.DotSelector
+        )
+    }
+
+  private def parseUnion(first: SingleSelector): ParseResult[Union] = {
+
+    def go(
+        acc: mutable.Builder[SingleSelector, Seq[SingleSelector]]
+    ): ParseResult[mutable.Builder[SingleSelector, Seq[SingleSelector]]] =
+      for {
+        nextSelector <- parser.nextToken().flatMap {
+          case Token.ValueString =>
+            parser.valueAsString.map(string => ChildAttribute(string.value))
+          case Token.ValueInt =>
+            parser.valueAsNumber.map(number => ChildIndex(number.value))
+          case invalidToken =>
+            ParseError.invalidToken(
+              invalidToken,
+              parser.index,
+              input,
+              Token.ValueString,
+              Token.ValueInt
+            )
+        }
+        result <- parser.nextToken().flatMap {
+          case Token.EndSelector => Parsed(acc.addOne(nextSelector))
+          case Token.Union       => go(acc.addOne(nextSelector))
+          case invalidToken =>
+            ParseError.invalidToken(
+              invalidToken,
+              parser.index,
+              input,
+              Token.Union,
+              Token.EndSelector
+            )
+        }
+      } yield result
+
+    go(Seq.newBuilder[SingleSelector]).map(_.result).flatMap {
+      case second :: tail => Parsed(Union(first, second, tail))
+      case _ =>
+        ParseError(
+          s"Trailing '${Token.Union}' token at index ${parser.index}.",
+          parser.index,
+          input
+        )
+    }
+  }
+
+  private def parseSlice(start: Option[Int]): ParseResult[Slice] = {
+
+    def go(
+        builder: mutable.Builder[Option[Int], Seq[Option[Int]]]
+    ): ParseResult[mutable.Builder[Option[Int], Seq[Option[Int]]]] =
+      parser.nextToken().flatMap {
+        case Token.EndSelector => Parsed(builder)
+        case Token.Slice | Token.ValueInt if builder.knownSize > 3 =>
+          ParseError(s"Too many slice arguments.", parser.index, input)
+        case Token.Slice => go(builder.addOne(None))
+        case Token.ValueInt =>
+          (parser.valueAsNumber.map(_.value), parser.nextToken()).mapN {
+            case (value, token) =>
+              builder.addOne(Some(value))
+              token match {
+                case Token.EndSelector => Parsed(builder)
+                case Token.Slice       => go(builder)
+                case invalidToken =>
+                  ParseError.invalidToken(
+                    invalidToken,
+                    parser.index,
+                    input,
+                    Token.ValueInt,
+                    Token.Slice,
+                    Token.EndSelector
+                  )
+              }
+          }.flatten
+        case invalidToken =>
+          ParseError.invalidToken(
+            invalidToken,
+            parser.index,
+            input,
+            Token.ValueInt,
+            Token.Slice,
+            Token.EndSelector
+          )
+      }
+
+    go(Seq.newBuilder[Option[Int]].addOne(start)).map(_.result).flatMap {
+      parts =>
+        if (parts.exists(_.isDefined))
+          Parsed(
+            Slice(
+              parts.headOption.flatten,
+              parts.lift(1).flatten,
+              parts.lift(2).flatten
+            )
+          )
+        else
+          ParseError(
+            "At least one slice parameter is required.",
+            parser.index,
+            input
+          )
+    }
+  }
+
+  def parseSlice(start: Int): ParseResult[Slice] = parseSlice(Some(start))
+
+  def parseRecursiveDescent(): ParseResult[RecursiveDescent] =
+    parser
+      .currentToken()
+      .fold[ParseResult[RecursiveDescent]](
+        ParseError("Unexpected end of input.", parser.index, input)
+      ) {
+        case Token.RecursiveDescent =>
+          parser.peek().flatMap { nextToken =>
+            nextToken
+              .fold[ParseResult[RecursiveDescent]](Parsed(RecursiveDescent())) {
+                case Token.Wildcard | Token.ValueInt | Token.ValueString =>
+                  parseDotSelectorChild().map(RecursiveDescent.apply)
+                case Token.StartSelector =>
+                  parseSelector().map(RecursiveDescent.apply)
+                case token => Parsed(RecursiveDescent())
+              }
+          }
+        case invalidToken =>
+          ParseError.invalidToken(
+            invalidToken,
+            parser.index,
+            input,
+            Token.RecursiveDescent
+          )
+      }
+
+  def parseSelector(): ParseResult[Selector] =
+    parser
+      .currentToken()
+      .fold[ParseResult[Selector]](
+        ParseError("Unexpected end of input.", parser.index, input)
+      ) {
+        case Token.StartSelector => parseBracketSelector()
+        case Token.DotSelector   => parseDotSelectorChild()
+        case invalidToken =>
+          ParseError
+            .invalidToken(
+              invalidToken,
+              parser.index,
+              input,
+              Token.DotSelector,
+              Token.StartSelector
+            )
+      }
+
+  private def parseBracketSelector(): ParseResult[Selector] =
+    for {
+      firstToken <- parser.nextToken()
+      maybeFirstSelector <- Option(firstToken).collect {
+        case Token.ValueString =>
+          parser.valueAsString.map(v => ChildAttribute(v.value))
+        case Token.ValueInt =>
+          parser.valueAsNumber.map(v => ChildIndex(v.value))
+        case Token.Wildcard => Parsed(Wildcard)
+        case Token.StartExpression =>
+          parser.valueAsExpression.map(v => ScriptExpression(v.value))
+        case Token.StartFilterExpression =>
+          parser.valueAsExpression.map(v => FilterExpression(v.value))
+      }.sequence
+      secondToken <- OptionT
+        .fromOption[ParseResult](maybeFirstSelector)
+        .semiflatMap(_ => parser.nextToken())
+        .value
+      selector <- (maybeFirstSelector, firstToken, secondToken) match {
+        case (Some(firstSelector), _, Some(Token.EndSelector)) =>
+          Parsed(firstSelector)
+        case (Some(singleSelector: SingleSelector), _, Some(Token.Union)) =>
+          parseUnion(singleSelector)
+        case (Some(ChildIndex(index)), _, Some(Token.Slice)) =>
+          parseSlice(index)
+        case (None, Token.Slice, None) =>
+          parseSlice(None)
+        case (_, invalidToken, _) =>
+          ParseError.invalidToken(
+            invalidToken,
+            parser.index,
+            input,
+            Token.EndSelector,
+            Token.Union,
+            Token.Slice
+          )
+      }
+    } yield selector
+
+  private def parseDotSelectorChild(): ParseResult[Selector] =
+    parser.nextToken().flatMap {
+      case Token.Wildcard => Parsed(Wildcard)
+      case Token.ValueString =>
+        parser.valueAsString.map(_.value).map(ChildAttribute.apply)
+      case Token.ValueInt =>
+        parser.valueAsNumber.map(_.value).map(ChildIndex.apply)
+      case invalidToken =>
+        ParseError.invalidToken(
+          invalidToken,
+          parser.index,
+          input,
+          Token.Wildcard,
+          Token.ValueString,
+          Token.ValueInt
+        )
+    }
+}
