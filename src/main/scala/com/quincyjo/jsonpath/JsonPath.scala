@@ -431,12 +431,13 @@ object JsonPath {
     /** Returns true if the name is a simple identifier, meaning that it only contains letters and digits.
       * @return True if the name is a simple identifier or false otherwise.
       */
-    def isSimple: Boolean = name.headOption.forall(_.isLetter) && name.forall(_.isLetterOrDigit)
+    def isSimple: Boolean =
+      name.headOption.forall(_.isLetter) && name.forall(_.isLetterOrDigit)
 
     override def toString: String =
       if (isSimple) name
       else quotedName
-      
+
     def quotedName: String = s"""\"${name.replace("\"", "\\\"")}\""""
 
     override def apply[Json: JsonSupport](
@@ -524,7 +525,7 @@ object JsonPath {
     * @param end The end of the slice, exclusive. If negative, it is relative to the end of the array.
     * @param step The step of the slice. EG, a slice of `::2` would select every other element.
     */
-  final case class Slice private[jsonpath] (
+  final case class Slice private (
       start: Option[Int],
       end: Option[Int],
       step: Option[Int]
@@ -564,13 +565,13 @@ object JsonPath {
       * @param int The start of the slice.
       * @return The slice.
       */
-    def start(int: Int): Slice = Slice(Some(int), None, None)
+    def start(int: Int): Slice = new Slice(Some(int), None, None)
 
     /** Creates a slice with the given end value, ie, the subarray up to the given index.
       * @param int The end of the slice.
       * @return The slice.
       */
-    def end(int: Int): Slice = Slice(None, Some(int), None)
+    def end(int: Int): Slice = new Slice(None, Some(int), None)
 
     /** Creates a slice which drops the first `n` elements of the array.
       * Alias for [[start(Int)]].
@@ -603,14 +604,15 @@ object JsonPath {
       * @param step The step of the slice.
       * @return The slice.
       */
-    def everyN(step: Int): Slice = Slice(None, None, Some(step))
+    def everyN(step: Int): Slice = new Slice(None, None, Some(step))
 
     /** Creates a slice with the given start and end.
       * @param start The starting index of the slice, inclusive.
       * @param end The ending index of the slice, exclusive.
       * @return The slice.
       */
-    def apply(start: Int, end: Int): Slice = Slice(Some(start), Some(end), None)
+    def apply(start: Int, end: Int): Slice =
+      new Slice(Some(start), Some(end), None)
 
     /** Creates a slice with the given start, end, and step.
       * @param start The starting index of the slice, inclusive.
@@ -619,7 +621,22 @@ object JsonPath {
       * @return The slice.
       */
     def apply(start: Int, end: Int, step: Int): Slice =
-      Slice(Some(start), Some(end), Some(step))
+      new Slice(Some(start), Some(end), Some(step))
+
+    /** Constructs a slice from the given start, end, and step if defined. If if none of the parameters are defined, then [[None]] will be returned, otherwise the slice will be returned.
+      * @param start The starting index of the slice, inclusive.
+      * @param end The ending index of the slice, exclusive.
+      * @param step The step of the slice.
+      * @return The slice, if valid.
+      */
+    def apply(
+        start: Option[Int],
+        end: Option[Int],
+        step: Option[Int]
+    ): Option[Slice] =
+      Option.when(start.isDefined || end.isDefined || step.isDefined) {
+        new Slice(start, end, step)
+      }
   }
 
   sealed trait Expression {
@@ -667,7 +684,10 @@ object JsonPath {
   final case class FilterExpression(expression: Expression)
       extends ScriptSelector {
 
-    override def apply[Json: JsonSupport](root: Json, json: Json): Iterable[Json] =
+    override def apply[Json: JsonSupport](
+        root: Json,
+        json: Json
+    ): Iterable[Json] =
       json.arrayOrObject(
         Iterable.empty,
         _.filter(j => isTruthy(expression(root, j))),
@@ -683,7 +703,10 @@ object JsonPath {
   final case class ScriptExpression(expression: Expression)
       extends ScriptSelector {
 
-    override def apply[Json: JsonSupport](root: Json, json: Json): Iterable[Json] = {
+    override def apply[Json: JsonSupport](
+        root: Json,
+        json: Json
+    ): Iterable[Json] = {
       expression(root, json).fold(
         Iterable.empty,
         _ => Iterable.empty,

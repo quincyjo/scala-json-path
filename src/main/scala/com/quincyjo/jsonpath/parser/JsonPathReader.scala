@@ -143,19 +143,18 @@ class JsonPathReader(parser: JsonPathParser) {
 
     go(Seq.newBuilder[Option[Int]].addOne(start)).map(_.result).flatMap {
       parts =>
-        if (parts.exists(_.isDefined))
-          Parsed(
-            Slice(
-              parts.headOption.flatten,
-              parts.lift(1).flatten,
-              parts.lift(2).flatten
+        Slice(
+          parts.headOption.flatten,
+          parts.lift(1).flatten,
+          parts.lift(2).flatten
+        )
+          .map(Parsed.apply)
+          .getOrElse(
+            ParseError(
+              "At least one slice parameter is required.",
+              parser.index,
+              parser.input
             )
-          )
-        else
-          ParseError(
-            "At least one slice parameter is required.",
-            parser.index,
-            parser.input
           )
     }
   }
@@ -266,10 +265,10 @@ class JsonPathReader(parser: JsonPathParser) {
 }
 
 object JsonPathReader {
-  
+
   def apply(input: String): JsonPathReader =
     new JsonPathReader(JsonPathParser(input))
-  
+
   def apply(input: String, options: JsonPathParserOptions): JsonPathReader =
     new JsonPathReader(JsonPathParser(input, options))
 }
