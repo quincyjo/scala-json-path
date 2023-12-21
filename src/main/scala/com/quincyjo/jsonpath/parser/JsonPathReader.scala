@@ -1,11 +1,10 @@
 package com.quincyjo.jsonpath.parser
 
 import cats.data.OptionT
-import JsonPathParser.*
 import cats.implicits.*
 import com.quincyjo.jsonpath.JsonPath
 import com.quincyjo.jsonpath.JsonPath.*
-import com.quincyjo.jsonpath.parser.JsonPathParser.Token
+import com.quincyjo.jsonpath.parser.JsonPathParser.*
 
 import scala.collection.mutable
 
@@ -13,6 +12,9 @@ class JsonPathReader(input: String) {
 
   private val parser: JsonPathParser = new JsonPathParser(input)
 
+  /** Parse the input string into a [[JsonPath]] if valid, or a [[ParseError]] if not.
+    * @return A [[ParseResult]] of a [[JsonPath]] from the input string.
+    */
   def parseInput(): ParseResult[JsonPath] = for {
     maybeRoot <- parseRoot()
     builder = List.newBuilder[ParseResult[JsonPathNode]]

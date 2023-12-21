@@ -52,6 +52,29 @@ class JsonPathSpec extends AnyFlatSpecLike with Matchers {
     rootJsonPath.resolve(JsonPath.empty) should be(rootJsonPath)
   }
 
+  "resolveSibling" should "resolve relative paths against the parent path" in {
+    val rootJsonPath = JsonPath.$ / "foobar"
+    val relativeJsonPath = JsonPath.empty / "deadbeef"
+
+    rootJsonPath.resolveSibling(relativeJsonPath) should be(
+      JsonPath.$ / "deadbeef"
+    )
+  }
+
+  it should "take the other path if not relative" in {
+    val rootJsonPath = JsonPath.$ / "foobar"
+    val otherJsonPath = JsonPath.$ / "deadbeef"
+
+    rootJsonPath.resolveSibling(otherJsonPath) should be(otherJsonPath)
+  }
+
+  it should "take the other path if this path has no parent" in {
+    val rootJsonPath = JsonPath.$
+    val otherJsonPath = JsonPath.empty / "deadbeef"
+
+    rootJsonPath.resolveSibling(otherJsonPath) should be(otherJsonPath)
+  }
+
   "Child" should "encode indices with brackets" in {
     Child(1).toString should be("[1]")
   }
@@ -102,5 +125,19 @@ class JsonPathSpec extends AnyFlatSpecLike with Matchers {
   
   "Union" should "encode as a comma deliminated list" in {
     Union(1, 2, 3).toString should be("1,2,3")
+  }
+
+  "FilterExpression" should "encode with parentheses and leading '?'" in {
+    val expression = LiteralExpression("@.foobar>3")
+    val filterExpression = FilterExpression(expression)
+
+    filterExpression.toString should be("?(@.foobar>3)")
+  }
+
+  "ScriptExpression" should "encode with parentheses" in {
+    val expression = LiteralExpression("@.foobar>3")
+    val scriptExpression = ScriptExpression(expression)
+
+    scriptExpression.toString should be("(@.foobar>3)")
   }
 }

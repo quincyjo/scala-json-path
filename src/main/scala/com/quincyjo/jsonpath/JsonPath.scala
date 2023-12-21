@@ -25,6 +25,13 @@ final case class JsonPath(
         values.flatMap(node(root, _))
     }
 
+  /** Apple the JsonPath to the provided context. Unlike [[apply[Json](Json)]], this API is mean for when the root JSON and the current JSON node may not be the same. Namely, this is when a JSON path is part of another JsonPath via an expression.
+    * @param root The root JSON.
+    * @param current The current JSON node of the containing JsonPath.
+    * @tparam Json The type of JSON.
+    * @throws UnsupportedOperationException If the path contains a [[NonExecutableExpression]].
+    * @return A list of all matching JSONs within the given JSON.
+    */
   @throws[UnsupportedOperationException]
   private[JsonPath] def apply[Json: JsonSupport](
       root: Json,
@@ -428,7 +435,9 @@ object JsonPath {
 
     override def toString: String =
       if (isSimple) name
-      else s"""\"${name.replace("\"", "\\\"")}\""""
+      else quotedName
+      
+    def quotedName: String = s"""\"${name.replace("\"", "\\\"")}\""""
 
     override def apply[Json: JsonSupport](
         root: Json,
@@ -632,12 +641,15 @@ object JsonPath {
 
     override def apply[Json: JsonSupport](root: Json, current: Json): Json =
       throw new UnsupportedOperationException(
-        "Cannot execute non-executable expression. In order to support executing evaluation of script expressions, provider a ExpressionParser via JsonPathParserOptions which parses ExecutableExpression s."
+        s"Cannot execute non-executable expression '$this'. In order to support executing evaluation of script expressions, provide an ExpressionParser via JsonPathParserOptions which parses ExecutableExpressions."
       )
   }
 
   final case class LiteralExpression(value: String)
-      extends NonExecutableExpression
+      extends NonExecutableExpression {
+
+    override def toString: String = value
+  }
 
   final case class JsonPathExpression(jsonPath: JsonPath)
       extends ExecutableExpression {
@@ -646,6 +658,8 @@ object JsonPath {
       jsonPath(root, current).headOption.getOrElse(
         implicitly[JsonSupport[Json]].Null
       )
+
+    override def toString: String = jsonPath.toString
   }
 
   sealed trait ScriptSelector extends Selector
@@ -653,7 +667,7 @@ object JsonPath {
   final case class FilterExpression(expression: Expression)
       extends ScriptSelector {
 
-    def apply[Json: JsonSupport](root: Json, json: Json): Iterable[Json] =
+    override def apply[Json: JsonSupport](root: Json, json: Json): Iterable[Json] =
       json.arrayOrObject(
         Iterable.empty,
         _.filter(j => isTruthy(expression(root, j))),
@@ -669,7 +683,7 @@ object JsonPath {
   final case class ScriptExpression(expression: Expression)
       extends ScriptSelector {
 
-    def apply[Json: JsonSupport](root: Json, json: Json): Iterable[Json] = {
+    override def apply[Json: JsonSupport](root: Json, json: Json): Iterable[Json] = {
       expression(root, json).fold(
         Iterable.empty,
         _ => Iterable.empty,
