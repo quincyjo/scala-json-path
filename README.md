@@ -80,9 +80,9 @@ result in a `UnsupportedOperationException` exception.
 
 ```scala
 scala> val jsonPath = jsonPath"""$$[(@.*.length>0)]"""
-val jsonPath: com.quincyjo.jsonpath.JsonPath = $[( @.*.length>0)]
+val jsonPath: com.quincyjo.jsonpath.JsonPath = $[(@.*.length>0)]
 
-scala > jsonPath(JsonBean.obj())
+scala> jsonPath(JsonBean.obj())
 java.lang.UnsupportedOperationException: Cannot execute non-executable expression '@.*.length>0'. In order to support executing evaluation of script expressions , provide an ExpressionParser via JsonPathParserOptions which parses ExecutableExpressions.
 ```
 
