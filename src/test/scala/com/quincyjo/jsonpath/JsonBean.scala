@@ -1,8 +1,6 @@
 package com.quincyjo.jsonpath
 
-sealed trait JsonBean {
-
-}
+sealed trait JsonBean
 
 object JsonBean {
 
@@ -16,17 +14,43 @@ object JsonBean {
   def number(int: Int): JsonBean = JNumber(int)
   def boolean(boolean: Boolean): JsonBean = JBoolean(boolean)
 
-  final case class JObject(underlying: Map[String, JsonBean]) extends JsonBean
+  final case class JObject(underlying: Map[String, JsonBean]) extends JsonBean {
 
-  final case class JArray(values: Vector[JsonBean]) extends JsonBean
+    override def toString: String =
+      s"""{ ${underlying.map {
+        case (key, value) => s""""$key": $value"""
+      }.mkString(", ")} }"""
+  }
 
-  final case class JBoolean(value: Boolean) extends JsonBean
+  final case class JArray(values: Vector[JsonBean]) extends JsonBean {
 
-  final case class JNumber(value: BigDecimal) extends JsonBean
+    override def toString: String =
+      s"""[ ${values.map(_.toString).mkString(", ")} ]"""
+  }
 
-  final case class JString(value: String) extends JsonBean
+  final case class JBoolean(value: Boolean) extends JsonBean {
 
-  case object JNull extends JsonBean
+    override def toString: String =
+      if (value) "true" else "false"
+  }
+
+  final case class JNumber(value: BigDecimal) extends JsonBean {
+
+    override def toString: String =
+      if (value.isValidInt) value.toInt.toString
+      else value.toString()
+  }
+
+  final case class JString(value: String) extends JsonBean {
+
+    override def toString: String =
+      s"\"$value\""
+  }
+
+  case object JNull extends JsonBean {
+
+    override def toString: String = "null"
+  }
 
   implicit final val jsonBeanSupport: JsonSupport[JsonBean] = new JsonSupport[JsonBean] {
     

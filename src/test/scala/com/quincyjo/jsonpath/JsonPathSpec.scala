@@ -83,6 +83,10 @@ class JsonPathSpec extends AnyFlatSpecLike with Matchers {
     Child("name").toString should be(".name")
   }
 
+  it should "encode ambiguous attributes with quotes" in {
+    Child("1").toString should be("[\"1\"]")
+  }
+
   it should "encode complex attributes with quotes in bracket notation" in {
     Child("Foobar and deadbeef").toString should be("[\"Foobar and deadbeef\"]")
   }

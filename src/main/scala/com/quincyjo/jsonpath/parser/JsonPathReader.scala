@@ -8,9 +8,7 @@ import com.quincyjo.jsonpath.parser.JsonPathParser.*
 
 import scala.collection.mutable
 
-class JsonPathReader(input: String) {
-
-  private val parser: JsonPathParser = new JsonPathParser(input)
+class JsonPathReader(parser: JsonPathParser) {
 
   /** Parse the input string into a [[JsonPath]] if valid, or a [[ParseError]] if not.
     * @return A [[ParseResult]] of a [[JsonPath]] from the input string.
@@ -36,7 +34,7 @@ class JsonPathReader(input: String) {
           ParseError.invalidToken(
             invalidToken,
             parser.index,
-            input,
+            parser.input,
             Token.Root,
             Token.Current
           )
@@ -52,7 +50,7 @@ class JsonPathReader(input: String) {
         ParseError.invalidToken(
           invalidToken,
           parser.index,
-          input,
+          parser.input,
           Token.RecursiveDescent,
           Token.StartSelector,
           Token.DotSelector
@@ -74,7 +72,7 @@ class JsonPathReader(input: String) {
             ParseError.invalidToken(
               invalidToken,
               parser.index,
-              input,
+              parser.input,
               Token.ValueString,
               Token.ValueInt
             )
@@ -86,7 +84,7 @@ class JsonPathReader(input: String) {
             ParseError.invalidToken(
               invalidToken,
               parser.index,
-              input,
+              parser.input,
               Token.Union,
               Token.EndSelector
             )
@@ -99,7 +97,7 @@ class JsonPathReader(input: String) {
         ParseError(
           s"Trailing '${Token.Union}' token at index ${parser.index}.",
           parser.index,
-          input
+          parser.input
         )
     }
   }
@@ -112,7 +110,7 @@ class JsonPathReader(input: String) {
       parser.nextToken().flatMap {
         case Token.EndSelector => Parsed(builder)
         case Token.Slice | Token.ValueInt if builder.knownSize > 3 =>
-          ParseError(s"Too many slice arguments.", parser.index, input)
+          ParseError(s"Too many slice arguments.", parser.index, parser.input)
         case Token.Slice => go(builder.addOne(None))
         case Token.ValueInt =>
           (parser.valueAsNumber.map(_.value), parser.nextToken()).mapN {
@@ -125,7 +123,7 @@ class JsonPathReader(input: String) {
                   ParseError.invalidToken(
                     invalidToken,
                     parser.index,
-                    input,
+                    parser.input,
                     Token.ValueInt,
                     Token.Slice,
                     Token.EndSelector
@@ -136,7 +134,7 @@ class JsonPathReader(input: String) {
           ParseError.invalidToken(
             invalidToken,
             parser.index,
-            input,
+            parser.input,
             Token.ValueInt,
             Token.Slice,
             Token.EndSelector
@@ -157,7 +155,7 @@ class JsonPathReader(input: String) {
           ParseError(
             "At least one slice parameter is required.",
             parser.index,
-            input
+            parser.input
           )
     }
   }
@@ -168,7 +166,7 @@ class JsonPathReader(input: String) {
     parser
       .currentToken()
       .fold[ParseResult[RecursiveDescent]](
-        ParseError("Unexpected end of input.", parser.index, input)
+        ParseError("Unexpected end of input.", parser.index, parser.input)
       ) {
         case Token.RecursiveDescent =>
           parser.peek().flatMap { nextToken =>
@@ -185,7 +183,7 @@ class JsonPathReader(input: String) {
           ParseError.invalidToken(
             invalidToken,
             parser.index,
-            input,
+            parser.input,
             Token.RecursiveDescent
           )
       }
@@ -194,7 +192,7 @@ class JsonPathReader(input: String) {
     parser
       .currentToken()
       .fold[ParseResult[Selector]](
-        ParseError("Unexpected end of input.", parser.index, input)
+        ParseError("Unexpected end of input.", parser.index, parser.input)
       ) {
         case Token.StartSelector => parseBracketSelector()
         case Token.DotSelector   => parseDotSelectorChild()
@@ -203,7 +201,7 @@ class JsonPathReader(input: String) {
             .invalidToken(
               invalidToken,
               parser.index,
-              input,
+              parser.input,
               Token.DotSelector,
               Token.StartSelector
             )
@@ -240,7 +238,7 @@ class JsonPathReader(input: String) {
           ParseError.invalidToken(
             invalidToken,
             parser.index,
-            input,
+            parser.input,
             Token.EndSelector,
             Token.Union,
             Token.Slice
@@ -259,10 +257,19 @@ class JsonPathReader(input: String) {
         ParseError.invalidToken(
           invalidToken,
           parser.index,
-          input,
+          parser.input,
           Token.Wildcard,
           Token.ValueString,
           Token.ValueInt
         )
     }
+}
+
+object JsonPathReader {
+  
+  def apply(input: String): JsonPathReader =
+    new JsonPathReader(JsonPathParser(input))
+  
+  def apply(input: String, options: JsonPathParserOptions): JsonPathReader =
+    new JsonPathReader(JsonPathParser(input, options))
 }

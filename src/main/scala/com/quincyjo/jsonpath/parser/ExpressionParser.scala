@@ -41,7 +41,7 @@ object ExpressionParser {
     ): ParseResult[ValueAt[JsonPathExpression]] = {
       BalancedExpressionReader(input.substring(index)).takeGroup match {
         case raw @ s"($expression)" =>
-          new JsonPathReader(expression).parseInput().map { jsonPath =>
+          JsonPathReader(expression, JsonPathParserOptions(expressionParser = this)).parseInput().map { jsonPath =>
             ValueAt(JsonPathExpression(jsonPath), index, raw)
           }
         case raw =>

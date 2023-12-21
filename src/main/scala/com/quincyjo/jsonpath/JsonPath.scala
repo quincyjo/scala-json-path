@@ -431,7 +431,7 @@ object JsonPath {
     /** Returns true if the name is a simple identifier, meaning that it only contains letters and digits.
       * @return True if the name is a simple identifier or false otherwise.
       */
-    def isSimple: Boolean = name.forall(_.isLetterOrDigit)
+    def isSimple: Boolean = name.headOption.forall(_.isLetter) && name.forall(_.isLetterOrDigit)
 
     override def toString: String =
       if (isSimple) name

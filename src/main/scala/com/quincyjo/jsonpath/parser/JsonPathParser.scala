@@ -10,8 +10,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 class JsonPathParser(
-  input: String,
-  options: JsonPathParserOptions = JsonPathParserOptions.default
+  val input: String,
+  val options: JsonPathParserOptions = JsonPathParserOptions.default
 ) {
 
   private var currentIndex: Int = 0
