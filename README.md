@@ -8,6 +8,8 @@ JSONPaths may be done on any type of `Json` which provides support via `JsonSupp
 
 ### Direct Modeling
 
+JSONPaths may be defined using the ADT API directly, or via a simple DSL.
+
 ```scala
 scala> import com.quincyjo.jsonpath.JsonPath
 
@@ -20,6 +22,9 @@ val res1: com.quincyjo.jsonpath.JsonPath = $.foobar[5][-3:]["1",1]
 
 ### Parsing
 
+Parsing is provided via `JsonPathReader`, which reads `JsonPath`s from strings. A direct API is also provided via
+the `parser` package object. Parse results are exposed via the sum of `Parsed[T]` and `ParseError`.
+
 ```scala
 scala> import com.quincyjo.jsonpath
 
@@ -30,6 +35,8 @@ val res0:
 
 ### Literals
 
+Literal strings are provided via `jsonpath.literal` package.
+
 ```scala
 scala> import com.quincyjo.jsonpath.literal.JsonPathStringContext
 
@@ -38,6 +45,13 @@ val res0: com.quincyjo.jsonpath.JsonPath = @[1:2:3].foobar
 ```
 
 ### Evaluation
+
+A `JsonPath` may be applied to any `Json` with evidence of `JsonSupport` and will return a `List` of the matching values
+to the path in the given JSON. This call is safe with the exception of expressions. See the [Expressions](#Expressions)
+section for more details on expressions.
+
+NOTE: This API and behavior may be adjusted in the future to avoid exception entirely, but as most JSONPaths are safe,
+the initial draft API does not model this failure.
 
 ```scala
 scala> val json = JsonBean.obj("foobar" -> JsonBean.arr(JsonBean.string("deadbeef"), JsonBean.True, JsonBean.number(42)))
@@ -69,7 +83,7 @@ scala> val jsonPath = jsonPath"""$$[(@.*.length>0)]"""
 val jsonPath: com.quincyjo.jsonpath.JsonPath = $[( @.*.length>0)]
 
 scala > jsonPath(JsonBean.obj())
-java.lang.UnsupportedOperationException: Cannot execute non - executable expression '@.*.length > 0'.In order to support executing evaluation of script expressions , provide an ExpressionParser via JsonPathParserOptions which parses ExecutableExpressions.
+java.lang.UnsupportedOperationException: Cannot execute non-executable expression '@.*.length>0'. In order to support executing evaluation of script expressions , provide an ExpressionParser via JsonPathParserOptions which parses ExecutableExpressions.
 ```
 
 Custom instances of expressions may be defined, as well as an associated expression parser. The expression parser may be
