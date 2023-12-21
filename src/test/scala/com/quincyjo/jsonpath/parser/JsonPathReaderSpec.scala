@@ -44,7 +44,7 @@ class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenP
     )
 
     forAll(cases) { (input, expected) =>
-      new JsonPathReader(input).parseInput().value should be(expected)
+      JsonPathReader(input).parseInput().value should be(expected)
     }
   }
 
@@ -59,7 +59,7 @@ class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenP
     )
 
     forAll(cases) { (input, expected) =>
-      new JsonPathReader(input).parseInput().value should be(expected)
+      JsonPathReader(input).parseInput().value should be(expected)
     }
   }
 
@@ -71,7 +71,7 @@ class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenP
     )
 
     forAll(cases) { (input, expected) =>
-      new JsonPathReader(input).parseInput().value should be(expected)
+      JsonPathReader(input).parseInput().value should be(expected)
     }
   }
 
@@ -84,7 +84,7 @@ class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenP
     )
 
     forAll(cases) { (input, expected) =>
-      new JsonPathReader(input).parseInput().value should be(expected)
+      JsonPathReader(input).parseInput().value should be(expected)
     }
   }
 
