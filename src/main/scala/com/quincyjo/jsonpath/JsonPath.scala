@@ -2,12 +2,7 @@ package com.quincyjo.jsonpath
 
 import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.JsonPath.SingleSelector.SingleSelectorWrapper
-import com.quincyjo.jsonpath.JsonPath.{
-  Child,
-  JsonPathNode,
-  JsonPathRoot,
-  Selector
-}
+import com.quincyjo.jsonpath.JsonPath._
 import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
 
 import scala.annotation.tailrec
@@ -40,7 +35,7 @@ final case class JsonPath(
     * @return A list of all matching JSONs within the given JSON.
     */
   @throws[UnsupportedOperationException]
-  private[JsonPath] def apply[Json: JsonSupport](
+  private[jsonpath] def apply[Json: JsonSupport](
       root: Json,
       current: Json
   ): List[Json] =
@@ -439,23 +434,23 @@ object JsonPath {
     */
   final case class ChildAttribute(name: String) extends SingleSelector {
 
+    override def apply[Json: JsonSupport](
+        root: Json,
+        json: Json
+    ): Iterable[Json] =
+      json.asObject.flatMap(_.get(name))
+
     /** Returns true if the name is a simple identifier, meaning that it only contains letters and digits.
       * @return True if the name is a simple identifier or false otherwise.
       */
     def isSimple: Boolean =
       name.headOption.forall(_.isLetter) && name.forall(_.isLetterOrDigit)
 
+    def quotedName: String = s"""\"${name.replace("\"", "\\\"")}\""""
+
     override def toString: String =
       if (isSimple) name
       else quotedName
-
-    def quotedName: String = s"""\"${name.replace("\"", "\\\"")}\""""
-
-    override def apply[Json: JsonSupport](
-        root: Json,
-        json: Json
-    ): Iterable[Json] =
-      json.asObject.flatMap(_.get(name))
   }
 
   /** Selects the given index from a JSON array.

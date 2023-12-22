@@ -3,8 +3,12 @@ package com.quincyjo.jsonpath
 import com.quincyjo.jsonpath.JsonPath._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 
-class JsonPathSpec extends AnyFlatSpecLike with Matchers {
+class JsonPathSpec
+    extends AnyFlatSpecLike
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   "toString" should "encode rooted paths with their root" in {
     val jsonPath = JsonPath.$ / "foobar"
@@ -75,6 +79,106 @@ class JsonPathSpec extends AnyFlatSpecLike with Matchers {
     rootJsonPath.resolveSibling(otherJsonPath) should be(otherJsonPath)
   }
 
+  "apply" should "select according to the path" in {
+    val firstName = "Jane"
+    val lastName = "Doe"
+    val streetAddress = "123 Sesame St"
+    val city = "Cityville"
+    val country = "ABC"
+    val mobilePhoneNumber = "555-111-2222"
+    val homePhoneNumber = "555-333-4444"
+    val address = JsonBean.obj(
+      "streetAddress" -> streetAddress,
+      "city" -> city,
+      "country" -> country
+    )
+    val mobilePhone = JsonBean.obj(
+      "type" -> "mobile",
+      "number" -> mobilePhoneNumber
+    )
+    val homePhone = JsonBean.obj(
+      "type" -> "home",
+      "number" -> homePhoneNumber
+    )
+    val phoneNumbers = JsonBean.arr(mobilePhone, homePhone)
+    val json = JsonBean.obj(
+      "firstName" -> "Jane",
+      "lastName" -> "Doe",
+      "address" -> address,
+      "phoneNumbers" -> phoneNumbers
+    )
+
+    val cases = Table[JsonPath, List[JsonBean]](
+      "jsonPath" -> "expected",
+      JsonPath.$ / "firstName" -> List(JsonBean(firstName)),
+      JsonPath.$ / "lastName" -> List(JsonBean(lastName)),
+      JsonPath.$ / "address" -> List(address),
+      JsonPath.$ / "phoneNumbers" / Wildcard / "number" -> List(
+        JsonBean(mobilePhoneNumber),
+        JsonBean(homePhoneNumber)
+      ),
+      JsonPath.$ / RecursiveDescent() -> List(
+        json,
+        address,
+        phoneNumbers,
+        mobilePhone,
+        homePhone
+      ),
+      JsonPath.$ / RecursiveDescent() / Wildcard -> List(
+        JsonBean(firstName),
+        JsonBean(lastName),
+        address,
+        phoneNumbers,
+        JsonBean(streetAddress),
+        JsonBean(city),
+        JsonBean(country),
+        mobilePhone,
+        homePhone,
+        JsonBean("mobile"),
+        JsonBean(mobilePhoneNumber),
+        JsonBean("home"),
+        JsonBean(homePhoneNumber)
+      )
+    )
+
+    forAll(cases) { case (jsonPath, expected) =>
+      jsonPath(json) should contain theSameElementsAs expected
+    }
+  }
+
+  it should "be against the current json if dynamic" in {
+    val json = JsonBean.obj(
+      "name" -> "fruits",
+      "items" -> JsonBean.arr(
+        "apple",
+        "banana",
+        "orange"
+      )
+    )
+    val root = JsonBean.obj(
+      "categories" -> JsonBean.arr(json)
+    )
+
+    val cases = Table(
+      "jsonPath" -> "expected",
+      JsonPath.`@` / "name" -> List(JsonBean("fruits")),
+      JsonPath.`@` / "items" / 0 -> List(JsonBean("apple"))
+    )
+
+    forAll(cases) { case (jsonPath, expected) =>
+      jsonPath(root, json) should contain theSameElementsAs expected
+    }
+  }
+
+  it should "resolve to nothing if there is no root" in {
+    val json = JsonBean.obj(
+      "foobar" -> "deadbeef"
+    )
+
+    val jsonPath = JsonPath.empty / "foobar"
+    jsonPath(json) should be(empty)
+  }
+
   "Child" should "encode indices with brackets" in {
     Child(1).toString should be("[1]")
   }
@@ -104,7 +208,9 @@ class JsonPathSpec extends AnyFlatSpecLike with Matchers {
   }
 
   it should "encode complex attributes with quotes in bracket notation" in {
-    RecursiveDescent("Foobar and deadbeef").toString should be("..[\"Foobar and deadbeef\"]")
+    RecursiveDescent("Foobar and deadbeef").toString should be(
+      "..[\"Foobar and deadbeef\"]"
+    )
   }
 
   "Slice" should "encode a complete slice" in {
@@ -126,7 +232,7 @@ class JsonPathSpec extends AnyFlatSpecLike with Matchers {
   it should "encode a step slice" in {
     Slice.everyN(3).toString should be("::3")
   }
-  
+
   "Union" should "encode as a comma deliminated list" in {
     Union(1, 2, 3).toString should be("1,2,3")
   }
