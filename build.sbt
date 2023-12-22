@@ -11,6 +11,7 @@ val scalameta = "org.scalameta" %% "munit" % "0.7.29" % Test
 val catsVersion = "2.10.0"
 val catsCore = "org.typelevel" %% "cats-core" % catsVersion
 
+skip / publish := true
 organization := "com.quincyjo"
 homepage := Some(url("https://github.com/quincyjo/scala-json-path"))
 scmInfo := Some(ScmInfo(url("https://github.com/quincyjo/scala-json-path"), "git@github.com:quincyjo/scala-json-path.git"))
