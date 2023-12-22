@@ -1,10 +1,17 @@
 package com.quincyjo.jsonpath
 
-import com.quincyjo.jsonpath.JsonPath.*
+import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.JsonPath.SingleSelector.SingleSelectorWrapper
-import com.quincyjo.jsonpath.JsonSupport.Implicits.*
+import com.quincyjo.jsonpath.JsonPath.{
+  Child,
+  JsonPathNode,
+  JsonPathRoot,
+  Selector
+}
+import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
 
-import scala.annotation.{tailrec, targetName}
+import scala.annotation.tailrec
+// import scala.annotation.{tailrec, targetName}
 import scala.collection.mutable
 
 final case class JsonPath(
@@ -101,7 +108,7 @@ final case class JsonPath(
     * @param singleSelectorWrapper A wrapped [[SingleSelector]] value.
     * @return This path with the given selector appended.
     */
-  @targetName("select")
+  // @targetName("select")
   def /(singleSelectorWrapper: SingleSelectorWrapper): JsonPath =
     appended(Child(singleSelectorWrapper.value))
 
@@ -109,7 +116,7 @@ final case class JsonPath(
     * @param selector The [[Selector]] to append.
     * @return This path with the given selector appended.
     */
-  @targetName("select")
+  // @targetName("select")
   def /(selector: Selector): JsonPath =
     appended(Child(selector))
 
@@ -119,7 +126,7 @@ final case class JsonPath(
     * @return This path with the given nodes appended.
     * @see [[appendedAll(Iterable[JsonPathNode])]]
     */
-  @targetName("add")
+  // @targetName("add")
   def /(path: Iterable[JsonPathNode]): JsonPath =
     appendedAll(path)
 
@@ -129,7 +136,7 @@ final case class JsonPath(
     * @return This path with the given node appended.
     * @see [[appended[JsonPathNode]]
     */
-  @targetName("add")
+  // @targetName("add")
   def /(node: JsonPathNode): JsonPath =
     appended(node)
 
@@ -263,12 +270,16 @@ object JsonPath {
 
   sealed trait JsonPathRoot
 
-  case object Root extends JsonPathRoot {
-    override def toString: String = "$"
-  }
+  object JsonPathRoot {
 
-  case object Current extends JsonPathRoot {
-    override def toString: String = "@"
+    case object Root extends JsonPathRoot {
+      override def toString: String = "$"
+    }
+
+    case object Current extends JsonPathRoot {
+      override def toString: String = "@"
+    }
+
   }
 
   /** Recursively descends through exposing all associative JSON nodes throughout the target value. If a selector is
@@ -488,7 +499,7 @@ object JsonPath {
     def appended(that: SingleSelector): Union =
       copy(tail = tail.appended(that))
 
-    @targetName("add")
+    // @targetName("add")
     def +(that: SingleSelector): Union =
       appended(that)
 
@@ -541,7 +552,7 @@ object JsonPath {
         root: Json,
         json: Json
     ): Iterable[Json] =
-      json.asArray.fold(Iterable.empty) { arr =>
+      json.asArray.fold(Iterable.empty[Json]) { arr =>
         val roundedStart = start.fold(0) { start =>
           if (start < 0) arr.size + start else start
         }
@@ -549,13 +560,13 @@ object JsonPath {
           if (end < 0) arr.size + end else end
         }
         step
-          .fold(arr.slice(roundedStart, roundedEnd)) { step =>
+          .fold[Iterable[Json]](arr.slice(roundedStart, roundedEnd)) { step =>
             arr
               .slice(roundedStart, roundedEnd)
               .grouped(step)
               .flatMap(_.headOption)
+              .to(Iterable)
           }
-          .to(Iterable)
       }
   }
 

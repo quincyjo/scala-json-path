@@ -1,16 +1,16 @@
 package com.quincyjo.jsonpath.parser
 
-import com.quincyjo.jsonpath.*
+import com.quincyjo.jsonpath._
 import com.quincyjo.jsonpath.parser.ExpressionParser.BalancedExpressionParser
-import com.quincyjo.jsonpath.parser.JsonPathParser.*
+import com.quincyjo.jsonpath.parser.JsonPathParser._
 import com.quincyjo.jsonpath.JsonPath
-import com.quincyjo.jsonpath.JsonPath.*
+import com.quincyjo.jsonpath.JsonPath._
 import org.scalactic.source
 import org.scalatest.exceptions.{StackDepthException, TestFailedException}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
-import JsonPathReaderSpec.*
+import JsonPathReaderSpec._
 import com.quincyjo.jsonpath.literal.JsonPathStringContext
 
 class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenPropertyChecks {

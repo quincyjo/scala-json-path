@@ -2,7 +2,7 @@ package com.quincyjo.jsonpath
 
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import JsonBean.*
+import JsonBean._
 import com.quincyjo.jsonpath.JsonPath.RecursiveDescent
 import org.scalatest.LoneElement
 import org.scalatest.prop.TableDrivenPropertyChecks

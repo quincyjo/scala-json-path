@@ -6,7 +6,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.OptionValues
 import BalancedExpressionReader.ExpressionGroup
-import BalancedExpressionReader.ExpressionGroup.*
+import BalancedExpressionReader.ExpressionGroup._
 
 class BalancedExpressionReaderSpec
   extends AnyFlatSpecLike

@@ -1,6 +1,6 @@
 package com.quincyjo.jsonpath
 
-import com.quincyjo.jsonpath.JsonPath.*
+import com.quincyjo.jsonpath.JsonPath._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 

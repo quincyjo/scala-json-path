@@ -1,10 +1,14 @@
 package com.quincyjo.jsonpath.parser
 
 import cats.data.OptionT
-import cats.implicits.*
+import cats.implicits._
 import com.quincyjo.jsonpath.JsonPath
-import com.quincyjo.jsonpath.JsonPath.*
-import com.quincyjo.jsonpath.parser.JsonPathParser.*
+import com.quincyjo.jsonpath.JsonPath._
+import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
+import com.quincyjo.jsonpath.parser.JsonPathParser.{
+  JsonPathParserOptions,
+  Token
+}
 
 import scala.collection.mutable
 

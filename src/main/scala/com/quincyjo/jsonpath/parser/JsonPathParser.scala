@@ -2,10 +2,10 @@ package com.quincyjo.jsonpath.parser
 
 import cats.{Applicative, Eval, Monad, Traverse}
 import cats.data.OptionT
-import cats.implicits.*
-import com.quincyjo.jsonpath.parser.JsonPathParser.*
+import cats.implicits._
+import com.quincyjo.jsonpath.parser.JsonPathParser._
 import com.quincyjo.jsonpath.JsonPath
-import com.quincyjo.jsonpath.JsonPath.*
+import com.quincyjo.jsonpath.JsonPath._
 import scala.annotation.tailrec
 import scala.collection.mutable
 
@@ -186,6 +186,12 @@ class JsonPathParser(
 }
 
 object JsonPathParser {
+  
+  def apply(input: String): JsonPathParser =
+    new JsonPathParser(input)
+  
+  def apply(input: String, options: JsonPathParserOptions): JsonPathParser =
+    new JsonPathParser(input, options)
 
   final case class JsonPathParserOptions(
     expressionParser: ExpressionParser[JsonPath.Expression] = ExpressionParser.BalancedExpressionParser

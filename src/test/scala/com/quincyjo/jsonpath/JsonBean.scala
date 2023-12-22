@@ -107,12 +107,13 @@ object JsonBean {
     }
 
     override def fold[B](json: JsonBean)(ifNull: => B, jsonBoolean: Boolean => B, jsonNumber: BigDecimal => B, jsonString: String => B, jsonArray: Vector[JsonBean] => B, jsonObject: Map[String, JsonBean] => B): B =
-      json match
+      json match {
         case JObject(underlying) => jsonObject(underlying)
         case JArray(values) => jsonArray(values)
         case JBoolean(value) => jsonBoolean(value)
         case JNumber(value) => jsonNumber(value)
         case JString(value) => jsonString(value)
         case JNull => ifNull
+      }
   }
 }
