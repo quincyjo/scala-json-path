@@ -1,6 +1,6 @@
 package com.quincyjo.jsonpath
 
-import com.quincyjo.jsonpath.JsonPath.ChildAttribute
+import com.quincyjo.jsonpath.JsonPath.Attribute
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -22,25 +22,25 @@ class ChildAttributeSpec
     )
 
     forAll(cases) { case (name, expected) =>
-      ChildAttribute(name).isSimple should be(expected)
+      Attribute(name).isSimple should be(expected)
     }
   }
 
   "quotedName" should "wrap simple names in double quotes" in {
-    ChildAttribute("foobar").quotedName should be("\"foobar\"")
+    Attribute("foobar").quotedName should be("\"foobar\"")
   }
 
   it should "escape double quotes in names" in {
-    println(ChildAttribute("\"foobar\"").quotedName)
-    ChildAttribute("\"foobar\"").quotedName should be("\"\\\"foobar\\\"\"")
+    println(Attribute("\"foobar\"").quotedName)
+    Attribute("\"foobar\"").quotedName should be("\"\\\"foobar\\\"\"")
   }
 
   "toString" should "be just the name for simple names" in {
-    ChildAttribute("foobar").toString should be("foobar")
+    Attribute("foobar").toString should be("foobar")
   }
 
   it should "be quoted for complex names" in {
-    ChildAttribute("\"foobar\"").toString should be("\"\\\"foobar\\\"\"")
+    Attribute("\"foobar\"").toString should be("\"\\\"foobar\\\"\"")
   }
 
   "apply" should "select an object's attribute by name" in {
@@ -49,7 +49,7 @@ class ChildAttributeSpec
     val givenJson = JsonBean.obj(
       givenAttributeName -> givenAttributeValue
     )
-    ChildAttribute(givenAttributeName)(givenJson).loneElement should be(
+    Attribute(givenAttributeName)(givenJson).loneElement should be(
       givenAttributeValue
     )
   }
@@ -58,7 +58,7 @@ class ChildAttributeSpec
     val givenAttributeName = "testAttributeName"
     val givenJson = JsonBean.obj()
 
-    ChildAttribute(givenAttributeName)(givenJson) should be(empty)
+    Attribute(givenAttributeName)(givenJson) should be(empty)
   }
 
   it should "return none if the given json is not an object" in {
@@ -72,7 +72,7 @@ class ChildAttributeSpec
     )
 
     forAll(cases) { givenJson =>
-      ChildAttribute(givenAttributeName)(givenJson) should be(empty)
+      Attribute(givenAttributeName)(givenJson) should be(empty)
     }
   }
 }

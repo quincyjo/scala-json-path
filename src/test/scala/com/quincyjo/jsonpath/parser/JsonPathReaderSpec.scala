@@ -33,13 +33,13 @@ class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenP
       "$[1:2:3]" -> $ / Slice(1, 2, 3),
       "$.*.deadbeef" -> $ / Wildcard / "deadbeef",
       "$.store.book[*].author" -> $ / "store" / "book" / Wildcard / "author",
-      "$..author" -> $ / RecursiveDescent(ChildAttribute("author")),
+      "$..author" -> $ / RecursiveDescent(Attribute("author")),
       "$.store.*" -> $ / "store" / Wildcard,
-      "$.store..price" -> $ / "store" / RecursiveDescent(ChildAttribute("price")),
-      "$..book[2]" -> $ / RecursiveDescent(ChildAttribute("book")) / 2,
-      "$..book[-1:]" -> $ / RecursiveDescent(ChildAttribute("book")) / Slice.takeRight(1),
-      "$..book[0,1]" -> $ / RecursiveDescent(ChildAttribute("book")) / Union(0, 1),
-      "$..book[:2]" -> $ / RecursiveDescent(ChildAttribute("book")) / Slice.take(2),
+      "$.store..price" -> $ / "store" / RecursiveDescent(Attribute("price")),
+      "$..book[2]" -> $ / RecursiveDescent(Attribute("book")) / 2,
+      "$..book[-1:]" -> $ / RecursiveDescent(Attribute("book")) / Slice.takeRight(1),
+      "$..book[0,1]" -> $ / RecursiveDescent(Attribute("book")) / Union(0, 1),
+      "$..book[:2]" -> $ / RecursiveDescent(Attribute("book")) / Slice.take(2),
       "$..*" -> $ / RecursiveDescent(Wildcard)
     )
 

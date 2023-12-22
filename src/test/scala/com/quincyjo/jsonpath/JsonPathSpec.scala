@@ -179,24 +179,24 @@ class JsonPathSpec
     jsonPath(json) should be(empty)
   }
 
-  "Child" should "encode indices with brackets" in {
-    Child(1).toString should be("[1]")
+  "Property" should "encode indices with brackets" in {
+    Property(1).toString should be("[1]")
   }
 
   it should "encode simple attribute with dot notation" in {
-    Child("name").toString should be(".name")
+    Property("name").toString should be(".name")
   }
 
   it should "encode ambiguous attributes with quotes" in {
-    Child("1").toString should be("[\"1\"]")
+    Property("1").toString should be("[\"1\"]")
   }
 
   it should "encode complex attributes with quotes in bracket notation" in {
-    Child("Foobar and deadbeef").toString should be("[\"Foobar and deadbeef\"]")
+    Property("Foobar and deadbeef").toString should be("[\"Foobar and deadbeef\"]")
   }
 
   it should "escape double quotes" in {
-    Child("\"Proper Noun\"").toString should be("[\"\\\"Proper Noun\\\"\"]")
+    Property("\"Proper Noun\"").toString should be("[\"\\\"Proper Noun\\\"\"]")
   }
 
   "RecursiveDescent" should "encode indices with brackets" in {

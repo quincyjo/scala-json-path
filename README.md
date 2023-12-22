@@ -13,7 +13,7 @@ JSONPaths may be defined using the ADT API directly, or via a simple DSL.
 ```scala
 scala> import com.quincyjo.jsonpath.JsonPath
 
-scala> JsonPath(JsonPath.Root, JsonPath.Child("foobar"), JsonPath.Child(5), JsonPath.Child(JsonPath.Slice.takeRight(3)), JsonPath.Child.Union("1", 1))
+scala> JsonPath(JsonPath.Root, JsonPath.Property("foobar"), JsonPath.Property(5), JsonPath.Property(JsonPath.Slice.takeRight(3)), JsonPath.Union("1", 1))
 val res0: com.quincyjo.jsonpath.JsonPath = $.foobar[5][-3:]["1",1]
 
 scala> JsonPath.$ / "foobar" / 5 / JsonPath.Slice.takeRight(3) / JsonPath.Union("1", 1)
@@ -142,8 +142,8 @@ Serialization also respects quotes, and will escape quotes that are nested in th
 serializaed strings in double quotes, only double quotes within a selector will be escaped.
 
 ```scala
-scala > JsonPath.Child("\"Proper Noun\"")
-val res0: com.quincyjo.jsonpath.JsonPath.Child = ["\"Proper Noun\""]
+scala > JsonPath.Property("\"Proper Noun\"")
+val res0: com.quincyjo.jsonpath.JsonPath.Property = ["\"Proper Noun\""]
 ```
 
 ### Union String Quotes

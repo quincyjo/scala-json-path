@@ -4,7 +4,7 @@ import com.quincyjo.jsonpath.parser.BalancedExpressionReader.ExpressionGroup
 
 import scala.collection.mutable
 
-object Across {
+private[parser] object Across {
 
   def across[Out](input: String)(
       f: Iterable[(Char, Int)] => (((Char, Int)) => Boolean) => Out

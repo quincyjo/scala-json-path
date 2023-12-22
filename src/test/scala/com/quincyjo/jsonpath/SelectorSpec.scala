@@ -1,8 +1,8 @@
 package com.quincyjo.jsonpath
 
 import com.quincyjo.jsonpath.JsonPath.{
-  ChildAttribute,
-  ChildIndex,
+  Attribute,
+  Index,
   Slice,
   Union,
   Wildcard
@@ -19,20 +19,20 @@ class SelectorSpec
     with LoneElement
     with OptionValues {
 
-  "ChildIndex" should "select an array's index" in {
+  "Index" should "select an array's index" in {
     val givenIndex = 0
     val givenIndexValue = JsonBean.string("Test attribute value!")
     val givenJson = JsonBean.arr(
       givenIndexValue
     )
-    ChildIndex(givenIndex)(givenJson).loneElement should be(givenIndexValue)
+    Index(givenIndex)(givenJson).loneElement should be(givenIndexValue)
   }
 
   it should "return none if the given index does not exist" in {
     val givenIndex = 0
     val givenJson = JsonBean.arr()
 
-    ChildIndex(givenIndex)(givenJson) should be(empty)
+    Index(givenIndex)(givenJson) should be(empty)
   }
 
   it should "return none if the given json is not an array" in {
@@ -46,7 +46,7 @@ class SelectorSpec
     )
 
     forAll(cases) { givenJson =>
-      ChildIndex(givenIndex)(givenJson) should be(empty)
+      Index(givenIndex)(givenJson) should be(empty)
     }
   }
 

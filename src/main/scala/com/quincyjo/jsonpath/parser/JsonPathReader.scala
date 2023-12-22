@@ -47,9 +47,10 @@ class JsonPathReader(parser: JsonPathParser) {
 
   private def parseNext(): ParseResult[JsonPathNode] =
     parser.nextToken().flatMap {
-      case Token.RecursiveDescent => parseRecursiveDescent()
-      case Token.StartSelector    => parseSelector().map(Child.apply)
-      case Token.DotSelector      => parseDotSelectorChild().map(Child.apply)
+      case Token.RecursiveDescent =>
+        parseRecursiveDescent()
+      case Token.StartSelector | Token.DotSelector =>
+        parseSelector().map(Property.apply)
       case invalidToken =>
         ParseError.invalidToken(
           invalidToken,
@@ -69,9 +70,9 @@ class JsonPathReader(parser: JsonPathParser) {
       for {
         nextSelector <- parser.nextToken().flatMap {
           case Token.ValueString =>
-            parser.valueAsString.map(string => ChildAttribute(string.value))
+            parser.valueAsString.map(string => Attribute(string.value))
           case Token.ValueInt =>
-            parser.valueAsNumber.map(number => ChildIndex(number.value))
+            parser.valueAsNumber.map(number => Index(number.value))
           case invalidToken =>
             ParseError.invalidToken(
               invalidToken,
@@ -215,9 +216,9 @@ class JsonPathReader(parser: JsonPathParser) {
       firstToken <- parser.nextToken()
       maybeFirstSelector <- Option(firstToken).collect {
         case Token.ValueString =>
-          parser.valueAsString.map(v => ChildAttribute(v.value))
+          parser.valueAsString.map(v => Attribute(v.value))
         case Token.ValueInt =>
-          parser.valueAsNumber.map(v => ChildIndex(v.value))
+          parser.valueAsNumber.map(v => Index(v.value))
         case Token.Wildcard => Parsed(Wildcard)
         case Token.StartExpression =>
           parser.valueAsExpression.map(v => ScriptExpression(v.value))
@@ -233,7 +234,7 @@ class JsonPathReader(parser: JsonPathParser) {
           Parsed(firstSelector)
         case (Some(singleSelector: SingleSelector), _, Some(Token.Union)) =>
           parseUnion(singleSelector)
-        case (Some(ChildIndex(index)), _, Some(Token.Slice)) =>
+        case (Some(Index(index)), _, Some(Token.Slice)) =>
           parseSlice(index)
         case (None, Token.Slice, None) =>
           parseSlice(None)
@@ -253,9 +254,9 @@ class JsonPathReader(parser: JsonPathParser) {
     parser.nextToken().flatMap {
       case Token.Wildcard => Parsed(Wildcard)
       case Token.ValueString =>
-        parser.valueAsString.map(_.value).map(ChildAttribute.apply)
+        parser.valueAsString.map(_.value).map(Attribute.apply)
       case Token.ValueInt =>
-        parser.valueAsNumber.map(_.value).map(ChildIndex.apply)
+        parser.valueAsNumber.map(_.value).map(Index.apply)
       case invalidToken =>
         ParseError.invalidToken(
           invalidToken,

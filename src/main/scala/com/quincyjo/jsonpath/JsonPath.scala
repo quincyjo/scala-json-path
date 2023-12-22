@@ -105,7 +105,7 @@ final case class JsonPath(
     */
   // @targetName("select")
   def /(singleSelectorWrapper: SingleSelectorWrapper): JsonPath =
-    appended(Child(singleSelectorWrapper.value))
+    appended(Property(singleSelectorWrapper.value))
 
   /** DSL to append a child [[Selector]] to this [[JsonPath]].
     * @param selector The [[Selector]] to append.
@@ -113,7 +113,7 @@ final case class JsonPath(
     */
   // @targetName("select")
   def /(selector: Selector): JsonPath =
-    appended(Child(selector))
+    appended(Property(selector))
 
   /** DSL for appending many [[JsonPathNode]]s to this path.
     * Alias for [[appendedAll(Iterable[JsonPathNode])]]
@@ -247,6 +247,9 @@ object JsonPath {
   ): JsonPath =
     JsonPath(Some(jsonPathHead), jsonPathNodes.toList)
 
+  def apply(jsonPathNodes: JsonPathNode*): JsonPath =
+    JsonPath(None, jsonPathNodes.toList)
+
   sealed trait JsonPathNode {
 
     /** Matches this [[JsonPathNode]] against the given [[Json]], returning all the values that match this node.
@@ -321,9 +324,9 @@ object JsonPath {
     }
 
     override def toString: String = selector.fold("..") {
-      case attribute: ChildAttribute if attribute.isSimple => s"..$attribute"
-      case Wildcard                                        => s"..$Wildcard"
-      case selector                                        => s"..[$selector]"
+      case attribute: Attribute if attribute.isSimple => s"..$attribute"
+      case Wildcard                                   => s"..$Wildcard"
+      case selector                                   => s"..[$selector]"
     }
   }
 
@@ -339,38 +342,38 @@ object JsonPath {
   /** [[JsonPathNode]] that applies a [[Selector]] to a JSON value to match zero or more of its leaf nodes.
     * @param selector The [[Selector]] which this node contains.
     */
-  final case class Child(selector: Selector) extends JsonPathNode {
+  final case class Property(selector: Selector) extends JsonPathNode {
 
     override def apply[Json: JsonSupport](root: Json, json: Json): List[Json] =
       selector(root, json).toList
 
     override def toString: String = selector match {
-      case attribute: ChildAttribute if attribute.isSimple => s".$attribute"
-      case Wildcard                                        => s".$Wildcard"
-      case selector                                        => s"[$selector]"
+      case attribute: Attribute if attribute.isSimple => s".$attribute"
+      case Wildcard                                   => s".$Wildcard"
+      case selector                                   => s"[$selector]"
     }
   }
 
-  object Child {
+  object Property {
 
-    def apply(selector: SingleSelectorWrapper): Child =
-      new Child(selector.value)
+    def apply(selector: SingleSelectorWrapper): Property =
+      new Property(selector.value)
 
     def apply(
         selector: SingleSelectorWrapper,
         selector2: SingleSelectorWrapper,
         selectors: SingleSelectorWrapper*
-    ): Child =
-      new Child(Union(selector, selector2, selectors: _*))
+    ): Property =
+      new Property(Union(selector, selector2, selectors: _*))
 
-    def attribute(attribute: String): Child =
-      new Child(ChildAttribute(attribute))
+    def attribute(attribute: String): Property =
+      new Property(Attribute(attribute))
 
-    def index(index: Int): Child =
-      new Child(ChildIndex(index))
+    def index(index: Int): Property =
+      new Property(Index(index))
   }
 
-  /** A description of a selection of leaf nodes of a JSON value, such as an index, attribute, slice, etc.
+  /** A description of a selection of properties of a JSON value, such as an index, attribute, slice, etc.
     */
   sealed trait Selector {
 
@@ -385,11 +388,15 @@ object JsonPath {
       apply(json, json)
   }
 
-  /** A simple selector which can be used in [[Union]]s and may conditionally be represented via dot notation given that it is a not a non-simple attribute name.
+  /** A selector which describes a single property selection, and is not composed of other selectors. This includes selection by attribute name, index, or wildcard. Single selectors may be composed into a union.
     */
   sealed trait SingleSelector extends Selector {
 
-    def union(that: SingleSelector): Union = Union(this, that)
+    /** Creates a union between this single selector and another.
+      * @param that The second selector.
+      * @return A union of this selector and the other.
+      */
+    def or(that: SingleSelector): Union = Union(this, that)
   }
 
   object SingleSelector {
@@ -419,12 +426,12 @@ object JsonPath {
       implicit case object AttributeMagnet
           extends SingleSelectorMagnet[String] {
 
-        override def apply(t: String): SingleSelector = ChildAttribute(t)
+        override def apply(t: String): SingleSelector = Attribute(t)
       }
 
       implicit case object IndexMagnet extends SingleSelectorMagnet[Int] {
 
-        override def apply(t: Int): SingleSelector = ChildIndex(t)
+        override def apply(t: Int): SingleSelector = Index(t)
       }
     }
   }
@@ -432,7 +439,7 @@ object JsonPath {
   /** Selects the given attribute by name from a JSON object.
     * @param name The attribute name to select.
     */
-  final case class ChildAttribute(name: String) extends SingleSelector {
+  final case class Attribute(name: String) extends SingleSelector {
 
     override def apply[Json: JsonSupport](
         root: Json,
@@ -456,7 +463,7 @@ object JsonPath {
   /** Selects the given index from a JSON array.
     * @param index The index to select.
     */
-  final case class ChildIndex(index: Int) extends SingleSelector {
+  final case class Index(index: Int) extends SingleSelector {
 
     override def toString: String = index.toString
 
@@ -490,6 +497,9 @@ object JsonPath {
       second: SingleSelector,
       tail: Seq[SingleSelector] = Seq.empty
   ) extends Selector {
+
+    def or(that: SingleSelector): Union =
+      appended(that)
 
     def appended(that: SingleSelector): Union =
       copy(tail = tail.appended(that))
