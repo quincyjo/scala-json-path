@@ -5,31 +5,43 @@ import com.quincyjo.jsonpath.parser.JsonPathParser.Token
 import scala.util.control.NoStackTrace
 
 /** Models a parsed value which may have failed.
-  * @tparam T The type that was parsed.
+  * @tparam T
+  *   The type that was parsed.
   */
 sealed trait ParseResult[+T] {
 
-  /** Filter this result based on the given predicate, resulting in the provided orElse if the predicate is false.
-    * @param predicate Filter to apply to this result value.
-    * @param orElse Value to return if the predicate is false.
-    * @tparam B The type of the value to return if the predicate is false.
-    * @return This result if it passes the predicate, otherwise the provided orElse.
+  /** Filter this result based on the given predicate, resulting in the provided
+    * orElse if the predicate is false.
+    * @param predicate
+    *   Filter to apply to this result value.
+    * @param orElse
+    *   Value to return if the predicate is false.
+    * @tparam B
+    *   The type of the value to return if the predicate is false.
+    * @return
+    *   This result if it passes the predicate, otherwise the provided orElse.
     */
   def filterOrElse[B >: T](
       predicate: T => Boolean,
       orElse: => ParseResult[B]
   ): ParseResult[B]
 
-  /** Returns this result value if this is a success, otherwise the provided default.
-    * @param default Value to return if this result is a failure.
-    * @tparam B The type of the value to return if this result is a failure.
-    * @return This result if this is a success, otherwise the provided default.
+  /** Returns this result value if this is a success, otherwise the provided
+    * default.
+    * @param default
+    *   Value to return if this result is a failure.
+    * @tparam B
+    *   The type of the value to return if this result is a failure.
+    * @return
+    *   This result if this is a success, otherwise the provided default.
     */
   def getOrElse[B >: T](default: => B): B
 
   /** If this result is a success, return the value, otherwise throw the error.
-    * @throws ParseError If this result is a [[ParseError]].
-    * @return The value if this result is a success.
+    * @throws
+    *   ParseError If this result is a [[ParseError]].
+    * @return
+    *   The value if this result is a success.
     */
   @throws[ParseError]
   def get: T

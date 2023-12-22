@@ -1,7 +1,7 @@
 package com.quincyjo.jsonpath
 
 trait JsonSupport[Json] {
-  
+
   def Null: Json
 
   def asObject(json: Json): Option[Map[String, Json]]

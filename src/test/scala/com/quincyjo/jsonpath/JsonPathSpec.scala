@@ -192,7 +192,9 @@ class JsonPathSpec
   }
 
   it should "encode complex attributes with quotes in bracket notation" in {
-    Property("Foobar and deadbeef").toString should be("[\"Foobar and deadbeef\"]")
+    Property("Foobar and deadbeef").toString should be(
+      "[\"Foobar and deadbeef\"]"
+    )
   }
 
   it should "escape double quotes" in {

@@ -1,12 +1,6 @@
 package com.quincyjo.jsonpath
 
-import com.quincyjo.jsonpath.JsonPath.{
-  Attribute,
-  Index,
-  Slice,
-  Union,
-  Wildcard
-}
+import com.quincyjo.jsonpath.JsonPath.{Attribute, Index, Slice, Union, Wildcard}
 import org.scalatest.{LoneElement, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -72,7 +66,9 @@ class SelectorSpec
       JsonBean.arr(JsonBean.True)
     )
 
-    Wildcard(JsonBean.fromValues(values)) should contain theSameElementsAs values
+    Wildcard(
+      JsonBean.fromValues(values)
+    ) should contain theSameElementsAs values
   }
 
   it should "return the attribute values of an object" in {
@@ -84,8 +80,9 @@ class SelectorSpec
       JsonBean.arr(JsonBean.True)
     )
 
-    Wildcard(JsonBean.fromAttributes(values.zipWithIndex.map { case (value, index) =>
-      index.toString -> value
+    Wildcard(JsonBean.fromAttributes(values.zipWithIndex.map {
+      case (value, index) =>
+        index.toString -> value
     })) should contain theSameElementsAs values
   }
 

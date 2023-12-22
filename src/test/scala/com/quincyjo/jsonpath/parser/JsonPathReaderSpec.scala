@@ -13,7 +13,10 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import JsonPathReaderSpec._
 import com.quincyjo.jsonpath.literal.JsonPathStringContext
 
-class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenPropertyChecks {
+class JsonPathReaderSpec
+    extends AnyFlatSpecLike
+    with Matchers
+    with TableDrivenPropertyChecks {
 
   "it" should "parse all basic path nodes" in {
     val cases = Table(
@@ -37,7 +40,8 @@ class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenP
       "$.store.*" -> $ / "store" / Wildcard,
       "$.store..price" -> $ / "store" / RecursiveDescent(Attribute("price")),
       "$..book[2]" -> $ / RecursiveDescent(Attribute("book")) / 2,
-      "$..book[-1:]" -> $ / RecursiveDescent(Attribute("book")) / Slice.takeRight(1),
+      "$..book[-1:]" -> $ / RecursiveDescent(Attribute("book")) / Slice
+        .takeRight(1),
       "$..book[0,1]" -> $ / RecursiveDescent(Attribute("book")) / Union(0, 1),
       "$..book[:2]" -> $ / RecursiveDescent(Attribute("book")) / Slice.take(2),
       "$..*" -> $ / RecursiveDescent(Wildcard)
@@ -78,9 +82,12 @@ class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenP
   it should "parse expressions according to the configured expression parser" in {
     val cases = Table(
       "input" -> "expected",
-      "$[(@.foobar>3)]" -> $ / ScriptExpression(LiteralExpression("@.foobar>3")),
+      "$[(@.foobar>3)]" -> $ / ScriptExpression(
+        LiteralExpression("@.foobar>3")
+      ),
       "$[?(!!@.length >= 5 && @[5].isValid)]" -> $ / FilterExpression(
-        LiteralExpression("!!@.length >= 5 && @[5].isValid"))
+        LiteralExpression("!!@.length >= 5 && @[5].isValid")
+      )
     )
 
     forAll(cases) { (input, expected) =>
@@ -93,7 +100,8 @@ class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenP
       "input" -> "expected",
       "(@.foo.bar[0])" -> LiteralExpression("@.foo.bar[0]"),
       "(@.predicate>3 && (@.value < 5 || @.value > 10))" -> LiteralExpression(
-        "@.predicate>3 && (@.value < 5 || @.value > 10)")
+        "@.predicate>3 && (@.value < 5 || @.value > 10)"
+      )
     )
 
     forAll(cases) { (input, expected) =>
@@ -131,7 +139,9 @@ class JsonPathReaderSpec extends AnyFlatSpecLike with Matchers with TableDrivenP
     )
 
     forAll(cases) { (input, givenIndex, expected) =>
-      BalancedExpressionParser.getValueAsExpression(input, givenIndex).value match {
+      BalancedExpressionParser
+        .getValueAsExpression(input, givenIndex)
+        .value match {
         case ValueAt(expression, index, raw) =>
           expression should be(expected)
           index should be(givenIndex)
@@ -145,12 +155,15 @@ object JsonPathReaderSpec {
 
   import scala.language.implicitConversions
 
-  implicit def convertParseResultToValuable[T](parseResult: ParseResult[T])(implicit
-    pos: source.Position
+  implicit def convertParseResultToValuable[T](parseResult: ParseResult[T])(
+      implicit pos: source.Position
   ): ParseResultValuable[T] =
     new ParseResultValuable[T](parseResult, pos)
 
-  class ParseResultValuable[T](parseResult: ParseResult[T], pos: source.Position) {
+  class ParseResultValuable[T](
+      parseResult: ParseResult[T],
+      pos: source.Position
+  ) {
 
     def value: T =
       parseResult match {
@@ -158,9 +171,12 @@ object JsonPathReaderSpec {
         case error: ParseError =>
           throw new TestFailedException(
             (_: StackDepthException) =>
-              Some(s"The ParseResult on which value was evoked was not a success but a $parseResult"),
+              Some(
+                s"The ParseResult on which value was evoked was not a success but a $parseResult"
+              ),
             None,
-            pos)
+            pos
+          )
       }
   }
 }

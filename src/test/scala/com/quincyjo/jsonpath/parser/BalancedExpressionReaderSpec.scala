@@ -9,14 +9,15 @@ import BalancedExpressionReader.ExpressionGroup
 import BalancedExpressionReader.ExpressionGroup._
 
 class BalancedExpressionReaderSpec
-  extends AnyFlatSpecLike
+    extends AnyFlatSpecLike
     with Matchers
     with TableDrivenPropertyChecks
     with OptionValues {
 
   "isBalanced" should "handle basic asymmetrical groups" in {
-    val groups = ExpressionGroup.all.collect { case assymetric: AsymmetricalExpressionGroup =>
-      assymetric
+    val groups = ExpressionGroup.all.collect {
+      case assymetric: AsymmetricalExpressionGroup =>
+        assymetric
     }
 
     for (group <- groups) yield {
@@ -69,4 +70,3 @@ class BalancedExpressionReaderSpec
     }
   }
 }
-

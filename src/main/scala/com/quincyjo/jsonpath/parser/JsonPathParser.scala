@@ -10,8 +10,8 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 class JsonPathParser(
-  val input: String,
-  val options: JsonPathParserOptions = JsonPathParserOptions.default
+    val input: String,
+    val options: JsonPathParserOptions = JsonPathParserOptions.default
 ) {
 
   private var currentIndex: Int = 0
@@ -70,7 +70,11 @@ class JsonPathParser(
         val maybeValue = input.charAt(currentIndex) match {
           case quote @ ('\'' | '"') =>
             @tailrec
-            def go(i: Int, rawBuilder: StringBuilder, valueBuilder: StringBuilder): (StringBuilder, StringBuilder) = {
+            def go(
+                i: Int,
+                rawBuilder: StringBuilder,
+                valueBuilder: StringBuilder
+            ): (StringBuilder, StringBuilder) = {
               if (i < input.length) {
                 val c = input.charAt(i)
                 if (c == quote && !rawBuilder.lastOption.contains('\\'))
@@ -106,10 +110,19 @@ class JsonPathParser(
         maybeValue
           .map(Parsed(_))
           .getOrElse(
-            ParseError(s"Hanging string value starting at index $currentIndex.", currentIndex, input)
+            ParseError(
+              s"Hanging string value starting at index $currentIndex.",
+              currentIndex,
+              input
+            )
           )
       case invalidToken =>
-        ParseError.invalidToken(invalidToken, currentIndex, input, Token.ValueString)
+        ParseError.invalidToken(
+          invalidToken,
+          currentIndex,
+          input,
+          Token.ValueString
+        )
     }
 
   def valueAsNumber: ParseResult[ValueAt[Int]] =
@@ -139,7 +152,12 @@ class JsonPathParser(
             )
           )
       case invalidToken =>
-        ParseError.invalidToken(invalidToken, currentIndex, input, Token.ValueInt)
+        ParseError.invalidToken(
+          invalidToken,
+          currentIndex,
+          input,
+          Token.ValueInt
+        )
     }
 
   def valueAsExpression: ParseResult[ValueAt[Expression]] =
@@ -153,7 +171,12 @@ class JsonPathParser(
             ValueAt(expression, index, s"?$raw")
           }
       case invalidToken =>
-        ParseError.invalidToken(invalidToken, currentIndex, input, Token.ValueString)
+        ParseError.invalidToken(
+          invalidToken,
+          currentIndex,
+          input,
+          Token.ValueString
+        )
     }
 
   private def tokenAt(i: Int): ParseResult[Token] =
@@ -186,15 +209,16 @@ class JsonPathParser(
 }
 
 object JsonPathParser {
-  
+
   def apply(input: String): JsonPathParser =
     new JsonPathParser(input)
-  
+
   def apply(input: String, options: JsonPathParserOptions): JsonPathParser =
     new JsonPathParser(input, options)
 
   final case class JsonPathParserOptions(
-    expressionParser: ExpressionParser[JsonPath.Expression] = ExpressionParser.BalancedExpressionParser
+      expressionParser: ExpressionParser[JsonPath.Expression] =
+        ExpressionParser.BalancedExpressionParser
   )
 
   object JsonPathParserOptions {

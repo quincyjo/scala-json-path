@@ -14,8 +14,10 @@ import scala.collection.mutable
 
 class JsonPathReader(parser: JsonPathParser) {
 
-  /** Parse the input string into a [[JsonPath]] if valid, or a [[ParseError]] if not.
-    * @return A [[ParseResult]] of a [[JsonPath]] from the input string.
+  /** Parse the input string into a [[JsonPath]] if valid, or a [[ParseError]]
+    * if not.
+    * @return
+    *   A [[ParseResult]] of a [[JsonPath]] from the input string.
     */
   def parseInput(): ParseResult[JsonPath] = for {
     maybeRoot <- parseRoot()

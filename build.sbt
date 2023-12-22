@@ -14,11 +14,20 @@ val catsCore = "org.typelevel" %% "cats-core" % catsVersion
 skip / publish := true
 organization := "com.quincyjo"
 homepage := Some(url("https://github.com/quincyjo/scala-json-path"))
-scmInfo := Some(ScmInfo(url("https://github.com/quincyjo/scala-json-path"), "git@github.com:quincyjo/scala-json-path.git"))
-developers := List(Developer("quincyjo",
-  "Quincy Jo",
-  "me@quincyjo.com",
-  url("https://github.com/quincyjo")))
+scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/quincyjo/scala-json-path"),
+    "git@github.com:quincyjo/scala-json-path.git"
+  )
+)
+developers := List(
+  Developer(
+    "quincyjo",
+    "Quincy Jo",
+    "me@quincyjo.com",
+    url("https://github.com/quincyjo")
+  )
+)
 licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0"))
 ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
 sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
