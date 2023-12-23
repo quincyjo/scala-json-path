@@ -14,55 +14,6 @@ final case class JsonPath(
     path: List[JsonPathNode]
 ) {
 
-  /** Apply this JsonPath to a JSON, returning a list of JSON values matching
-    * this path within the given JSON.
-    * @param root
-    *   The JSON to match against.
-    * @tparam Json
-    *   The type of JSON.
-    * @throws
-    *   UnsupportedOperationException If the path contains a
-    *   [[NonExecutableExpression]].
-    * @return
-    *   A list of all matching JSONs within the given JSON.
-    */
-  @throws[UnsupportedOperationException]
-  def apply[Json: JsonSupport](root: Json): List[Json] =
-    path.foldLeft(if (isAbsolute) List(root) else List.empty) {
-      case (values, node) =>
-        values.flatMap(node(root, _))
-    }
-
-  /** Apple the JsonPath to the provided context. Unlike [[apply[Json](Json)]],
-    * this API is mean for when the root JSON and the current JSON node may not
-    * be the same. Namely, this is when a JSON path is part of another JsonPath
-    * via an expression.
-    * @param root
-    *   The root JSON.
-    * @param current
-    *   The current JSON node of the containing JsonPath.
-    * @tparam Json
-    *   The type of JSON.
-    * @throws
-    *   UnsupportedOperationException If the path contains a
-    *   [[NonExecutableExpression]].
-    * @return
-    *   A list of all matching JSONs within the given JSON.
-    */
-  @throws[UnsupportedOperationException]
-  private[jsonpath] def apply[Json: JsonSupport](
-      root: Json,
-      current: Json
-  ): List[Json] =
-    path.foldLeft(
-      this.root.fold(List.empty[Json]) {
-        case Root    => List(root)
-        case Current => List(current)
-      }
-    ) { case (values, node) =>
-      values.flatMap(node(root, _))
-    }
-
   /** Returns true if this path is absolute, IE; if it has is rooted in the root
     * document.
     * @return
@@ -325,27 +276,7 @@ object JsonPath {
   def apply(jsonPathNodes: JsonPathNode*): JsonPath =
     JsonPath(None, jsonPathNodes.toList)
 
-  sealed trait JsonPathNode {
-
-    /** Matches this [[JsonPathNode]] against the given [[Json]], returning all
-      * the values that match this node.
-      * @param json
-      *   The [[Json]] to match against.
-      * @tparam Json
-      *   The type of [[Json]].
-      * @throws
-      *   UnsupportedOperationException If the path contains a
-      *   [[NonExecutableExpression]].
-      * @return
-      *   A list of all JSON values that match this node.
-      */
-    @throws[UnsupportedOperationException]
-    def apply[Json: JsonSupport](root: Json, json: Json): List[Json]
-
-    @throws[UnsupportedOperationException]
-    final def apply[Json: JsonSupport](json: Json): List[Json] =
-      apply(json, json)
-  }
+  sealed trait JsonPathNode
 
   sealed trait JsonPathRoot
 
@@ -371,40 +302,6 @@ object JsonPath {
   final case class RecursiveDescent(selector: Option[Selector] = None)
       extends JsonPathNode {
 
-    override def apply[Json: JsonSupport](root: Json, json: Json): List[Json] =
-      selector.fold(descend(json)) { selector =>
-        descend(json).flatMap(selector(root, _))
-      }
-
-    private def descend[Json: JsonSupport](json: Json): List[Json] = {
-
-      @tailrec
-      def go(
-          builder: mutable.Builder[Json, List[Json]],
-          stack: mutable.Stack[Json]
-      ): mutable.Builder[Json, List[Json]] =
-        if (stack.isEmpty) builder
-        else {
-          val next = stack.pop()
-          stack.pushAll(
-            next
-              .arrayOrObject(
-                Iterable.empty,
-                identity,
-                _.values
-              )
-              .filter(_.isAssociative)
-          )
-          builder.addOne(next)
-          go(builder, stack)
-        }
-
-      if (json.isAssociative)
-        go(List.newBuilder[Json], mutable.Stack(json)).result()
-      else
-        List(json)
-    }
-
     override def toString: String = selector.fold("..") {
       case attribute: Attribute if attribute.isSimple => s"..$attribute"
       case Wildcard                                   => s"..$Wildcard"
@@ -427,9 +324,6 @@ object JsonPath {
     *   The [[Selector]] which this node contains.
     */
   final case class Property(selector: Selector) extends JsonPathNode {
-
-    override def apply[Json: JsonSupport](root: Json, json: Json): List[Json] =
-      selector(root, json).toList
 
     override def toString: String = selector match {
       case attribute: Attribute if attribute.isSimple => s".$attribute"
@@ -458,28 +352,13 @@ object JsonPath {
   }
 
   /** A description of a selection of properties of a JSON value, such as an
-    * index, attribute, slice, etc.
+    * value, attribute, slice, etc.
     */
-  sealed trait Selector {
-
-    /** Applies this [[Selector]] to the given [[Json]] instance and returns an
-      * [[Iterable]] of all values that this selector applies to.
-      * @param json
-      *   The [[Json]] to match against.
-      * @tparam Json
-      *   The type of [[Json]].
-      * @return
-      *   An [[Iterable]] of all JSON values that this selector applies to.
-      */
-    def apply[Json: JsonSupport](root: Json, json: Json): Iterable[Json]
-
-    def apply[Json: JsonSupport](json: Json): Iterable[Json] =
-      apply(json, json)
-  }
+  sealed trait Selector
 
   /** A selector which describes a single property selection, and is not
-    * composed of other selectors. This includes selection by attribute name,
-    * index, or wildcard. Single selectors may be composed into a union.
+    * composed of other selectors. This includes selection by attribute value,
+    * value, or wildcard. Single selectors may be composed into a union.
     */
   sealed trait SingleSelector extends Selector {
 
@@ -529,46 +408,34 @@ object JsonPath {
     }
   }
 
-  /** Selects the given attribute by name from a JSON object.
-    * @param name
-    *   The attribute name to select.
+  /** Selects the given attribute by value from a JSON object.
+    * @param value
+    *   The attribute value to select.
     */
-  final case class Attribute(name: String) extends SingleSelector {
+  final case class Attribute(value: String) extends SingleSelector {
 
-    override def apply[Json: JsonSupport](
-        root: Json,
-        json: Json
-    ): Iterable[Json] =
-      json.asObject.flatMap(_.get(name))
-
-    /** Returns true if the name is a simple identifier, meaning that it only
+    /** Returns true if the value is a simple identifier, meaning that it only
       * contains letters and digits.
       * @return
-      *   True if the name is a simple identifier or false otherwise.
+      *   True if the value is a simple identifier or false otherwise.
       */
     def isSimple: Boolean =
-      name.headOption.forall(_.isLetter) && name.forall(_.isLetterOrDigit)
+      value.headOption.forall(_.isLetter) && value.forall(_.isLetterOrDigit)
 
-    def quotedName: String = s"""\"${name.replace("\"", "\\\"")}\""""
+    def quotedName: String = s"""\"${value.replace("\"", "\\\"")}\""""
 
     override def toString: String =
-      if (isSimple) name
+      if (isSimple) value
       else quotedName
   }
 
-  /** Selects the given index from a JSON array.
-    * @param index
-    *   The index to select.
+  /** Selects the given value from a JSON array.
+    * @param value
+    *   The value to select.
     */
-  final case class Index(index: Int) extends SingleSelector {
+  final case class Index(value: Int) extends SingleSelector {
 
-    override def toString: String = index.toString
-
-    override def apply[Json: JsonSupport](
-        root: Json,
-        json: Json
-    ): Iterable[Json] =
-      json.asArray.flatMap(_.lift(index))
+    override def toString: String = value.toString
   }
 
   /** Selects all direct children of an associative JSON value. If the target
@@ -577,12 +444,6 @@ object JsonPath {
   case object Wildcard extends SingleSelector {
 
     override def toString: String = "*"
-
-    override def apply[Json: JsonSupport](
-        root: Json,
-        json: Json
-    ): Iterable[Json] =
-      json.arrayOrObject(Iterable.empty, identity, _.values)
   }
 
   /** Selects the union of two or more [[SingleSelector]] s, ie, this
@@ -616,17 +477,6 @@ object JsonPath {
         .prepended(second)
         .prepended(head)
         .mkString(",")
-
-    override def apply[Json: JsonSupport](
-        root: Json,
-        json: Json
-    ): Iterable[Json] = {
-      val builder = Iterable.newBuilder[Json]
-      head(root, json).foreach(builder.addOne)
-      second(root, json).foreach(builder.addOne)
-      for (selector <- tail) yield selector(root, json).foreach(builder.addOne)
-      builder.result()
-    }
   }
 
   object Union {
@@ -663,27 +513,6 @@ object JsonPath {
         start.fold("")(_.toString),
         end.fold("")(_.toString)
       ).mkString(":") + step.fold("")(step => s":$step")
-
-    override def apply[Json: JsonSupport](
-        root: Json,
-        json: Json
-    ): Iterable[Json] =
-      json.asArray.fold(Iterable.empty[Json]) { arr =>
-        val roundedStart = start.fold(0) { start =>
-          if (start < 0) arr.size + start else start
-        }
-        val roundedEnd = end.fold(arr.size) { end =>
-          if (end < 0) arr.size + end else end
-        }
-        step
-          .fold[Iterable[Json]](arr.slice(roundedStart, roundedEnd)) { step =>
-            arr
-              .slice(roundedStart, roundedEnd)
-              .grouped(step)
-              .flatMap(_.headOption)
-              .to(Iterable)
-          }
-      }
   }
 
   object Slice {
@@ -698,7 +527,7 @@ object JsonPath {
     def start(int: Int): Slice = new Slice(Some(int), None, None)
 
     /** Creates a slice with the given end value, ie, the subarray up to the
-      * given index.
+      * given value.
       * @param int
       *   The end of the slice.
       * @return
@@ -752,9 +581,9 @@ object JsonPath {
 
     /** Creates a slice with the given start and end.
       * @param start
-      *   The starting index of the slice, inclusive.
+      *   The starting value of the slice, inclusive.
       * @param end
-      *   The ending index of the slice, exclusive.
+      *   The ending value of the slice, exclusive.
       * @return
       *   The slice.
       */
@@ -763,9 +592,9 @@ object JsonPath {
 
     /** Creates a slice with the given start, end, and step.
       * @param start
-      *   The starting index of the slice, inclusive.
+      *   The starting value of the slice, inclusive.
       * @param end
-      *   The ending index of the slice, exclusive.
+      *   The ending value of the slice, exclusive.
       * @param step
       *   The step of the slice.
       * @return
@@ -778,9 +607,9 @@ object JsonPath {
       * none of the parameters are defined, then [[None]] will be returned,
       * otherwise the slice will be returned.
       * @param start
-      *   The starting index of the slice, inclusive.
+      *   The starting value of the slice, inclusive.
       * @param end
-      *   The ending index of the slice, exclusive.
+      *   The ending value of the slice, exclusive.
       * @param step
       *   The step of the slice.
       * @return
@@ -806,20 +635,28 @@ object JsonPath {
       *   by the [[JsonPathNode]] containing this expression.
       * @tparam Json
       *   The type of the json.
-      * @throws
-      *   UnsupportedOperationException If the expression is not executable.
       * @return
       *   The result of the expression.
       */
-    @throws[UnsupportedOperationException]
-    def apply[Json: JsonSupport](root: Json, current: Json): Json
+    @throws[UnsupportedOperationException](
+      "If the path contains NonExecutableExpression."
+    )
+    def apply[Json: JsonSupport](
+        evaluator: JsonPathEvaluator[Json],
+        root: Json,
+        current: Json
+    ): Json
   }
 
   trait ExecutableExpression extends Expression
 
   trait NonExecutableExpression extends Expression {
 
-    override def apply[Json: JsonSupport](root: Json, current: Json): Json =
+    override def apply[Json: JsonSupport](
+        evaluator: JsonPathEvaluator[Json],
+        root: Json,
+        current: Json
+    ): Json =
       throw new UnsupportedOperationException(
         s"Cannot execute non-executable expression '$this'. In order to support executing evaluation of script expressions, provide an ExpressionParser via JsonPathParserOptions which parses ExecutableExpressions."
       )
@@ -834,10 +671,17 @@ object JsonPath {
   final case class JsonPathExpression(jsonPath: JsonPath)
       extends ExecutableExpression {
 
-    override def apply[Json: JsonSupport](root: Json, current: Json): Json =
-      jsonPath(root, current).headOption.getOrElse(
-        implicitly[JsonSupport[Json]].Null
-      )
+    override def apply[Json: JsonSupport](
+        evaluator: JsonPathEvaluator[Json],
+        root: Json,
+        current: Json
+    ): Json =
+      evaluator
+        .evaluate(jsonPath, root, Some(current))
+        .headOption
+        .getOrElse(
+          implicitly[JsonSupport[Json]].Null
+        )
 
     override def toString: String = jsonPath.toString
   }
@@ -847,16 +691,6 @@ object JsonPath {
   final case class FilterExpression(expression: Expression)
       extends ScriptSelector {
 
-    override def apply[Json: JsonSupport](
-        root: Json,
-        json: Json
-    ): Iterable[Json] =
-      json.arrayOrObject(
-        Iterable.empty,
-        _.filter(j => isTruthy(expression(root, j))),
-        _.values.filter(j => isTruthy(expression(root, j)))
-      )
-
     private def isTruthy[Json: JsonSupport](json: Json): Boolean =
       json.fold(false, identity, _ != 0, _.nonEmpty, _.nonEmpty, _.nonEmpty)
 
@@ -865,23 +699,6 @@ object JsonPath {
 
   final case class ScriptExpression(expression: Expression)
       extends ScriptSelector {
-
-    override def apply[Json: JsonSupport](
-        root: Json,
-        json: Json
-    ): Iterable[Json] = {
-      expression(root, json).fold(
-        Iterable.empty,
-        _ => Iterable.empty,
-        i =>
-          Option
-            .when(i.isValidInt)(i.toInt)
-            .flatMap(i => json.asArray.flatMap(_.lift(i))),
-        s => json.asObject.flatMap(_.get(s)),
-        _ => Iterable.empty,
-        _ => Iterable.empty
-      )
-    }
 
     override def toString: String = s"($expression)"
   }

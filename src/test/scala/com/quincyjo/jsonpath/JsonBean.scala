@@ -1,21 +1,28 @@
 package com.quincyjo.jsonpath
 
+import scala.language.existentials
+
 sealed trait JsonBean
 
 object JsonBean {
 
   final val True: JBoolean = JBoolean(true)
   final val False: JBoolean = JBoolean(false)
-  final val Null = JNull
+  final val Null: JNull.type = JNull
 
   def apply(value: JsonValueWrapper): JsonBean = value.value
-  def arr(values: JsonValueWrapper*): JsonBean = JArray(values.map(_.value).toVector)
-  def fromValues(values: Iterable[JsonBean]): JsonBean = JArray(values.toVector)
-  def obj(values: (String, JsonValueWrapper)*): JsonBean = JObject(values.toMap.view.mapValues(_.value).toMap)
-  def fromAttributes(values: Iterable[(String, JsonBean)]): JsonBean = JObject(values.toMap)
-  def string(string: String): JsonBean = JString(string)
-  def number(int: Int): JsonBean = JNumber(int)
-  def boolean(boolean: Boolean): JsonBean = JBoolean(boolean)
+
+  def arr(values: JsonValueWrapper*): JArray = JArray(values.map(_.value).toVector)
+  def fromValues(values: Iterable[JsonBean]): JArray = JArray(values.toVector)
+
+  def obj(values: (String, JsonValueWrapper)*): JObject = JObject(values.toMap.view.mapValues(_.value).toMap)
+  def fromAttributes(values: Iterable[(String, JsonBean)]): JObject = JObject(values.toMap)
+
+  def string(string: String): JString = JString(string)
+
+  def number(int: Int): JNumber = JNumber(int)
+
+  def boolean(boolean: Boolean): JBoolean = JBoolean(boolean)
 
   final case class JObject(underlying: Map[String, JsonBean]) extends JsonBean {
 
@@ -119,6 +126,8 @@ object JsonBean {
         case JNull => ifNull
       }
   }
+
+  final case object JsonBeanEvaluator extends JsonPathEvaluator[JsonBean]
 
   sealed trait JsonValueWrapper {
     def value: JsonBean

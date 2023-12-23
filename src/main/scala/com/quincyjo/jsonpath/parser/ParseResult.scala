@@ -38,12 +38,10 @@ sealed trait ParseResult[+T] {
   def getOrElse[B >: T](default: => B): B
 
   /** If this result is a success, return the value, otherwise throw the error.
-    * @throws
-    *   ParseError If this result is a [[ParseError]].
     * @return
     *   The value if this result is a success.
     */
-  @throws[ParseError]
+  @throws[ParseError]("If this result is a ParseError.")
   def get: T
 }
 
@@ -57,13 +55,13 @@ final case class Parsed[T](value: T) extends ParseResult[T] {
 
   override def getOrElse[B >: T](default: => B): B = value
 
-  @throws[ParseError]
+  @throws[ParseError]("If this result is a ParseError.")
   override def get: T = value
 }
 
 final case class ParseError(message: String, index: Int, input: String)
     extends Throwable(
-      s"Failed to parse JsonPath due to '$message' at index $index in '$input'"
+      s"Failed to parse JsonPath due to '$message' at value $index in '$input'"
     )
     with NoStackTrace
     with ParseResult[Nothing] {
@@ -76,7 +74,7 @@ final case class ParseError(message: String, index: Int, input: String)
 
   override def getOrElse[B >: Nothing](default: => B): B = default
 
-  @throws[ParseError]
+  @throws[ParseError]("If this result is a ParseError.")
   override def get: Nothing = throw this
 }
 
@@ -89,7 +87,7 @@ object ParseError {
       validTokens: Token*
   ): ParseError =
     new ParseError(
-      s"Invalid token $invalidToken at index $i, expected one of: ${validTokens.mkString(", ")}",
+      s"Invalid token $invalidToken at value $i, expected one of: ${validTokens.mkString(", ")}",
       index = i,
       input = input
     )
@@ -100,6 +98,7 @@ object ParseResult {
 
   implicit val monad: Monad[ParseResult] = new Monad[ParseResult]
     with Traverse[ParseResult] {
+
     override def pure[A](x: A): ParseResult[A] =
       Parsed(x)
 

@@ -131,9 +131,9 @@ class JsonPathReaderSpec
     }
   }
 
-  it should "parse according to the provided index" in {
+  it should "parse according to the provided value" in {
     val cases = Table(
-      ("input", "index", "expected"),
+      ("input", "value", "expected"),
       ("foobar[(@.foo.bar[0])]", 7, LiteralExpression("@.foo.bar[0]")),
       ("deadbeef[?(@.foo.bar[0]),0]", 10, LiteralExpression("@.foo.bar[0]"))
     )

@@ -102,7 +102,7 @@ class JsonPathReader(parser: JsonPathParser) {
       case second :: tail => Parsed(Union(first, second, tail))
       case _ =>
         ParseError(
-          s"Trailing '${Token.Union}' token at index ${parser.index}.",
+          s"Trailing '${Token.Union}' token at value ${parser.index}.",
           parser.index,
           parser.input
         )

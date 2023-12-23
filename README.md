@@ -46,9 +46,17 @@ val res0: com.quincyjo.jsonpath.JsonPath = @[1:2:3].foobar
 
 ### Evaluation
 
-A `JsonPath` may be applied to any `Json` with evidence of `JsonSupport` and will return a `List` of the matching values
-to the path in the given JSON. This call is safe with the exception of expressions. See the [Expressions](#Expressions)
-section for more details on expressions.
+Evaluation of a `JsonPath` is performed by a `JsonPathEvaluator`, which is implemented generically via the `JsonSupport`
+API. Once a `JsonSupport` has been defined for your JSON library of choice, an evaluator may be defined simply as so:
+
+```scala
+import JsonBean.JsonBeanSupport // Implicit instance of JsonSupport[JsonBean]
+
+final case object JsonBeanEvaluator extends JsonPathEvaluator[JsonBean]
+```
+
+Evaluation returns a `List` of the matching values to the path in the given JSON. This call is safe with the exception
+of expressions. See the [Expressions](#Expressions) section for more details on expressions.
 
 NOTE: This API and behavior may be adjusted in the future to avoid exception entirely, but as most JSONPaths are safe,
 the initial draft API does not model this failure.
@@ -57,16 +65,16 @@ the initial draft API does not model this failure.
 scala> val json = JsonBean.obj("foobar" -> JsonBean.arr(JsonBean.string("deadbeef"), JsonBean.True, JsonBean.number(42)))
 val json: JsonBean = { "foobar": ["deadbeef" , true , 42 ] }
 
-scala> jsonPath"""$$.foobar"""(json)
+scala> JsonBeanEvaluator.evaluate(jsonPath"""$$.foobar""", json)
 val res0: List[JsonBean] = List(["deadbeef", true, 42])
 
-scala> jsonPath"""$$["foobar"].*"""(json)
+scala> JsonBeanEvaluator.evaluate(jsonPath"""$$["foobar"].*""", json)
 val res1: List[JsonBean] = List("deadbeef", true, 42)
 
-scala> jsonPath"""$$.foobar[-1:]"""(json)
+scala> JsonBeanEvaluator.evaluate(jsonPath"""$$.foobar[-1:]""", json)
 val res2: List[JsonBean] = List(42)
 
-scala> jsonPath"""$$..*"""(json)
+scala> JsonBeanEvaluator.evaluate(jsonPath"""$$..*""", json)
 val res3: List[JsonBean] = List(["deadbeef", true, 42] , "deadbeef" , true , 42)
 ```
 
@@ -82,7 +90,7 @@ result in a `UnsupportedOperationException` exception.
 scala> val jsonPath = jsonPath"""$$[(@.*.length>0)]"""
 val jsonPath: com.quincyjo.jsonpath.JsonPath = $[(@.*.length>0)]
 
-scala> jsonPath(JsonBean.obj())
+scala> JsonBeanEvaluator.evaluate(jsonPath, JsonBean.obj())
 java.lang.UnsupportedOperationException: Cannot execute non-executable expression '@.*.length>0'. In order to support executing evaluation of script expressions , provide an ExpressionParser via JsonPathParserOptions which parses ExecutableExpressions.
 ```
 
@@ -101,7 +109,7 @@ val json: JsonBean = [ { "keep": true }, { "keep": false }, { "keep": true }, { 
 scala> val jsonPath = JsonPathReader("$[?(@.keep)]", JsonPathParser.JsonPathParserOptions(expressionParser = ExpressionParser.JsonPathExpressionParser)).parseInput().get
 val jsonPath: com.quincyjo.jsonpath.JsonPath = $[?(@.keep)]
 
-scala> jsonPath(json)
+scala> JsonBeanEvaluator.evaluate(jsonPath, json)
 val res0: List[JsonBean] = List({ "keep": true }, { "keep": true }, { "keep": true })
 ```
 

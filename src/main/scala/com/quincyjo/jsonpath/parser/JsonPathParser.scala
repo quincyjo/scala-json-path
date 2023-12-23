@@ -111,7 +111,7 @@ class JsonPathParser(
           .map(Parsed(_))
           .getOrElse(
             ParseError(
-              s"Hanging string value starting at index $currentIndex.",
+              s"Hanging string value starting at value $currentIndex.",
               currentIndex,
               input
             )
@@ -146,7 +146,7 @@ class JsonPathParser(
           }
           .getOrElse(
             ParseError(
-              s"Invalid number '$source' starting at index $currentIndex.",
+              s"Invalid number '$source' starting at value $currentIndex.",
               currentIndex,
               input
             )
@@ -201,7 +201,7 @@ class JsonPathParser(
       case c if c.isDigit  => Parsed(Token.ValueInt)
       case c =>
         ParseError(
-          s"Invalid character '$c' at index $i in '$input'.",
+          s"Invalid character '$c' at value $i in '$input'.",
           i,
           input
         )
