@@ -1,5 +1,6 @@
 package com.quincyjo.jsonpath
 
+import com.quincyjo.jsonpath
 import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.JsonPath._
 import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
@@ -80,7 +81,11 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     }
 
   def attribute(json: Json, attribute: String): Iterable[Json] =
-    json.asObject.flatMap(_.get(attribute))
+    json.asObject.flatMap(_.get(attribute)) orElse
+      json.asArray.collect {
+        case arr if attribute == "length" =>
+          implicitly[jsonpath.JsonSupport[Json]].number(arr.size)
+      }
 
   def index(json: Json, index: Int): Iterable[Json] =
     json.asArray.flatMap(_.lift(index))
@@ -118,8 +123,8 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
   def filter(json: Json, filter: FilterExpression): Iterable[Json] = {
     json.arrayOrObject(
       Iterable.empty,
-      _.filter(j => isTruthy(filter.expression(this, json, j))),
-      _.values.filter(j => isTruthy(filter.expression(this, json, j)))
+      _.filter(j => filter.expression(this, json, j).coerceToBoolean),
+      _.values.filter(j => filter.expression(this, json, j).coerceToBoolean)
     )
   }
 
@@ -166,7 +171,4 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     else
       List(json)
   }
-
-  private def isTruthy(json: Json): Boolean =
-    json.fold(false, identity, _ != 0, _.nonEmpty, _.nonEmpty, _.nonEmpty)
 }

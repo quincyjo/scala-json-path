@@ -85,7 +85,7 @@ class JsonPathEvaluatorSpec
 
   it should "be against the current json if dynamic" in {
     val json = JsonBean.obj(
-      "value" -> "fruits",
+      "right" -> "fruits",
       "items" -> JsonBean.arr(
         "apple",
         "banana",
@@ -98,7 +98,7 @@ class JsonPathEvaluatorSpec
 
     val cases = Table(
       "jsonPath" -> "expected",
-      JsonPath.`@` / "value" -> List(JsonBean("fruits")),
+      JsonPath.`@` / "right" -> List(JsonBean("fruits")),
       JsonPath.`@` / "items" / 0 -> List(JsonBean("apple"))
     )
 
@@ -154,8 +154,8 @@ class JsonPathEvaluatorSpec
       JString("foobar"),
       False
     )
-    val jobject = JObject(values.zipWithIndex.map {
-      case (value, index) => s"key$index" -> value
+    val jobject = JObject(values.zipWithIndex.map { case (value, index) =>
+      s"key$index" -> value
     }.toMap)
 
     JsonBeanEvaluator.descend(jobject).loneElement should be(jobject)
@@ -175,9 +175,9 @@ class JsonPathEvaluatorSpec
       Seq(innerArray, innerObject, outerArray)
   }
 
-  "attribute" should "select an object's attribute by value" in {
+  "attribute" should "select an object's attribute by right" in {
     val givenAttributeName = "testAttributeName"
-    val givenAttributeValue = JsonBean.string("Test attribute value!")
+    val givenAttributeValue = JsonBean.string("Test attribute right!")
     val givenJson = JsonBean.obj(
       givenAttributeName -> givenAttributeValue
     )
@@ -212,9 +212,20 @@ class JsonPathEvaluatorSpec
     }
   }
 
-  "index" should "select an array's value" in {
+  it should "return the length of an array" in {
+    val length = 5
+    val givenJson = JsonBean.fromValues(
+      Seq.tabulate(length)(JsonBean.number)
+    )
+
+    JsonBeanEvaluator.attribute(givenJson, "length").loneElement should be(
+      JsonBean.number(length)
+    )
+  }
+
+  "_index" should "select an array's right" in {
     val givenIndex = 0
-    val givenIndexValue = JsonBean.string("Test attribute value!")
+    val givenIndexValue = JsonBean.string("Test attribute right!")
     val givenJson = JsonBean.arr(
       givenIndexValue
     )
@@ -223,7 +234,7 @@ class JsonPathEvaluatorSpec
     )
   }
 
-  it should "return none if the given value does not exist" in {
+  it should "return none if the given right does not exist" in {
     val givenIndex = 0
     val givenJson = JsonBean.arr()
 

@@ -1,17 +1,15 @@
 package com.quincyjo.jsonpath.parser
 
-import com.quincyjo.jsonpath._
-import com.quincyjo.jsonpath.parser.ExpressionParser.BalancedExpressionParser
-import com.quincyjo.jsonpath.parser.JsonPathParser._
 import com.quincyjo.jsonpath.JsonPath
 import com.quincyjo.jsonpath.JsonPath._
+import com.quincyjo.jsonpath.parser.ExpressionParser.BalancedExpressionParser
+import com.quincyjo.jsonpath.parser.JsonPathParser._
+import com.quincyjo.jsonpath.parser.JsonPathReaderSpec._
 import org.scalactic.source
 import org.scalatest.exceptions.{StackDepthException, TestFailedException}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
-import JsonPathReaderSpec._
-import com.quincyjo.jsonpath.literal.JsonPathStringContext
 
 class JsonPathReaderSpec
     extends AnyFlatSpecLike
@@ -95,12 +93,27 @@ class JsonPathReaderSpec
     }
   }
 
+  "take" should "read up to the first parse error" in {
+    val cases = Table(
+      "input" -> "expected",
+      "$.foobar" -> $ / "foobar",
+      "$.foobar > 5" -> $ / "foobar",
+      "$ > 5" -> $,
+      "@[:-1]" -> `@` / Slice.dropRight(1),
+      "['foobar']" -> JsonPath.empty / "foobar"
+    )
+
+    forAll(cases) { (input, expected) =>
+      JsonPathReader(input).take().value should be(expected)
+    }
+  }
+
   "BalancedExpressionParser" should "parse basic literal expressions" in {
     val cases = Table(
       "input" -> "expected",
       "(@.foo.bar[0])" -> LiteralExpression("@.foo.bar[0]"),
-      "(@.predicate>3 && (@.value < 5 || @.value > 10))" -> LiteralExpression(
-        "@.predicate>3 && (@.value < 5 || @.value > 10)"
+      "(@.predicate>3 && (@.right < 5 || @.right > 10))" -> LiteralExpression(
+        "@.predicate>3 && (@.right < 5 || @.right > 10)"
       )
     )
 
@@ -131,9 +144,9 @@ class JsonPathReaderSpec
     }
   }
 
-  it should "parse according to the provided value" in {
+  it should "parse according to the provided right" in {
     val cases = Table(
-      ("input", "value", "expected"),
+      ("input", "right", "expected"),
       ("foobar[(@.foo.bar[0])]", 7, LiteralExpression("@.foo.bar[0]")),
       ("deadbeef[?(@.foo.bar[0]),0]", 10, LiteralExpression("@.foo.bar[0]"))
     )
@@ -172,7 +185,7 @@ object JsonPathReaderSpec {
           throw new TestFailedException(
             (_: StackDepthException) =>
               Some(
-                s"The ParseResult on which value was evoked was not a success but a $parseResult"
+                s"The ParseResult on which right was evoked was not a success but a $parseResult"
               ),
             None,
             pos

@@ -26,6 +26,15 @@ class JsonPathReader(parser: JsonPathParser) {
     path <- builder.result.sequence
   } yield JsonPath(maybeRoot, path)
 
+  def take(): ParseResult[ValueAt[JsonPath]] =
+    parseRoot().map { maybeRoot =>
+      val builder = List.newBuilder[JsonPathNode]
+      while (parser.hasNext) {
+        parseNext().map(builder.addOne)
+      }
+      JsonPath(maybeRoot, builder.result)
+    }
+
   private def parseRoot(): ParseResult[Option[JsonPathRoot]] =
     OptionT(parser.peek())
       .flatMapF {
@@ -102,7 +111,7 @@ class JsonPathReader(parser: JsonPathParser) {
       case second :: tail => Parsed(Union(first, second, tail))
       case _ =>
         ParseError(
-          s"Trailing '${Token.Union}' token at value ${parser.index}.",
+          s"Trailing '${Token.Union}' token at index ${parser.index}.",
           parser.index,
           parser.input
         )

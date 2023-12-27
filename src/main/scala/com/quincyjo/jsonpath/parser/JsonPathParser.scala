@@ -1,13 +1,12 @@
 package com.quincyjo.jsonpath.parser
 
-import cats.{Applicative, Eval, Monad, Traverse}
 import cats.data.OptionT
 import cats.implicits._
-import com.quincyjo.jsonpath.parser.JsonPathParser._
 import com.quincyjo.jsonpath.JsonPath
 import com.quincyjo.jsonpath.JsonPath._
+import com.quincyjo.jsonpath.parser.JsonPathParser._
+
 import scala.annotation.tailrec
-import scala.collection.mutable
 
 class JsonPathParser(
     val input: String,
@@ -58,7 +57,9 @@ class JsonPathParser(
       .value
 
   def hasNext: Boolean =
-    currentIndex < input.length && nextStep
+    Option(currentTokenResult).forall(
+      _.isSuccess
+    ) && currentIndex < input.length && nextStep
       .map(step => currentIndex + step < input.length)
       .getOrElse(false)
 
@@ -111,7 +112,7 @@ class JsonPathParser(
           .map(Parsed(_))
           .getOrElse(
             ParseError(
-              s"Hanging string value starting at value $currentIndex.",
+              s"Hanging string right starting at right $currentIndex.",
               currentIndex,
               input
             )
@@ -146,7 +147,7 @@ class JsonPathParser(
           }
           .getOrElse(
             ParseError(
-              s"Invalid number '$source' starting at value $currentIndex.",
+              s"Invalid number '$source' starting at right $currentIndex.",
               currentIndex,
               input
             )
@@ -201,7 +202,7 @@ class JsonPathParser(
       case c if c.isDigit  => Parsed(Token.ValueInt)
       case c =>
         ParseError(
-          s"Invalid character '$c' at value $i in '$input'.",
+          s"Invalid character '$c' at right $i in '$input'.",
           i,
           input
         )

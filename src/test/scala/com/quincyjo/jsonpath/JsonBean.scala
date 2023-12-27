@@ -12,11 +12,17 @@ object JsonBean {
 
   def apply(value: JsonValueWrapper): JsonBean = value.value
 
-  def arr(values: JsonValueWrapper*): JArray = JArray(values.map(_.value).toVector)
+  def arr(values: JsonValueWrapper*): JArray = JArray(
+    values.map(_.value).toVector
+  )
   def fromValues(values: Iterable[JsonBean]): JArray = JArray(values.toVector)
 
-  def obj(values: (String, JsonValueWrapper)*): JObject = JObject(values.toMap.view.mapValues(_.value).toMap)
-  def fromAttributes(values: Iterable[(String, JsonBean)]): JObject = JObject(values.toMap)
+  def obj(values: (String, JsonValueWrapper)*): JObject = JObject(
+    values.toMap.view.mapValues(_.value).toMap
+  )
+  def fromAttributes(values: Iterable[(String, JsonBean)]): JObject = JObject(
+    values.toMap
+  )
 
   def string(string: String): JString = JString(string)
 
@@ -27,9 +33,11 @@ object JsonBean {
   final case class JObject(underlying: Map[String, JsonBean]) extends JsonBean {
 
     override def toString: String =
-      s"""{ ${underlying.map {
-        case (key, value) => s""""$key": $value"""
-      }.mkString(", ")} }"""
+      s"""{ ${underlying
+        .map { case (key, value) =>
+          s""""$key": $value"""
+        }
+        .mkString(", ")} }"""
   }
 
   final case class JArray(values: Vector[JsonBean]) extends JsonBean {
@@ -53,8 +61,7 @@ object JsonBean {
 
   final case class JString(value: String) extends JsonBean {
 
-    override def toString: String =
-      s"\"$value\""
+    override def toString: String = s"\"$value\""
   }
 
   case object JNull extends JsonBean {
@@ -62,86 +69,116 @@ object JsonBean {
     override def toString: String = "null"
   }
 
-  implicit final val jsonBeanSupport: JsonSupport[JsonBean] = new JsonSupport[JsonBean] {
-    
-    final val Null: JsonBean = JNull
+  implicit final val jsonBeanSupport: JsonSupport[JsonBean] =
+    new JsonSupport[JsonBean] {
 
-    override def asObject(json: JsonBean): Option[Map[String, JsonBean]] = json match {
-      case JObject(underlying) => Some(underlying)
-      case _ => None
-    }
+      override def string(string: String): JsonBean =
+        JString(string)
 
-    override def asArray(json: JsonBean): Option[Vector[JsonBean]] = json match {
-      case JArray(values) => Some(values)
-      case _ => None
-    }
+      override def number(bigDecimal: BigDecimal): JsonBean =
+        JNumber(bigDecimal)
 
-    override def asString(json: JsonBean): Option[String] = json match {
-      case JString(value) => Some(value)
-      case _ => None
-    }
+      override def boolean(boolean: Boolean): JsonBean =
+        JBoolean(boolean)
 
-    override def asBoolean(json: JsonBean): Option[Boolean] = json match {
-      case JBoolean(value) => Some(value)
-      case _ => None
-    }
+      final val Null: JsonBean = JNull
 
-    override def asNumber(json: JsonBean): Option[BigDecimal] = json match {
-      case JNumber(value) => Some(value)
-      case _ => None
-    }
+      override def asObject(json: JsonBean): Option[Map[String, JsonBean]] =
+        json match {
+          case JObject(underlying) => Some(underlying)
+          case _                   => None
+        }
 
-    override def isObject(json: JsonBean): Boolean = json match {
-      case JObject(_) => true
-      case _ => false
-    }
+      override def asArray(json: JsonBean): Option[Vector[JsonBean]] =
+        json match {
+          case JArray(values) => Some(values)
+          case _              => None
+        }
 
-    override def isArray(json: JsonBean): Boolean = json match {
-      case JArray(_) => true
-      case _ => false
-    }
-
-    override def isString(json: JsonBean): Boolean = json match {
-      case JString(_) => true
-      case _ => false
-    }
-
-    override def isBoolean(json: JsonBean): Boolean = json match {
-      case JBoolean(_) => true
-      case _ => false
-    }
-
-    override def isNumber(json: JsonBean): Boolean = json match {
-      case JNumber(_) => true
-      case _ => false
-    }
-
-    override def fold[B](json: JsonBean)(ifNull: => B, jsonBoolean: Boolean => B, jsonNumber: BigDecimal => B, jsonString: String => B, jsonArray: Vector[JsonBean] => B, jsonObject: Map[String, JsonBean] => B): B =
-      json match {
-        case JObject(underlying) => jsonObject(underlying)
-        case JArray(values) => jsonArray(values)
-        case JBoolean(value) => jsonBoolean(value)
-        case JNumber(value) => jsonNumber(value)
-        case JString(value) => jsonString(value)
-        case JNull => ifNull
+      override def asString(json: JsonBean): Option[String] = json match {
+        case JString(value) => Some(value)
+        case _              => None
       }
-  }
 
-  final case object JsonBeanEvaluator extends JsonPathEvaluator[JsonBean]
+      override def asBoolean(json: JsonBean): Option[Boolean] = json match {
+        case JBoolean(value) => Some(value)
+        case _               => None
+      }
+
+      override def asNumber(json: JsonBean): Option[BigDecimal] = json match {
+        case JNumber(value) => Some(value)
+        case _              => None
+      }
+
+      override def asNull(json: JsonBean): Option[Unit] = json match {
+        case JNull => Some(())
+        case _     => None
+      }
+
+      override def isObject(json: JsonBean): Boolean = json match {
+        case JObject(_) => true
+        case _          => false
+      }
+
+      override def isArray(json: JsonBean): Boolean = json match {
+        case JArray(_) => true
+        case _         => false
+      }
+
+      override def isString(json: JsonBean): Boolean = json match {
+        case JString(_) => true
+        case _          => false
+      }
+
+      override def isBoolean(json: JsonBean): Boolean = json match {
+        case JBoolean(_) => true
+        case _           => false
+      }
+
+      override def isNumber(json: JsonBean): Boolean = json match {
+        case JNumber(_) => true
+        case _          => false
+      }
+
+      override def isNull(json: JsonBean): Boolean = json match {
+        case JNull => true
+        case _     => false
+      }
+
+      override def fold[B](json: JsonBean)(
+          ifNull: => B,
+          jsonBoolean: Boolean => B,
+          jsonNumber: BigDecimal => B,
+          jsonString: String => B,
+          jsonArray: Vector[JsonBean] => B,
+          jsonObject: Map[String, JsonBean] => B
+      ): B =
+        json match {
+          case JObject(underlying) => jsonObject(underlying)
+          case JArray(values)      => jsonArray(values)
+          case JBoolean(value)     => jsonBoolean(value)
+          case JNumber(value)      => jsonNumber(value)
+          case JString(value)      => jsonString(value)
+          case JNull               => ifNull
+        }
+    }
+
+  case object JsonBeanEvaluator extends JsonPathEvaluator[JsonBean]
 
   sealed trait JsonValueWrapper {
+
     def value: JsonBean
   }
 
   private case class JsonValueWrapperImpl(field: JsonBean)
-    extends JsonValueWrapper {
+      extends JsonValueWrapper {
     override def value: JsonBean = field
   }
 
   import scala.language.implicitConversions
 
-  implicit def toJsFieldJsonBeanWrapper[T](field: T)(
-    implicit w: JsonValueMagnet[T]
+  implicit def toJsFieldJsonBeanWrapper[T](field: T)(implicit
+      w: JsonValueMagnet[T]
   ): JsonValueWrapper =
     JsonValueWrapperImpl(w(field))
 

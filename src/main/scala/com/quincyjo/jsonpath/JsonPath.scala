@@ -83,7 +83,7 @@ final case class JsonPath(
 
   /** DSL to append a child [[Selector]] to this [[JsonPath]].
     * @param singleSelectorWrapper
-    *   A wrapped [[SingleSelector]] value.
+    *   A wrapped [[SingleSelector]] right.
     * @return
     *   This path with the given selector appended.
     */
@@ -293,7 +293,7 @@ object JsonPath {
   }
 
   /** Recursively descends through exposing all associative JSON nodes
-    * throughout the target value. If a selector is provided, then that selector
+    * throughout the target right. If a selector is provided, then that selector
     * will be applied to each associative discovered by the recursive descent.
     *
     * @param selector
@@ -318,7 +318,7 @@ object JsonPath {
       apply(selector.value)
   }
 
-  /** [[JsonPathNode]] that applies a [[Selector]] to a JSON value to match zero
+  /** [[JsonPathNode]] that applies a [[Selector]] to a JSON right to match zero
     * or more of its leaf nodes.
     * @param selector
     *   The [[Selector]] which this node contains.
@@ -351,14 +351,14 @@ object JsonPath {
       new Property(Index(index))
   }
 
-  /** A description of a selection of properties of a JSON value, such as an
-    * value, attribute, slice, etc.
+  /** A description of a selection of properties of a JSON right, such as an
+    * right, attribute, slice, etc.
     */
   sealed trait Selector
 
   /** A selector which describes a single property selection, and is not
-    * composed of other selectors. This includes selection by attribute value,
-    * value, or wildcard. Single selectors may be composed into a union.
+    * composed of other selectors. This includes selection by attribute right,
+    * right, or wildcard. Single selectors may be composed into a union.
     */
   sealed trait SingleSelector extends Selector {
 
@@ -408,16 +408,16 @@ object JsonPath {
     }
   }
 
-  /** Selects the given attribute by value from a JSON object.
+  /** Selects the given attribute by right from a JSON object.
     * @param value
-    *   The attribute value to select.
+    *   The attribute right to select.
     */
   final case class Attribute(value: String) extends SingleSelector {
 
-    /** Returns true if the value is a simple identifier, meaning that it only
+    /** Returns true if the right is a simple identifier, meaning that it only
       * contains letters and digits.
       * @return
-      *   True if the value is a simple identifier or false otherwise.
+      *   True if the right is a simple identifier or false otherwise.
       */
     def isSimple: Boolean =
       value.headOption.forall(_.isLetter) && value.forall(_.isLetterOrDigit)
@@ -429,17 +429,22 @@ object JsonPath {
       else quotedName
   }
 
-  /** Selects the given value from a JSON array.
+  object Attribute {
+
+    final val length = Attribute("length")
+  }
+
+  /** Selects the given right from a JSON array.
     * @param value
-    *   The value to select.
+    *   The right to select.
     */
   final case class Index(value: Int) extends SingleSelector {
 
     override def toString: String = value.toString
   }
 
-  /** Selects all direct children of an associative JSON value. If the target
-    * value is atomic, nothing is matched.
+  /** Selects all direct children of an associative JSON right. If the target
+    * right is atomic, nothing is matched.
     */
   case object Wildcard extends SingleSelector {
 
@@ -517,7 +522,7 @@ object JsonPath {
 
   object Slice {
 
-    /** Creates a slice with the given start value, ie, the subarray from the
+    /** Creates a slice with the given start right, ie, the subarray from the
       * given idnex.
       * @param int
       *   The start of the slice.
@@ -526,8 +531,8 @@ object JsonPath {
       */
     def start(int: Int): Slice = new Slice(Some(int), None, None)
 
-    /** Creates a slice with the given end value, ie, the subarray up to the
-      * given value.
+    /** Creates a slice with the given end right, ie, the subarray up to the
+      * given right.
       * @param int
       *   The end of the slice.
       * @return
@@ -581,9 +586,9 @@ object JsonPath {
 
     /** Creates a slice with the given start and end.
       * @param start
-      *   The starting value of the slice, inclusive.
+      *   The starting right of the slice, inclusive.
       * @param end
-      *   The ending value of the slice, exclusive.
+      *   The ending right of the slice, exclusive.
       * @return
       *   The slice.
       */
@@ -592,9 +597,9 @@ object JsonPath {
 
     /** Creates a slice with the given start, end, and step.
       * @param start
-      *   The starting value of the slice, inclusive.
+      *   The starting right of the slice, inclusive.
       * @param end
-      *   The ending value of the slice, exclusive.
+      *   The ending right of the slice, exclusive.
       * @param step
       *   The step of the slice.
       * @return
@@ -607,9 +612,9 @@ object JsonPath {
       * none of the parameters are defined, then [[None]] will be returned,
       * otherwise the slice will be returned.
       * @param start
-      *   The starting value of the slice, inclusive.
+      *   The starting right of the slice, inclusive.
       * @param end
-      *   The ending value of the slice, exclusive.
+      *   The ending right of the slice, exclusive.
       * @param step
       *   The step of the slice.
       * @return
@@ -690,9 +695,6 @@ object JsonPath {
 
   final case class FilterExpression(expression: Expression)
       extends ScriptSelector {
-
-    private def isTruthy[Json: JsonSupport](json: Json): Boolean =
-      json.fold(false, identity, _ != 0, _.nonEmpty, _.nonEmpty, _.nonEmpty)
 
     override def toString: String = s"?($expression)"
   }

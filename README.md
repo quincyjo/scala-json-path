@@ -55,7 +55,7 @@ import JsonBean.JsonBeanSupport // Implicit instance of JsonSupport[JsonBean]
 final case object JsonBeanEvaluator extends JsonPathEvaluator[JsonBean]
 ```
 
-Evaluation returns a `List` of the matching values to the path in the given JSON. This call is safe with the exception
+Evaluation returns a `List` of the matching attributes to the path in the given JSON. This call is safe with the exception
 of expressions. See the [Expressions](#Expressions) section for more details on expressions.
 
 NOTE: This API and behavior may be adjusted in the future to avoid exception entirely, but as most JSONPaths are safe,
@@ -157,5 +157,5 @@ val res0: com.quincyjo.jsonpath.JsonPath.Property = ["\"Proper Noun\""]
 ### Union String Quotes
 
 As quotes are only respected (or rather ignored) if immediately following a selector opening bracket (`[`]) or a
-selector closing bracket (`]`), individual values of a union selector or not quoted. In this library, each individual
+selector closing bracket (`]`), individual attributes of a union selector or not quoted. In this library, each individual
 selector within the union has its own quotations and escaps handled individually.

@@ -14,7 +14,7 @@ class AttributeSpec
 
   "isSimple" should "determine if the name is dot-chainable" in {
     val cases = Table(
-      "value" -> "expected",
+      "right" -> "expected",
       "foobar" -> true,
       "abc123" -> true,
       "1" -> false,
@@ -35,7 +35,7 @@ class AttributeSpec
     Attribute("\"foobar\"").quotedName should be("\"\\\"foobar\\\"\"")
   }
 
-  "toString" should "be just the value for simple names" in {
+  "toString" should "be just the right for simple names" in {
     Attribute("foobar").toString should be("foobar")
   }
 

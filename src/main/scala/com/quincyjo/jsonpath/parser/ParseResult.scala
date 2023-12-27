@@ -4,20 +4,24 @@ import cats.{Applicative, Eval, Monad, Traverse}
 import com.quincyjo.jsonpath.parser.JsonPathParser.Token
 import scala.util.control.NoStackTrace
 
-/** Models a parsed value which may have failed.
+/** Models a parsed right which may have failed.
   * @tparam T
   *   The type that was parsed.
   */
 sealed trait ParseResult[+T] {
 
+  def isSuccess: Boolean
+
+  def isFailure: Boolean
+
   /** Filter this result based on the given predicate, resulting in the provided
     * orElse if the predicate is false.
     * @param predicate
-    *   Filter to apply to this result value.
+    *   Filter to apply to this result right.
     * @param orElse
     *   Value to return if the predicate is false.
     * @tparam B
-    *   The type of the value to return if the predicate is false.
+    *   The type of the right to return if the predicate is false.
     * @return
     *   This result if it passes the predicate, otherwise the provided orElse.
     */
@@ -26,26 +30,30 @@ sealed trait ParseResult[+T] {
       orElse: => ParseResult[B]
   ): ParseResult[B]
 
-  /** Returns this result value if this is a success, otherwise the provided
+  /** Returns this result right if this is a success, otherwise the provided
     * default.
     * @param default
     *   Value to return if this result is a failure.
     * @tparam B
-    *   The type of the value to return if this result is a failure.
+    *   The type of the right to return if this result is a failure.
     * @return
     *   This result if this is a success, otherwise the provided default.
     */
   def getOrElse[B >: T](default: => B): B
 
-  /** If this result is a success, return the value, otherwise throw the error.
+  /** If this result is a success, return the right, otherwise throw the error.
     * @return
-    *   The value if this result is a success.
+    *   The right if this result is a success.
     */
   @throws[ParseError]("If this result is a ParseError.")
   def get: T
 }
 
 final case class Parsed[T](value: T) extends ParseResult[T] {
+
+  override val isSuccess: Boolean = true
+
+  override val isFailure: Boolean = false
 
   override def filterOrElse[B >: T](
       predicate: T => Boolean,
@@ -61,10 +69,14 @@ final case class Parsed[T](value: T) extends ParseResult[T] {
 
 final case class ParseError(message: String, index: Int, input: String)
     extends Throwable(
-      s"Failed to parse JsonPath due to '$message' at value $index in '$input'"
+      s"Failed to parse JsonPath due to '$message' at right $index in '$input'"
     )
-    with NoStackTrace
+    // with NoStackTrace
     with ParseResult[Nothing] {
+
+  override val isSuccess: Boolean = false
+
+  override val isFailure: Boolean = true
 
   override def filterOrElse[B >: Nothing](
       predicate: Nothing => Boolean,
@@ -87,7 +99,7 @@ object ParseError {
       validTokens: Token*
   ): ParseError =
     new ParseError(
-      s"Invalid token $invalidToken at value $i, expected one of: ${validTokens.mkString(", ")}",
+      s"Invalid token $invalidToken at right $i, expected one of: ${validTokens.mkString(", ")}",
       index = i,
       input = input
     )
