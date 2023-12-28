@@ -5,6 +5,7 @@ import cats.implicits._
 import com.quincyjo.jsonpath.JsonPath
 import com.quincyjo.jsonpath.JsonPath._
 import com.quincyjo.jsonpath.parser.JsonPathParser._
+import com.quincyjo.jsonpath.parser.models._
 
 import scala.annotation.tailrec
 
@@ -14,18 +15,18 @@ class JsonPathParser(
 ) {
 
   private var currentIndex: Int = 0
-  private var currentTokenResult: ParseResult[Token] = _
+  private var currentTokenResult: ParseResult[JsonPathToken] = _
   private var currentValue: Option[ValueAt[_]] = None
 
   def index: Int = currentIndex
 
-  def currentToken(): Option[Token] =
+  def currentToken(): Option[JsonPathToken] =
     Option(currentTokenResult).flatMap {
       case Parsed(value)     => Some(value)
       case error: ParseError => None
     }
 
-  def nextToken(): ParseResult[Token] =
+  def nextToken(): ParseResult[JsonPathToken] =
     nextStep.flatMap { step =>
       currentIndex = currentIndex + step
       currentTokenResult = tokenAt(index)
@@ -41,16 +42,18 @@ class JsonPathParser(
             case token: SymbolToken => Parsed(token.length)
             case valueToken: ValueToken =>
               valueToken match {
-                case Token.ValueInt    => valueAsNumber.map(_.raw.length)
-                case Token.ValueString => valueAsString.map(_.raw.length)
-                case Token.StartExpression | Token.StartFilterExpression =>
+                case JsonPathToken.ValueInt => valueAsNumber.map(_.raw.length)
+                case JsonPathToken.ValueString =>
+                  valueAsString.map(_.raw.length)
+                case JsonPathToken.StartExpression |
+                    JsonPathToken.StartFilterExpression =>
                   valueAsExpression.map(_.raw.length)
               }
           }
         } getOrElse Parsed(0)
   }
 
-  def peek(): ParseResult[Option[Token]] =
+  def peek(): ParseResult[Option[JsonPathToken]] =
     OptionT
       .whenF(hasNext)(nextStep)
       .semiflatMap(step => tokenAt(currentIndex + step))
@@ -67,7 +70,7 @@ class JsonPathParser(
 
   def valueAsString: ParseResult[ValueAt[String]] =
     currentTokenResult.flatMap {
-      case Token.ValueString =>
+      case JsonPathToken.ValueString =>
         val maybeValue = input.charAt(currentIndex) match {
           case quote @ ('\'' | '"') =>
             @tailrec
@@ -122,13 +125,13 @@ class JsonPathParser(
           invalidToken,
           currentIndex,
           input,
-          Token.ValueString
+          JsonPathToken.ValueString
         )
     }
 
   def valueAsNumber: ParseResult[ValueAt[Int]] =
     currentTokenResult.flatMap {
-      case Token.ValueInt =>
+      case JsonPathToken.ValueInt =>
         val source = input.charAt(currentIndex) match {
           case '-' =>
             input
@@ -157,15 +160,15 @@ class JsonPathParser(
           invalidToken,
           currentIndex,
           input,
-          Token.ValueInt
+          JsonPathToken.ValueInt
         )
     }
 
   def valueAsExpression: ParseResult[ValueAt[Expression]] =
     currentTokenResult.flatMap {
-      case Token.StartExpression =>
+      case JsonPathToken.StartExpression =>
         options.expressionParser.getValueAsExpression(input, currentIndex)
-      case Token.StartFilterExpression =>
+      case JsonPathToken.StartFilterExpression =>
         options.expressionParser
           .getValueAsExpression(input, currentIndex + 1)
           .map { case ValueAt(expression, _, raw) =>
@@ -176,30 +179,31 @@ class JsonPathParser(
           invalidToken,
           currentIndex,
           input,
-          Token.ValueString
+          JsonPathToken.ValueString
         )
     }
 
-  private def tokenAt(i: Int): ParseResult[Token] =
+  private def tokenAt(i: Int): ParseResult[JsonPathToken] =
     input.charAt(i) match {
-      case '$' => Parsed(Token.Root)
-      case '@' => Parsed(Token.Current)
-      case '*' => Parsed(Token.Wildcard)
-      case '[' => Parsed(Token.StartSelector)
-      case ']' => Parsed(Token.EndSelector)
+      case '$' => Parsed(JsonPathToken.Root)
+      case '@' => Parsed(JsonPathToken.Current)
+      case '*' => Parsed(JsonPathToken.Wildcard)
+      case '[' => Parsed(JsonPathToken.StartSelector)
+      case ']' => Parsed(JsonPathToken.EndSelector)
       case '.' =>
-        if (input.lift(i + 1).contains('.')) Parsed(Token.RecursiveDescent)
-        else Parsed(Token.DotSelector)
+        if (input.lift(i + 1).contains('.'))
+          Parsed(JsonPathToken.RecursiveDescent)
+        else Parsed(JsonPathToken.DotSelector)
       case '?' if input.lift(i + 1).contains('(') =>
-        Parsed(Token.StartFilterExpression)
-      case '(' => Parsed(Token.StartExpression)
-      // case ')'                                    => Parsed(Token.EndExpression)
-      case ','             => Parsed(Token.Union)
-      case ':'             => Parsed(Token.Slice)
-      case '\'' | '"'      => Parsed(Token.ValueString)
-      case c if c.isLetter => Parsed(Token.ValueString)
-      case '-'             => Parsed(Token.ValueInt)
-      case c if c.isDigit  => Parsed(Token.ValueInt)
+        Parsed(JsonPathToken.StartFilterExpression)
+      case '(' => Parsed(JsonPathToken.StartExpression)
+      // case ')'                                    => Parsed(JsonPathToken.EndExpression)
+      case ','             => Parsed(JsonPathToken.Union)
+      case ':'             => Parsed(JsonPathToken.Slice)
+      case '\'' | '"'      => Parsed(JsonPathToken.ValueString)
+      case c if c.isLetter => Parsed(JsonPathToken.ValueString)
+      case '-'             => Parsed(JsonPathToken.ValueInt)
+      case c if c.isDigit  => Parsed(JsonPathToken.ValueInt)
       case c =>
         ParseError(
           s"Invalid character '$c' at right $i in '$input'.",
@@ -227,18 +231,15 @@ object JsonPathParser {
     final val default = JsonPathParserOptions()
   }
 
-  final case class ValueAt[+T](value: T, index: Int, raw: String)
+  sealed abstract class JsonPathToken extends ParserToken
 
-  sealed abstract class Token
+  sealed abstract class SymbolToken(override val symbol: String)
+      extends JsonPathToken
+      with ParserToken.SymbolToken
 
-  sealed abstract class SymbolToken(value: String) extends Token {
+  sealed trait ValueToken extends JsonPathToken with ParserToken.ValueToken
 
-    val length: Int = value.length
-  }
-
-  sealed trait ValueToken extends Token
-
-  object Token {
+  object JsonPathToken {
 
     case object Root extends SymbolToken("$")
     case object Current extends SymbolToken("@")

@@ -4,6 +4,7 @@ import cats.implicits._
 import com.quincyjo.jsonpath.parser.JsonPathParser._
 import com.quincyjo.jsonpath.JsonPath
 import com.quincyjo.jsonpath.JsonPath._
+import com.quincyjo.jsonpath.parser.models.{ParseError, ParseResult, Parsed, ValueAt}
 
 trait ExpressionParser[+E <: JsonPath.Expression] {
 

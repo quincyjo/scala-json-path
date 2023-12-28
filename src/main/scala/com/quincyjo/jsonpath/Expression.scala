@@ -15,7 +15,15 @@ object Expression {
 
   sealed trait UnaryOperator extends Expression {
 
+    def symbol: String
+
     def expression: Expression
+
+    override def toString: String =
+      expression match {
+        case value: Value => s"$symbol$value"
+        case other        => s"$symbol($other)"
+      }
   }
 
   sealed trait BinaryOperator extends Expression {
@@ -27,7 +35,10 @@ object Expression {
     def right: Expression
 
     override def toString: String =
-      s"$left $symbol $right"
+      s"$left $symbol ${right match {
+        case value: Value => value.toString
+        case other        => s"(${other.toString})"
+      }}"
   }
 
   sealed trait Comparator extends BinaryOperator {
@@ -140,6 +151,8 @@ object Expression {
 
   final case class Not(expression: Expression) extends UnaryOperator {
 
+    override def symbol: String = "!"
+
     override def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
@@ -148,22 +161,6 @@ object Expression {
       implicitly[JsonSupport[Json]].boolean(
         !expression(evaluator, root, current).coerceToBoolean
       )
-
-    override def toString: String =
-      s"!$expression"
-  }
-
-  final case class Parenthesis(expression: Expression) extends UnaryOperator {
-
-    override def apply[Json: JsonSupport](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Json =
-      expression(evaluator, root, current)
-
-    override def toString: String =
-      s"($expression)"
   }
 
   final case class Equal(left: Expression, right: Expression)

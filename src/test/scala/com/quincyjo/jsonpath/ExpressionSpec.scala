@@ -54,7 +54,9 @@ class ExpressionSpec
     JsonBoolean(false).toString should be("false")
   }
 
-  "Not" should "be equivalent to JS falsey" in {
+  "Not" should behave like unarySerialization(Not.apply)("!")
+
+  it should "be equivalent to JS falsey" in {
     val cases = Table(
       "json" -> "expected",
       JsonBean.boolean(true) -> false,
@@ -77,15 +79,7 @@ class ExpressionSpec
     }
   }
 
-  it should "serialize as a ! unary operator" in {
-    Not(JsonNumber(42)).toString should be("!42")
-  }
-
-  "Equal" should "serialize as a == operator" in {
-    Equal(JsonNumber(42), JsonNumber(5)).toString should be(
-      "42 == 5"
-    )
-  }
+  "Equal" should behave like binarySerialization(Equal.apply)("==")
 
   it should "compare same types" in {
     val cases = Table(
@@ -125,57 +119,35 @@ class ExpressionSpec
     }
   }
 
-  "Parenthesis" should "serialize as a as (<expression>)" in {
-    Parenthesis(JsonNumber(42)).toString should be("(42)")
-  }
-
-  "GreaterThan" should "serialize as a > operator" in {
-    GreaterThan(JsonNumber(42), JsonNumber(5)).toString should be(
-      "42 > 5"
-    )
-  }
+  "GreaterThan" should behave like binarySerialization(GreaterThan.apply)(">")
 
   it should behave like comparator(GreaterThan.apply)(_ > _)
 
-  "GreaterThanOrEqual" should "serialize as a >= operator" in {
-    GreaterThanOrEqualTo(JsonNumber(42), JsonNumber(5)).toString should be(
-      "42 >= 5"
-    )
-  }
+  "GreaterThanOrEqual" should behave like binarySerialization(
+    GreaterThanOrEqualTo.apply
+  )(
+    ">="
+  )
 
   it should behave like comparator(GreaterThanOrEqualTo.apply)(_ >= _)
 
-  "LessThan" should "serialize as a < operator" in {
-    LessThan(JsonNumber(42), JsonNumber(5)).toString should be(
-      "42 < 5"
-    )
-  }
+  "LessThan" should behave like binarySerialization(LessThan.apply)("<")
 
   it should behave like comparator(LessThan.apply)(_ < _)
 
-  "LessThanOrEqual" should "serialize as a <= operator" in {
-    LessThanOrEqualTo(JsonNumber(42), JsonNumber(5)).toString should be(
-      "42 <= 5"
-    )
-  }
+  "lessThanOrEqual" should behave like binarySerialization(
+    LessThanOrEqualTo.apply
+  )(
+    "<="
+  )
 
   it should behave like comparator(LessThanOrEqualTo.apply)(_ <= _)
 
-  "And" should "serialize as a && operator" in {
-    val a = GreaterThan(JsonNumber(42), JsonNumber(5))
-    val b = LessThan(JsonNumber(42), JsonNumber(5))
-    And(a, b).toString should be(s"$a && $b")
-  }
+  "And" should behave like binarySerialization(And.apply)("&&")
 
-  "Or" should "serialize as a || operator" in {
-    val a = GreaterThan(JsonNumber(42), JsonNumber(5))
-    val b = LessThan(JsonNumber(42), JsonNumber(5))
-    Or(a, b).toString should be(s"$a || $b")
-  }
+  "Or" should behave like binarySerialization(Or.apply)("||")
 
-  "Plus" should "serialize as a + operator" in {
-    Plus(JsonNumber(42), JsonNumber(5)).toString should be("42 + 5")
-  }
+  "Plus" should behave like binarySerialization(Plus.apply)("+")
 
   it should "add two numbers" in {
     val cases = Table[BigDecimal, BigDecimal](
@@ -257,23 +229,62 @@ class ExpressionSpec
     }
   }
 
-  "Minus" should "serialize as a - operator" in {
-    Minus(JsonNumber(42), JsonNumber(5)).toString should be("42 - 5")
-  }
+  "Minus" should behave like binarySerialization(Minus.apply)("-")
 
   it should behave like arithmeticOperator(Minus.apply)(_ - _)
 
-  "Multiply" should "serialize as a * operator" in {
-    Multiply(JsonNumber(42), JsonNumber(5)).toString should be("42 * 5")
-  }
+  "Multiply" should behave like binarySerialization(Multiply.apply)("*")
 
   it should behave like arithmeticOperator(Multiply.apply)(_ * _)
 
-  "Divide" should "serialize as a / operator" in {
-    Divide(JsonNumber(42), JsonNumber(5)).toString should be("42 / 5")
-  }
+  "Divide" should behave like binarySerialization(Divide.apply)("/")
 
   it should behave like arithmeticOperator(Divide.apply)(_ / _)
+
+  def unarySerialization[T <: UnaryOperator](
+      constructor: Expression => T
+  )(symbol: String): Unit = {
+
+    it should "serialize with the correct symbol" in {
+      val expression = JsonNumber(42)
+      constructor(expression).toString should be(s"$symbol$expression")
+    }
+
+    it should "serialize the expression with parentheses if necessary" in {
+      val expression = Plus(JsonNumber(5), JsonNumber(5))
+      constructor(expression).toString should be( s"$symbol($expression)"
+      )
+    }
+  }
+
+  def binarySerialization[T <: BinaryOperator](
+      constructor: (Expression, Expression) => T
+  )(symbol: String): Unit = {
+
+    it should "serialize with the correct symbol" in {
+      val left = JsonNumber(42)
+      val right = JsonNumber(5)
+      constructor(left, right).toString should be(
+        s"$left $symbol $right"
+      )
+    }
+
+    it should "serialize the right hand with parentheses if necessary" in {
+      val left = JsonNumber(42)
+      val right = Plus(JsonNumber(5), JsonNumber(5))
+      constructor(left, right).toString should be(
+        s"$left $symbol ($right)"
+      )
+    }
+
+    it should "not add redundant parenthesis to the left hand side" in {
+      val left = Plus(JsonNumber(5), JsonNumber(5))
+      val right = JsonNumber(42)
+      constructor(left, right).toString should be(
+        s"$left $symbol $right"
+      )
+    }
+  }
 
   def comparator[T <: Comparator](
       constructor: (Expression, Expression) => T

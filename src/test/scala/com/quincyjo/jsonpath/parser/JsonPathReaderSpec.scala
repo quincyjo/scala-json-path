@@ -3,10 +3,7 @@ package com.quincyjo.jsonpath.parser
 import com.quincyjo.jsonpath.JsonPath
 import com.quincyjo.jsonpath.JsonPath._
 import com.quincyjo.jsonpath.parser.ExpressionParser.BalancedExpressionParser
-import com.quincyjo.jsonpath.parser.JsonPathParser._
-import com.quincyjo.jsonpath.parser.JsonPathReaderSpec._
-import org.scalactic.source
-import org.scalatest.exceptions.{StackDepthException, TestFailedException}
+import com.quincyjo.jsonpath.parser.models._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -14,7 +11,8 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 class JsonPathReaderSpec
     extends AnyFlatSpecLike
     with Matchers
-    with TableDrivenPropertyChecks {
+    with TableDrivenPropertyChecks
+    with ParseResultValues {
 
   "it" should "parse all basic path nodes" in {
     val cases = Table(
@@ -162,35 +160,5 @@ class JsonPathReaderSpec
           raw should be(s"(${expected.value})")
       }
     }
-  }
-}
-
-object JsonPathReaderSpec {
-
-  import scala.language.implicitConversions
-
-  implicit def convertParseResultToValuable[T](parseResult: ParseResult[T])(
-      implicit pos: source.Position
-  ): ParseResultValuable[T] =
-    new ParseResultValuable[T](parseResult, pos)
-
-  class ParseResultValuable[T](
-      parseResult: ParseResult[T],
-      pos: source.Position
-  ) {
-
-    def value: T =
-      parseResult match {
-        case Parsed(value) => value
-        case error: ParseError =>
-          throw new TestFailedException(
-            (_: StackDepthException) =>
-              Some(
-                s"The ParseResult on which right was evoked was not a success but a $parseResult"
-              ),
-            None,
-            pos
-          )
-      }
   }
 }

@@ -1,10 +1,10 @@
-package com.quincyjo.jsonpath.parser
+package com.quincyjo.jsonpath.parser.models
 
 import cats.{Applicative, Eval, Monad, Traverse}
-import com.quincyjo.jsonpath.parser.JsonPathParser.Token
-import scala.util.control.NoStackTrace
+import com.quincyjo.jsonpath.parser.JsonPathParser.JsonPathToken
 
 /** Models a parsed right which may have failed.
+  *
   * @tparam T
   *   The type that was parsed.
   */
@@ -48,64 +48,6 @@ sealed trait ParseResult[+T] {
   @throws[ParseError]("If this result is a ParseError.")
   def get: T
 }
-
-final case class Parsed[T](value: T) extends ParseResult[T] {
-
-  override val isSuccess: Boolean = true
-
-  override val isFailure: Boolean = false
-
-  override def filterOrElse[B >: T](
-      predicate: T => Boolean,
-      orElse: => ParseResult[B]
-  ): ParseResult[B] =
-    if (predicate(value)) this else orElse
-
-  override def getOrElse[B >: T](default: => B): B = value
-
-  @throws[ParseError]("If this result is a ParseError.")
-  override def get: T = value
-}
-
-final case class ParseError(message: String, index: Int, input: String)
-    extends Throwable(
-      s"Failed to parse JsonPath due to '$message' at right $index in '$input'"
-    )
-    // with NoStackTrace
-    with ParseResult[Nothing] {
-
-  override val isSuccess: Boolean = false
-
-  override val isFailure: Boolean = true
-
-  override def filterOrElse[B >: Nothing](
-      predicate: Nothing => Boolean,
-      orElse: => ParseResult[B]
-  ): ParseResult[B] =
-    this
-
-  override def getOrElse[B >: Nothing](default: => B): B = default
-
-  @throws[ParseError]("If this result is a ParseError.")
-  override def get: Nothing = throw this
-}
-
-object ParseError {
-
-  def invalidToken(
-      invalidToken: Token,
-      i: Int,
-      input: String,
-      validTokens: Token*
-  ): ParseError =
-    new ParseError(
-      s"Invalid token $invalidToken at right $i, expected one of: ${validTokens.mkString(", ")}",
-      index = i,
-      input = input
-    )
-
-}
-
 object ParseResult {
 
   implicit val monad: Monad[ParseResult] = new Monad[ParseResult]
@@ -155,4 +97,61 @@ object ParseResult {
         case error: ParseError => lb
       }
   }
+}
+
+final case class Parsed[T](value: T) extends ParseResult[T] {
+
+  override val isSuccess: Boolean = true
+
+  override val isFailure: Boolean = false
+
+  override def filterOrElse[B >: T](
+      predicate: T => Boolean,
+      orElse: => ParseResult[B]
+  ): ParseResult[B] =
+    if (predicate(value)) this else orElse
+
+  override def getOrElse[B >: T](default: => B): B = value
+
+  @throws[ParseError]("If this result is a ParseError.")
+  override def get: T = value
+}
+
+final case class ParseError(message: String, index: Int, input: String)
+    extends Throwable(
+      s"Failed to parse JsonPath due to '$message' at right $index in '$input'"
+    )
+    // with NoStackTrace
+    with ParseResult[Nothing] {
+
+  override val isSuccess: Boolean = false
+
+  override val isFailure: Boolean = true
+
+  override def filterOrElse[B >: Nothing](
+      predicate: Nothing => Boolean,
+      orElse: => ParseResult[B]
+  ): ParseResult[B] =
+    this
+
+  override def getOrElse[B >: Nothing](default: => B): B = default
+
+  @throws[ParseError]("If this result is a ParseError.")
+  override def get: Nothing = throw this
+}
+
+object ParseError {
+
+  def invalidToken(
+                    invalidToken: JsonPathToken,
+                    i: Int,
+                    input: String,
+                    validTokens: JsonPathToken*
+  ): ParseError =
+    new ParseError(
+      s"Invalid token $invalidToken at right $i, expected one of: ${validTokens.mkString(", ")}",
+      index = i,
+      input = input
+    )
+
 }
