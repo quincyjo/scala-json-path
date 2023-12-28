@@ -185,7 +185,7 @@ class ExprssionReaderNew {
         case ExpressionToken.ValueNumber =>
           context.valueAsNumber.map(number => JsonNumber(number.value))
         case ExpressionToken.Root | ExpressionToken.Current =>
-          context.getValueAsJsonPath.map(jsonPath =>
+          context.valueAsJsonPath.map(jsonPath =>
             JsonPathValue(jsonPath.value)
           )
         case otherToken =>

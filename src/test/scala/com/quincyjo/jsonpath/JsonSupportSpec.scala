@@ -74,4 +74,64 @@ class JsonSupportSpec
       jsonBeanSupport.coerceToBoolean(json) should be(expected)
     }
   }
+
+  "areSameType" should "follow JS conversion rules" in {
+    val cases = Table(
+      ("left", "right", "expected"),
+      (JsonBean.Null, JsonBean.Null, true),
+      (JsonBean.True, JsonBean.False, true),
+      (JsonBean.string("foobar"), JsonBean.string("deadbeef"), true),
+      (JsonBean.number(42), JsonBean.number(42), true),
+      (JsonBean.arr(), JsonBean.arr(), true),
+      (JsonBean.obj(), JsonBean.obj(), true),
+      (JsonBean.arr(), JsonBean.obj(), true),
+      (JsonBean.Null, JsonBean.string("foobar"), false),
+      (JsonBean.Null, JsonBean.number(42), false),
+      (JsonBean.string(""), JsonBean.False, false)
+    )
+
+    forAll(cases) { (left, right, expected) =>
+      jsonBeanSupport.areSameType(left, right) should be(expected)
+    }
+  }
+
+  "convertTypes" should "follow JS comparison conversion" in {
+    val cases = Table(
+      ("a", "b", "expected"),
+      (JsonBean.Null, JsonBean.Null, Some(JsonBean.Null, JsonBean.Null)),
+      (JsonBean.True, JsonBean.False, Some(JsonBean.True, JsonBean.False)),
+      (
+        JsonBean.string("foobar"),
+        JsonBean.string("deadbeef"),
+        Some(JsonBean.string("foobar"), JsonBean.string("deadbeef"))
+      ),
+      (
+        JsonBean.number(42),
+        JsonBean.number(42),
+        Some(JsonBean.number(42), JsonBean.number(42))
+      ),
+      (
+        JsonBean.False,
+        JsonBean.string("5"),
+        Some(JsonBean.number(0), JsonBean.number(5))
+      ),
+      (
+        JsonBean.True,
+        JsonBean.string(""),
+        Some(JsonBean.number(1), JsonBean.number(0))
+      ),
+      (
+        JsonBean.arr(),
+        JsonBean.False,
+        Some(JsonBean.number(0), JsonBean.number(0))
+      ),
+      (JsonBean.obj(), JsonBean.True, None),
+      (JsonBean.arr("foobar"), JsonBean.True, None),
+      (JsonBean.Null, JsonBean.False, Some(JsonBean.Null, JsonBean.False))
+    )
+
+    forAll(cases) { case (a, b, expected) =>
+      jsonBeanSupport.convertTypes(a, b) should be(expected)
+    }
+  }
 }

@@ -100,81 +100,28 @@ object ExpressionParserNew {
                 valueAsNumber.map { value =>
                   input.indexWhere(!_.isWhitespace, index + value.raw.length)
                 }
+              case Root | Current =>
+                valueAsJsonPath.map { value =>
+                  input.indexWhere(!_.isWhitespace, index + value.raw.length)
+                }
               case token: SymbolToken =>
                 Parsed(input.indexWhere(!_.isWhitespace, index + token.length))
             }
         )
         .semiflatMap {
-          case -1 => ParseError("Unexpected end of input.", index, input)
-          case i  => Parsed(i)
+          case n if n == -1 || n >= input.length =>
+            ParseError("Unexpected end of input.", index, input)
+          case i => Parsed(i)
         }
         .getOrElse(0)
 
-    def valueAsBoolean: ParseResult[ValueAt[Boolean]] =
+    protected def valueAs[T](
+        pf: PartialFunction[ExpressionToken, ParseResult[ValueAt[T]]]
+    ): ParseResult[ValueAt[T]] =
       currentTokenResult
-        .collect {
-          case ValueBoolean if input.substring(index).startsWith("true") =>
-            ValueAt(true, index, "true")
-          case ValueBoolean if input.substring(index).startsWith("false") =>
-            ValueAt(false, index, "false")
-        }
-        .tap(_.map(v => currentValue = Some(v)))
-        .getOrElseF(
-          ParseError(
-            s"Expected 'true' or 'false' but was '${input.substring(index)}'",
-            index,
-            input
-          )
-        )
-
-    def valueAsString: ParseResult[ValueAt[String]] =
-      currentTokenResult
-        .flatMap {
-          case ValueString =>
-            OptionT
-              .fromOption[ParseResult](input.lift(index))
-              .semiflatMap {
-                case quote @ ('\'' | '"') =>
-                  @tailrec
-                  def go(
-                      i: Int,
-                      rawBuilder: StringBuilder,
-                      valueBuilder: StringBuilder
-                  ): (StringBuilder, StringBuilder) = {
-                    if (i < input.length) {
-                      val c = input.charAt(i)
-                      if (c == quote && !rawBuilder.lastOption.contains('\\'))
-                        (rawBuilder.addOne(quote), valueBuilder)
-                      else if (c == quote) {
-                        valueBuilder.update(valueBuilder.length() - 1, quote)
-                        go(i + 1, rawBuilder.addOne(quote), valueBuilder)
-                      } else
-                        go(i + 1, rawBuilder.addOne(c), valueBuilder.addOne(c))
-                    } else (rawBuilder, valueBuilder)
-                  }
-
-                  go(
-                    index + 1,
-                    new StringBuilder().addOne(quote),
-                    new StringBuilder()
-                  ) match {
-                    case (raw, value) =>
-                      if (raw.length > 1 && raw.endsWith(quote.toString))
-                        Parsed(ValueAt(value.result(), index, raw.result()))
-                      else ParseError("Unclosed quotation.", index, input)
-                  }
-
-                case invalidChar =>
-                  ParseError(
-                    s"Expected JSON string but was '$invalidChar'",
-                    index,
-                    input
-                  )
-              }
-          case invalidToken =>
-            OptionT.liftF(
-              ParseError(s"Unexpected token $invalidToken", index, input)
-            )
+        .semiflatMap { token =>
+          pf.lift(token)
+            .getOrElse(ParseError(s"Unexpected token $token", index, input))
         }
         .getOrElseF(
           ParseError(
@@ -185,44 +132,93 @@ object ExpressionParserNew {
         )
         .tap(_.map(v => currentValue = Some(v)))
 
-    def valueAsNumber: ParseResult[ValueAt[BigDecimal]] =
-      currentTokenResult
-        .semiflatMap {
-          case ValueNumber =>
-            var hasReadDecimal = false
-            val end = Option(
-              input.indexWhere(
-                c =>
-                  !c.isDigit || c == '.' && {
-                    (hasReadDecimal).tap(_ => hasReadDecimal = true)
-                  },
-                index
-              )
-            ).filter(_ > index)
-            val raw =
-              end.fold(input.substring(index))(input.substring(index, _))
-            Try(BigDecimal(raw)).fold(
-              throwable => ParseError(throwable.getMessage, index, input),
-              number => Parsed(ValueAt(number, index, raw))
-            )
-          case invalidToken =>
-            ParseError(
-              s"Unexpected token $invalidToken",
-              index,
-              input
-            )
-        }
-        .getOrElseF(
+    def valueAsBoolean: ParseResult[ValueAt[Boolean]] =
+      valueAs[Boolean] { case ValueBoolean =>
+        if (input.startsWith("true")) Parsed(ValueAt(true, 0, "true"))
+        else if (input.startsWith("false")) Parsed(ValueAt(false, 0, "false"))
+        else
           ParseError(
-            s"Expected number but was '${input.substring(index)}'",
+            s"Expected boolean value but was '${input.substring(index).takeWhile(_.isLetter)}'",
             index,
             input
           )
-        )
-        .tap(_.map(v => currentValue = Some(v)))
+      }
 
-    def getValueAsJsonPath: ParseResult[ValueAt[JsonPath]] =
-      ???
+    def valueAsString: ParseResult[ValueAt[String]] =
+      valueAs { case ValueString =>
+        OptionT
+          .fromOption[ParseResult](input.lift(index))
+          .semiflatMap {
+            case quote @ ('\'' | '"') =>
+              @tailrec
+              def go(
+                  i: Int,
+                  rawBuilder: StringBuilder,
+                  valueBuilder: StringBuilder
+              ): (StringBuilder, StringBuilder) = {
+                if (i < input.length) {
+                  val c = input.charAt(i)
+                  if (c == quote && !rawBuilder.lastOption.contains('\\'))
+                    (rawBuilder.addOne(quote), valueBuilder)
+                  else if (c == quote) {
+                    valueBuilder.update(valueBuilder.length() - 1, quote)
+                    go(i + 1, rawBuilder.addOne(quote), valueBuilder)
+                  } else
+                    go(i + 1, rawBuilder.addOne(c), valueBuilder.addOne(c))
+                } else (rawBuilder, valueBuilder)
+              }
+
+              go(
+                index + 1,
+                new StringBuilder().addOne(quote),
+                new StringBuilder()
+              ) match {
+                case (raw, value) =>
+                  if (raw.length > 1 && raw.endsWith(quote.toString))
+                    Parsed(ValueAt(value.result(), index, raw.result()))
+                  else ParseError("Unclosed quotation.", index, input)
+              }
+
+            case invalidChar =>
+              ParseError(
+                s"Expected JSON string but was '$invalidChar'",
+                index,
+                input
+              )
+          }
+          .getOrElseF(ParseError("Unexpected end of input.", index, input))
+      }
+
+    def valueAsNumber: ParseResult[ValueAt[BigDecimal]] =
+      valueAs[BigDecimal] { case ValueNumber =>
+        var hasReadDecimal = false
+        val end = Option(
+          input.indexWhere(
+            c =>
+              !c.isDigit || c == '.' && {
+                (hasReadDecimal).tap(_ => hasReadDecimal = true)
+              },
+            index
+          )
+        ).filter(_ > index)
+        val raw =
+          end.fold(input.substring(index))(input.substring(index, _))
+        Try(BigDecimal(raw)).fold(
+          throwable => ParseError(throwable.getMessage, index, input),
+          number => Parsed(ValueAt(number, index, raw))
+        )
+      }
+
+    def valueAsJsonPath: ParseResult[ValueAt[JsonPath]] =
+      valueAs[JsonPath] { case ExpressionToken.Root | ExpressionToken.Current =>
+        JsonPathReader(input.substring(index))
+          .take()
+          .map {
+            _.copy(
+              index = index
+            )
+          }
+      }
   }
 
   sealed trait ExpressionToken

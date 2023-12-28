@@ -104,7 +104,8 @@ class JsonPathReaderSpec
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathReader(input).take().value should be(expected)
+      val result = JsonPathReader(input).take().value
+      result.value should be(expected)
     }
   }
 

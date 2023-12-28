@@ -1,6 +1,5 @@
 package com.quincyjo.jsonpath
 
-import com.quincyjo.jsonpath
 import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
 
 sealed trait Expression {
@@ -301,13 +300,14 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    )(f: (BigDecimal, BigDecimal) => BigDecimal): Json =
+    )(f: (BigDecimal, BigDecimal) => BigDecimal): Json = {
       left(evaluator, root, current).coerceToNumber
         .zip(right(evaluator, root, current).coerceToNumber)
         .map { case (left, right) =>
           implicitly[JsonSupport[Json]].number(f(left, right))
         }
         .getOrElse(implicitly[JsonSupport[Json]].Null)
+    }
   }
 
   final case class Plus(left: Expression, right: Expression)

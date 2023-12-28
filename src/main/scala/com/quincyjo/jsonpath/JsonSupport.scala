@@ -24,9 +24,6 @@ trait JsonSupport[Json] {
   def isNumber(json: Json): Boolean
   def isNull(json: Json): Boolean
 
-  final def isAtomic(json: Json): Boolean = !isObject(json) && !isArray(json)
-  final def isAssociative(json: Json): Boolean = isObject(json) || isArray(json)
-
   def fold[B](json: Json)(
       ifNull: => B,
       jsonBoolean: Boolean => B,
@@ -36,7 +33,10 @@ trait JsonSupport[Json] {
       jsonObject: Map[String, Json] => B
   ): B
 
-  def arrayOrObject[B](json: Json)(
+  final def isAtomic(json: Json): Boolean = !isObject(json) && !isArray(json)
+  final def isAssociative(json: Json): Boolean = isObject(json) || isArray(json)
+
+  final def arrayOrObject[B](json: Json)(
       orElse: => B,
       jsonArray: Vector[Json] => B,
       jsonObject: Map[String, Json] => B
@@ -56,7 +56,7 @@ trait JsonSupport[Json] {
     * @return
     *   The coerced number or NaN.
     */
-  def coerceToNumber(json: Json): Option[BigDecimal] =
+  final def coerceToNumber(json: Json): Option[BigDecimal] =
     fold(json)(
       Some(0),
       boolean => Some(if (boolean) 1 else 0),
@@ -81,7 +81,7 @@ trait JsonSupport[Json] {
     * @return
     *   The coerced string.
     */
-  def coerceToString(json: Json): String =
+  final def coerceToString(json: Json): String =
     fold(json)(
       "null",
       if (_) "true" else "false",
@@ -97,7 +97,7 @@ trait JsonSupport[Json] {
     * @return
     *   The coerced boolean.
     */
-  def coerceToBoolean(json: Json): Boolean =
+  final def coerceToBoolean(json: Json): Boolean =
     fold(json)(
       false,
       identity,
@@ -107,11 +107,29 @@ trait JsonSupport[Json] {
       _ => true
     )
 
-  def coerceToPrimitive(json: Json): Json =
+  /** If the given JSON is an associative, coerce it into a primitive. Else, the
+    * JSON is returned unchanged. There is no preferred target primitive type
+    * for this coercion, but this function uses [[coerceToString(Json)]].
+    * @param json
+    *   The JSON to coerce.
+    * @return
+    *   The coerced JSON if associative, or the original JSON otherwise.
+    */
+  final def coerceToPrimitive(json: Json): Json =
     if (isAssociative(json)) string(coerceToString(json))
     else json
 
-  def areSameType(a: Json, b: Json): Boolean =
+  /** Compares the types of the given JSON values, returning true if they are
+    * the same are false otherwise. Both arrays and objects are considered
+    * objects for the purpose of this comparison.
+    * @param a
+    *   The first JSON.
+    * @param b
+    *   The second JSON.
+    * @return
+    *   True if the types are the same, false otherwise.
+    */
+  final def areSameType(a: Json, b: Json): Boolean =
     fold(a)(
       isNull(b),
       _ => isBoolean(b),
@@ -132,7 +150,7 @@ trait JsonSupport[Json] {
     * @return
     *   {@code a} and {@code b} coerced into the same type if able.
     */
-  def convertTypes(a: Json, b: Json): Option[(Json, Json)] =
+  final def convertTypes(a: Json, b: Json): Option[(Json, Json)] =
     if (areSameType(a, b) || isNull(a) || isNull(b))
       Some(a -> b)
     else {

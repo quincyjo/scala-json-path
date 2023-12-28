@@ -7,7 +7,8 @@ import com.quincyjo.jsonpath.JsonPath._
 import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.parser.JsonPathParser.{
   JsonPathParserOptions,
-  Token
+  Token,
+  ValueAt
 }
 
 import scala.collection.mutable
@@ -32,7 +33,11 @@ class JsonPathReader(parser: JsonPathParser) {
       while (parser.hasNext) {
         parseNext().map(builder.addOne)
       }
-      JsonPath(maybeRoot, builder.result)
+      ValueAt(
+        JsonPath(maybeRoot, builder.result),
+        0,
+        parser.input.take(parser.index + parser.nextStep.getOrElse(1))
+      )
     }
 
   private def parseRoot(): ParseResult[Option[JsonPathRoot]] =

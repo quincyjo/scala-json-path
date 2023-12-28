@@ -81,7 +81,51 @@ class ExpressionSpec
     Not(JsonNumber(42)).toString should be("!42")
   }
 
-  "OpenParenthesis" should "serialize as a as (<expression>)" in {
+  "Equal" should "serialize as a == operator" in {
+    Equal(JsonNumber(42), JsonNumber(5)).toString should be(
+      "42 == 5"
+    )
+  }
+
+  it should "compare same types" in {
+    val cases = Table(
+      ("left", "right", "expected"),
+      (JsonNumber(42), JsonNumber(42), true),
+      (JsonNumber(42), JsonNumber(5), false),
+      (JsonNull, JsonNull, true),
+      (JsonBoolean(true), JsonBoolean(true), true),
+      (JsonBoolean(true), JsonBoolean(false), false),
+      (JsonString("foobar"), JsonString("foobar"), true),
+      (JsonString("foobar"), JsonString("deadbeef"), false)
+    )
+
+    forAll(cases) { case (left, right, expected) =>
+      Equal(left, right)(evaluator, JsonBean.Null, JsonBean.Null) should be(
+        JsonBean.boolean(expected)
+      )
+    }
+  }
+
+  it should "apply type conversion" in {
+    val cases = Table(
+      ("left", "right", "expected"),
+      (JsonNumber(42), JsonNumber(5), false),
+      (JsonNumber(42), JsonNumber(42), true),
+      (JsonBoolean(true), JsonNumber(0), false),
+      (JsonBoolean(false), JsonNumber(0), true),
+      (JsonNull, JsonString(""), false),
+      (JsonNull, JsonNull, true),
+      (JsonString("5"), JsonNumber(5), true)
+    )
+
+    forAll(cases) { case (left, right, expected) =>
+      Equal(left, right)(evaluator, JsonBean.Null, JsonBean.Null) should be(
+        JsonBean.boolean(expected)
+      )
+    }
+  }
+
+  "Parenthesis" should "serialize as a as (<expression>)" in {
     Parenthesis(JsonNumber(42)).toString should be("(42)")
   }
 

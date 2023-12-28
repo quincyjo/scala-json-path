@@ -33,7 +33,7 @@ class JsonPathParser(
       currentTokenResult
     }
 
-  private def nextStep: ParseResult[Int] = {
+  def nextStep: ParseResult[Int] = {
     currentValue.map(v => Parsed(v.raw.length)) orElse
       Option(currentTokenResult)
         .map {
