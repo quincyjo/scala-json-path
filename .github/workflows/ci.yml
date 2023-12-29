@@ -9,10 +9,10 @@ name: Continuous Integration
 
 on:
   pull_request:
-    branches: [ '**', '!update/**', '!pr/**' ]
+    branches: ['**', '!update/**', '!pr/**']
   push:
-    branches: [ '**', '!update/**', '!pr/**' ]
-    tags: [ v* ]
+    branches: ['**', '!update/**', '!pr/**']
+    tags: [v*]
 
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -27,10 +27,10 @@ jobs:
     name: Build and Test
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
-        scala: [ 2.13 ]
-        java: [ temurin@8 ]
-        project: [ rootJVM ]
+        os: [ubuntu-latest]
+        scala: [2.13]
+        java: [temurin@8]
+        project: [rootJVM]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     steps:
@@ -87,12 +87,12 @@ jobs:
 
   publish:
     name: Publish Artifacts
-    needs: [ build ]
+    needs: [build]
     if: github.event_name != 'pull_request' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
-        java: [ temurin@8 ]
+        os: [ubuntu-latest]
+        java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
@@ -152,8 +152,8 @@ jobs:
     if: github.event_name != 'pull_request'
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
-        java: [ temurin@8 ]
+        os: [ubuntu-latest]
+        java: [temurin@8]
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout current branch (full)
