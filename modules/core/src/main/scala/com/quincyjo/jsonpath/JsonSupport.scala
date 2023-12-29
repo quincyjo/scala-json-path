@@ -65,8 +65,8 @@ trait JsonSupport[Json] {
     jsonObject
   )
 
-  /** Coerces the given JSON right into a number. If the result is [[None]],
-    * then the right is not a number (javascript NaN).
+  /** Coerces the given JSON right into a number. If the result is
+    * [[scala.None]], then the right is not a number (javascript NaN).
     * @param json
     *   The json to coerce.
     * @return
@@ -125,7 +125,8 @@ trait JsonSupport[Json] {
 
   /** If the given JSON is an associative, coerce it into a primitive. Else, the
     * JSON is returned unchanged. There is no preferred target primitive type
-    * for this coercion, but this function uses [[coerceToString(Json)]].
+    * for this coercion, but this function uses
+    * [[coerceToString]].
     * @param json
     *   The JSON to coerce.
     * @return
@@ -155,7 +156,7 @@ trait JsonSupport[Json] {
       _ => isAssociative(b)
     )
 
-  /** Applies type converesion to coerce both of the given JSON values into the
+  /** Applies type conversion to coerce both of the given JSON values into the
     * same type. If they cannot be coerced into the same type, meaning that one
     * or b oth of the values produces NaN during the conversion, the nothing is
     * returned. Otherwise, two JSONs of directly comparable type sare returned.

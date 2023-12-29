@@ -30,10 +30,10 @@ object JsonPathParser {
 
   type Builder = mutable.Builder[JsonPathNode, List[JsonPathNode]]
 
-  /** Parse the input string into a [[JsonPath]] if valid, or a [[ParseError]]
+  /** Parse the input string into a [[JsonPath]] if valid, or a [[models.ParseError]]
     * if not.
     * @return
-    *   A [[ParseResult]] of a [[JsonPath]] from the input string.
+    *   A [[models.ParseResult]] of a [[JsonPath]] from the input string.
     */
   def parse(input: String): ParseResult[JsonPath] = {
 

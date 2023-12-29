@@ -46,56 +46,56 @@ final case class JsonPath(
     */
   def isRelative: Boolean = root.isEmpty
 
-  /** Appends the given [[JsonPathNode]] to this path.
+  /** Appends the given [[JsonPath.JsonPathNode]] to this path.
     * @param that
-    *   The [[JsonPathNode]] to append.
+    *   The [[JsonPath.JsonPathNode]] to append.
     * @return
     *   This path with the given node appended.
     */
   def appended(that: JsonPathNode): JsonPath =
     JsonPath(root, path appended that)
 
-  /** Appends all of the given [[JsonPathNode]] s to this path.
+  /** Appends all of the given [[JsonPath.JsonPathNode]] s to this path.
     * @param that
-    *   An iterable of the [[JsonPathNode]] s to append.
+    *   An iterable of the [[JsonPath.JsonPathNode]] s to append.
     * @return
     *   This path with the given nodes appended.
     */
   def appendedAll(that: Iterable[JsonPathNode]): JsonPath =
     copy(path = path concat that)
 
-  /** Alias for [[appendedAll(Iterable[JsonPathNode])]].
+  /** Alias for [[appendedAll]].
     * @param that
-    *   An iterable of the [[JsonPathNode]] s to append.
+    *   An iterable of the [[JsonPath.JsonPathNode]] s to append.
     * @return
     *   This path with the given nodes appended.
     * @see
-    *   [[appendedAll(Iterable[JsonPathNode)]].
+    *   [[appendedAll]].
     */
   def concat(that: Iterable[JsonPathNode]): JsonPath =
     appendedAll(that)
 
-  /** Prepends the given [[JsonPathNode]] to this path.
+  /** Prepends the given [[JsonPath.JsonPathNode]] to this path.
     * @param that
-    *   The [[JsonPathNode]] to prepend.
+    *   The [[JsonPath.JsonPathNode]] to prepend.
     * @return
     *   This path with the given node prepended.
     */
   def prepended(that: JsonPathNode): JsonPath =
     JsonPath(root, path prepended that)
 
-  /** Prepends all of the given [[JsonPathNode]] s to this path.
+  /** Prepends all of the given [[JsonPath.JsonPathNode]] s to this path.
     * @param that
-    *   An iterable of the [[JsonPathNode]] s to prepend.
+    *   An iterable of the [[JsonPath.JsonPathNode]] s to prepend.
     * @return
     *   This path with the given nodes prepended.
     */
   def prependedAll(that: Iterable[JsonPathNode]): JsonPath =
     copy(path = path concat that)
 
-  /** DSL to append a child [[Selector]] to this [[JsonPath]].
+  /** DSL to append a child [[JsonPath.Selector]] to this [[JsonPath]].
     * @param singleSelectorWrapper
-    *   A wrapped [[SingleSelector]] right.
+    *   A wrapped [[JsonPath.SingleSelector]] right.
     * @return
     *   This path with the given selector appended.
     */
@@ -103,9 +103,9 @@ final case class JsonPath(
   def /(singleSelectorWrapper: SingleSelectorWrapper): JsonPath =
     appended(Property(singleSelectorWrapper.value))
 
-  /** DSL to append a child [[Selector]] to this [[JsonPath]].
+  /** DSL to append a child [[JsonPath.Selector]] to this [[JsonPath]].
     * @param selector
-    *   The [[Selector]] to append.
+    *   The [[JsonPath.Selector]] to append.
     * @return
     *   This path with the given selector appended.
     */
@@ -113,27 +113,27 @@ final case class JsonPath(
   def /(selector: Selector): JsonPath =
     appended(Property(selector))
 
-  /** DSL for appending many [[JsonPathNode]] s to this path. Alias for
-    * [[appendedAll(Iterable[JsonPathNode])]]
+  /** DSL for appending many [[JsonPath.JsonPathNode]] s to this path. Alias for
+    * [[appendedAll]]
     * @param path
-    *   An iterable of the [[JsonPathNode]] s to append.
+    *   An iterable of the [[JsonPath.JsonPathNode]] s to append.
     * @return
     *   This path with the given nodes appended.
     * @see
-    *   [[appendedAll(Iterable[JsonPathNode])]]
+    *   [[appendedAll]]
     */
   // @targetName("add")
   def /(path: Iterable[JsonPathNode]): JsonPath =
     appendedAll(path)
 
-  /** DSL for appending [[JsonPathNode]] s to this path. Alias for
-    * [[appended(JsonPathNode)]].
+  /** DSL for appending [[JsonPath.JsonPathNode]] s to this path. Alias for
+    * [[appended]].
     * @param node
-    *   The [[JsonPathNode]] to append.
+    *   The [[JsonPath.JsonPathNode]] to append.
     * @return
     *   This path with the given node appended.
     * @see
-    *   [[appended[JsonPathNode]]
+    *   [[appended]]
     */
   // @targetName("add")
   def /(node: JsonPathNode): JsonPath =
@@ -143,7 +143,7 @@ final case class JsonPath(
     * @param n
     *   The number of nodes to take.
     * @return
-    *   This path truncated to the first `n` [[JsonPathNode]] s.
+    *   This path truncated to the first `n` [[JsonPath.JsonPathNode]] s.
     */
   def take(n: Int): JsonPath = copy(path = path.take(n))
 
@@ -151,7 +151,7 @@ final case class JsonPath(
     * @param n
     *   The number of nodes to drop.
     * @return
-    *   This path with the first `n` [[JsonPathNode]] s dropped.
+    *   This path with the first `n` [[JsonPath.JsonPathNode]] s dropped.
     */
   def drop(n: Int): JsonPath = copy(path = path.drop(n))
 
@@ -159,7 +159,7 @@ final case class JsonPath(
     * @param n
     *   The number of nodes to take.
     * @return
-    *   This path truncated to the last `n` [[JsonPathNode]] s.
+    *   This path truncated to the last `n` [[JsonPath.JsonPathNode]] s.
     */
   def takeRight(n: Int): JsonPath = copy(path = path.takeRight(n))
 
@@ -167,7 +167,7 @@ final case class JsonPath(
     * @param n
     *   The number of nodes to drop.
     * @return
-    *   This path with the last `n` [[JsonPathNode]] s dropped.
+    *   This path with the last `n` [[JsonPath.JsonPathNode]] s dropped.
     */
   def dropRight(n: Int): JsonPath = copy(path = path.dropRight(n))
 
@@ -185,9 +185,9 @@ final case class JsonPath(
     */
   def nonEmpty: Boolean = path.nonEmpty
 
-  /** Returns the number of [[JsonPathNode]] in this path.
+  /** Returns the number of [[JsonPath.JsonPathNode]] in this path.
     * @return
-    *   The number of [[JsonPathNode]] in this path.
+    *   The number of [[JsonPath.JsonPathNode]] in this path.
     */
   def size: Int = path.size
 
@@ -243,7 +243,8 @@ final case class JsonPath(
     if (!hasParent) that
     else parent.resolve(that)
 
-  /** Returns this path as an absolute path, IE, with a [[root]] of [[Root]].
+  /** Returns this path as an absolute path, IE, with a [[root]] of
+    * [[JsonPath.JsonPathRoot.Root]].
     * @return
     *   This path as an absolute path.
     */
@@ -259,7 +260,8 @@ final case class JsonPath(
     if (isRelative) this
     else copy(root = None)
 
-  /** Returns this path as an absolute path, IE, with a [[root]] of [[Current]].
+  /** Returns this path as an absolute path, IE, with a [[root]] of
+    * [[JsonPath.JsonPathRoot.Current]].
     * @return
     *   This path as a dynamic path.
     */
@@ -551,22 +553,24 @@ object JsonPath {
     def end(int: Int): Slice = new Slice(None, Some(int), None)
 
     /** Creates a slice which drops the first `n` elements of the array. Alias
-      * for [[start(Int)]].
+      * for [[start]].
       * @param n
       *   The number of elements to drop.
       * @return
       *   The slice.
       * @see
-      *   [[start(Int)]]
+      *   [[start]]
       */
     def drop(n: Int): Slice = start(n)
 
     /** Creates a slice which takes the first `n` elements of the array. Alias
-      * for [[end(Int)]].
+      * for [[end]].
       * @param n
       *   The number of elements to take.
       * @return
       *   The slice.
+      * @see
+      *   [[end]]
       */
     def take(n: Int): Slice = end(n)
 
@@ -619,8 +623,8 @@ object JsonPath {
       new Slice(Some(start), Some(end), Some(step))
 
     /** Constructs a slice from the given start, end, and step if defined. If if
-      * none of the parameters are defined, then [[None]] will be returned,
-      * otherwise the slice will be returned.
+      * none of the parameters are defined, then [[scala.None]] will be
+      * returned, otherwise the slice will be returned.
       * @param start
       *   The starting right of the slice, inclusive.
       * @param end
