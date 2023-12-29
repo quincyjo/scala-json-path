@@ -101,7 +101,7 @@ object ParseResult {
 
     override def foldLeft[A, B](fa: ParseResult[A], b: B)(f: (B, A) => B): B =
       fa match {
-        case Parsed(a)         => f(b, a)
+        case Parsed(a)     => f(b, a)
         case _: ParseError => b
       }
 
@@ -109,7 +109,7 @@ object ParseResult {
         f: (A, Eval[B]) => Eval[B]
     ): Eval[B] =
       fa match {
-        case Parsed(value)     => f(value, lb)
+        case Parsed(value) => f(value, lb)
         case _: ParseError => lb
       }
   }

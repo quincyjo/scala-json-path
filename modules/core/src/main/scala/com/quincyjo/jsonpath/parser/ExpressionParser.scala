@@ -20,7 +20,12 @@ import cats.implicits._
 import com.quincyjo.jsonpath.Expression
 import com.quincyjo.jsonpath.Expression._
 import com.quincyjo.jsonpath.parser.ExpressionParseContext.ExpressionToken
-import com.quincyjo.jsonpath.parser.models.{ParseError, ParseResult, Parsed, ParserToken}
+import com.quincyjo.jsonpath.parser.models.{
+  ParseError,
+  ParseResult,
+  Parsed,
+  ParserToken
+}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -170,24 +175,22 @@ object ExpressionParser {
       token: ExpressionToken.BinaryToken,
       left: Expression,
       right: Expression
-  ): BinaryOperator = {
-    token match {
-      case ExpressionToken.And      => And(left, right)
-      case ExpressionToken.Or       => Or(left, right)
-      case ExpressionToken.Equal    => Equal(left, right)
-      case ExpressionToken.NotEqual => NotEqual(left, right)
-      case ExpressionToken.LessThan => LessThan(left, right)
-      case ExpressionToken.LessThanOrEqualTo =>
-        LessThanOrEqualTo(left, right)
-      case ExpressionToken.GreaterThan =>
-        GreaterThan(left, right)
-      case ExpressionToken.GreaterThanOrEqualTo =>
-        GreaterThanOrEqualTo(left, right)
-      case ExpressionToken.Plus     => Plus(left, right)
-      case ExpressionToken.Minus    => Minus(left, right)
-      case ExpressionToken.Multiply => Multiply(left, right)
-      case ExpressionToken.Divide   => Divide(left, right)
-    }
+  ): BinaryOperator = token match {
+    case ExpressionToken.And      => And(left, right)
+    case ExpressionToken.Or       => Or(left, right)
+    case ExpressionToken.Equal    => Equal(left, right)
+    case ExpressionToken.NotEqual => NotEqual(left, right)
+    case ExpressionToken.LessThan => LessThan(left, right)
+    case ExpressionToken.LessThanOrEqualTo =>
+      LessThanOrEqualTo(left, right)
+    case ExpressionToken.GreaterThan =>
+      GreaterThan(left, right)
+    case ExpressionToken.GreaterThanOrEqualTo =>
+      GreaterThanOrEqualTo(left, right)
+    case ExpressionToken.Plus     => Plus(left, right)
+    case ExpressionToken.Minus    => Minus(left, right)
+    case ExpressionToken.Multiply => Multiply(left, right)
+    case ExpressionToken.Divide   => Divide(left, right)
   }
 
   private def parseValue(context: ExpressionParseContext): ParseResult[Value] =

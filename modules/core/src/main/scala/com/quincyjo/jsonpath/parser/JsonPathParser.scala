@@ -69,8 +69,8 @@ object JsonPathParser {
       if (!context.hasNext) Parsed(context)
       else
         parseNext(context, builder) match {
-          case _: ParseError => Parsed(context)
-          case Parsed(context)   => go(context, builder)
+          case _: ParseError   => Parsed(context)
+          case Parsed(context) => go(context, builder)
         }
     }
 
