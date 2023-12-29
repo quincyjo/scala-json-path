@@ -76,8 +76,8 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
       case singleSelector: SingleSelector => select(json, singleSelector)
       case union: Union                   => this.union(json, union)
       case slice: Slice                   => this.slice(json, slice)
-      case filter: FilterExpression       => this.filter(json, filter)
-      case script: ScriptExpression       => this.script(root, json, script)
+      case filter: Filter       => this.filter(json, filter)
+      case script: Script       => this.script(root, json, script)
     }
 
   def attribute(json: Json, attribute: String): Iterable[Json] =
@@ -120,7 +120,7 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
         }
     }
 
-  def filter(json: Json, filter: FilterExpression): Iterable[Json] = {
+  def filter(json: Json, filter: Filter): Iterable[Json] = {
     json.arrayOrObject(
       Iterable.empty,
       _.filter(j => filter.expression(this, json, j).coerceToBoolean),
@@ -128,7 +128,7 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     )
   }
 
-  def script(root: Json, json: Json, script: ScriptExpression): Iterable[Json] =
+  def script(root: Json, json: Json, script: Script): Iterable[Json] =
     script
       .expression(this, root, json)
       .fold(

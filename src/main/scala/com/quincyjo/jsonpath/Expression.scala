@@ -21,8 +21,8 @@ object Expression {
 
     override def toString: String =
       expression match {
-        case value: Value => s"$symbol$value"
-        case other        => s"$symbol($other)"
+        case binary: BinaryOperator => s"$symbol($binary)"
+        case expression             => s"$symbol$expression"
       }
   }
 

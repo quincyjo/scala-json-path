@@ -55,11 +55,7 @@ import JsonBean.JsonBeanSupport // Implicit instance of JsonSupport[JsonBean]
 final case object JsonBeanEvaluator extends JsonPathEvaluator[JsonBean]
 ```
 
-Evaluation returns a `List` of the matching attributes to the path in the given JSON. This call is safe with the exception
-of expressions. See the [Expressions](#Expressions) section for more details on expressions.
-
-NOTE: This API and behavior may be adjusted in the future to avoid exception entirely, but as most JSONPaths are safe,
-the initial draft API does not model this failure.
+Evaluation returns a `List` of the matching attributes to the path in the given JSON.
 
 ```scala
 scala> val json = JsonBean.obj("foobar" -> JsonBean.arr(JsonBean.string("deadbeef"), JsonBean.True, JsonBean.number(42)))
@@ -80,37 +76,50 @@ val res3: List[JsonBean] = List(["deadbeef", true, 42] , "deadbeef" , true , 42)
 
 ## Expressions
 
-By default, expressions (eg `?(@.length>1)`) are parsed as literal expressions, and cannot be evaluated. Expressions are
-parsed based on the statement being balanced in terms of basic blocks; parentheses (`()`), curly brackets (`{}`), square
-brackets (`[]`), single quotes (`'`), and double quotes (`"`). Parsing and serialization of expressions will work by
-default, but if a `JsonPath` contains a `LiteralExpression` or other `NonExecutableExpression`, then evaluation will
-result in a `UnsupportedOperationException` exception.
+Expressions have their own AST which can be used to describe expressions in either JSONPath scripts or filter.
+Expressions are evaluated against a JsonPath context and return a result in the same JSON type as the path is run
+against.
+
+### Values
+
+- **JsonString**: `JsonString("foobar")`
+- **JsonBoolean**: `JsonBoolean(false)`
+- **JsonNumber**: `JsonNumber(42)`
+- **JsonPathValue**: `JsonPathValue(JsonPath.$ / "foobar")`
+- **JsonNull**: `JsonNull`
+
+### Operators
+
+The following operators are supported. These operators are implemented according to Javascript evaluation rules.
+
+- Not
+- Equal
+- NotEqual
+- GreaterThan
+- GreaterThanOrEqualTo
+- LessThan
+- LessThanOrEqualTo
+- Plus
+- Minus
+- Multiply
+- Divide
+- Or
+- And
 
 ```scala
-scala> val jsonPath = jsonPath"""$$[(@.*.length>0)]"""
-val jsonPath: com.quincyjo.jsonpath.JsonPath = $[(@.*.length>0)]
-
-scala> JsonBeanEvaluator.evaluate(jsonPath, JsonBean.obj())
-java.lang.UnsupportedOperationException: Cannot execute non-executable expression '@.*.length>0'. In order to support executing evaluation of script expressions , provide an ExpressionParser via JsonPathParserOptions which parses ExecutableExpressions.
-```
-
-Custom instances of expressions may be defined, as well as an associated expression parser. The expression parser may be
-provided to a parser to parse executable expressions to allow evaluation of expressions. A alternate expression parser
-is provided that parses json paths alone.
-
-```scala
-scala> import com.quincyjo.jsonpath.parser.*
+scala> JsonPath.$ / Filter(LessThan(JsonPathValue(JsonPath.`@` / "price"), JsonNumber(10)))
+val res0: com.quincyjo.jsonpath.JsonPath = $[?(@.price < 10)]
 
 scala> val json = JsonBean.arr(Seq.tabulate(6) { n =>
      |   JsonBean.obj("keep" -> (if (n % 2 == 0) JsonBean.True else JsonBean.False))
      | }: _*)
 val json: JsonBean = [ { "keep": true }, { "keep": false }, { "keep": true }, { "keep": false }, { "keep": true }, { "keep": false } ]
 
-scala> val jsonPath = JsonPathReader("$[?(@.keep)]", JsonPathParser.JsonPathParserOptions(expressionParser = ExpressionParser.JsonPathExpressionParser)).parseInput().get
+scala> val jsonPath = JsonPathParser.parse("$[?(@.keep)]").get
 val jsonPath: com.quincyjo.jsonpath.JsonPath = $[?(@.keep)]
 
 scala> JsonBeanEvaluator.evaluate(jsonPath, json)
-val res0: List[JsonBean] = List({ "keep": true }, { "keep": true }, { "keep": true })
+val res1: List[JsonBean] = List({ "keep": true }, { "keep": true }, { "keep": true })
 ```
 
 ## Variance from Core Library
@@ -157,5 +166,6 @@ val res0: com.quincyjo.jsonpath.JsonPath.Property = ["\"Proper Noun\""]
 ### Union String Quotes
 
 As quotes are only respected (or rather ignored) if immediately following a selector opening bracket (`[`]) or a
-selector closing bracket (`]`), individual attributes of a union selector or not quoted. In this library, each individual
+selector closing bracket (`]`), individual attributes of a union selector or not quoted. In this library, each
+individual
 selector within the union has its own quotations and escaps handled individually.

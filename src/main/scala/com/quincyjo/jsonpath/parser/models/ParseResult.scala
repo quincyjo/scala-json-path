@@ -1,7 +1,7 @@
 package com.quincyjo.jsonpath.parser.models
 
 import cats.{Applicative, Eval, Monad, Traverse}
-import com.quincyjo.jsonpath.parser.JsonPathParser.JsonPathToken
+import com.quincyjo.jsonpath.parser.JsonPathParseContext.JsonPathToken
 
 /** Models a parsed right which may have failed.
   *

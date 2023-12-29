@@ -110,8 +110,7 @@ final case class ExpressionParseContext private (
 
   def valueAsJsonPath: ParseResult[ValueAt[JsonPath]] =
     valueAs[JsonPath] { case ExpressionToken.Root | ExpressionToken.Current =>
-      JsonPathReader(input.substring(index))
-        .take()
+      JsonPathParser.take(input.substring(index))
         .map {
           _.copy(
             index = index

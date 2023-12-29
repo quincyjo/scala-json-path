@@ -1,261 +1,391 @@
 package com.quincyjo.jsonpath.parser
 
-import cats.data.OptionT
 import cats.implicits._
-import com.quincyjo.jsonpath.JsonPath
+import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.JsonPath._
-import com.quincyjo.jsonpath.parser.JsonPathParser._
+import com.quincyjo.jsonpath.parser.JsonPathParseContext.JsonPathToken
 import com.quincyjo.jsonpath.parser.models._
+import com.quincyjo.jsonpath.{JsonPath, parser}
 
 import scala.annotation.tailrec
-
-class JsonPathParser(
-    val input: String,
-    val options: JsonPathParserOptions = JsonPathParserOptions.default
-) {
-
-  private var currentIndex: Int = 0
-  private var currentTokenResult: ParseResult[JsonPathToken] = _
-  private var currentValue: Option[ValueAt[_]] = None
-
-  def index: Int = currentIndex
-
-  def currentToken(): Option[JsonPathToken] =
-    Option(currentTokenResult).flatMap {
-      case Parsed(value)     => Some(value)
-      case error: ParseError => None
-    }
-
-  def nextToken(): ParseResult[JsonPathToken] =
-    nextStep.flatMap { step =>
-      currentIndex = currentIndex + step
-      currentTokenResult = tokenAt(index)
-      currentValue = None
-      currentTokenResult
-    }
-
-  def nextStep: ParseResult[Int] = {
-    currentValue.map(v => Parsed(v.raw.length)) orElse
-      Option(currentTokenResult)
-        .map {
-          _.flatMap {
-            case token: SymbolToken => Parsed(token.length)
-            case valueToken: ValueToken =>
-              valueToken match {
-                case JsonPathToken.ValueInt => valueAsNumber.map(_.raw.length)
-                case JsonPathToken.ValueString =>
-                  valueAsString.map(_.raw.length)
-                case JsonPathToken.StartExpression |
-                    JsonPathToken.StartFilterExpression =>
-                  valueAsExpression.map(_.raw.length)
-              }
-          }
-        } getOrElse Parsed(0)
-  }
-
-  def peek(): ParseResult[Option[JsonPathToken]] =
-    OptionT
-      .whenF(hasNext)(nextStep)
-      .semiflatMap(step => tokenAt(currentIndex + step))
-      .value
-
-  def hasNext: Boolean =
-    Option(currentTokenResult).forall(
-      _.isSuccess
-    ) && currentIndex < input.length && nextStep
-      .map(step => currentIndex + step < input.length)
-      .getOrElse(false)
-
-  private val attributeNameRegex = """[a-zA-Z][^,:\].\s]*""".r
-
-  def valueAsString: ParseResult[ValueAt[String]] =
-    currentTokenResult.flatMap {
-      case JsonPathToken.ValueString =>
-        val maybeValue = input.charAt(currentIndex) match {
-          case quote @ ('\'' | '"') =>
-            @tailrec
-            def go(
-                i: Int,
-                rawBuilder: StringBuilder,
-                valueBuilder: StringBuilder
-            ): (StringBuilder, StringBuilder) = {
-              if (i < input.length) {
-                val c = input.charAt(i)
-                if (c == quote && !rawBuilder.lastOption.contains('\\'))
-                  (rawBuilder.addOne(quote), valueBuilder)
-                else if (c == quote) {
-                  valueBuilder.update(valueBuilder.length() - 1, quote)
-                  go(i + 1, rawBuilder.addOne(quote), valueBuilder)
-                } else
-                  go(i + 1, rawBuilder.addOne(c), valueBuilder.addOne(c))
-              } else (rawBuilder, valueBuilder)
-            }
-            go(
-              currentIndex + 1,
-              new StringBuilder().addOne(quote),
-              new StringBuilder()
-            ) match {
-              case (raw, value) =>
-                Option.when(raw.length > 1 && raw.endsWith(quote.toString))(
-                  ValueAt(
-                    value.result(),
-                    currentIndex,
-                    raw.result()
-                  )
-                )
-            }
-          case other =>
-            val source = input
-              .substring(currentIndex)
-              .takeWhile(c => c.isLetterOrDigit || c == '_')
-            Some(ValueAt(source, currentIndex, source))
-        }
-        maybeValue.foreach(v => currentValue = Some(v))
-        maybeValue
-          .map(Parsed(_))
-          .getOrElse(
-            ParseError(
-              s"Hanging string right starting at right $currentIndex.",
-              currentIndex,
-              input
-            )
-          )
-      case invalidToken =>
-        ParseError.invalidToken(
-          invalidToken,
-          currentIndex,
-          input,
-          JsonPathToken.ValueString
-        )
-    }
-
-  def valueAsNumber: ParseResult[ValueAt[Int]] =
-    currentTokenResult.flatMap {
-      case JsonPathToken.ValueInt =>
-        val source = input.charAt(currentIndex) match {
-          case '-' =>
-            input
-              .substring(currentIndex + 1)
-              .takeWhile(_.isDigit)
-              .prepended('-')
-          case _ => input.substring(currentIndex).takeWhile(_.isDigit)
-        }
-        source.toIntOption
-          .map { int =>
-            ValueAt(int, currentIndex, source)
-          }
-          .map { v =>
-            currentValue = Some(v)
-            Parsed(v)
-          }
-          .getOrElse(
-            ParseError(
-              s"Invalid number '$source' starting at right $currentIndex.",
-              currentIndex,
-              input
-            )
-          )
-      case invalidToken =>
-        ParseError.invalidToken(
-          invalidToken,
-          currentIndex,
-          input,
-          JsonPathToken.ValueInt
-        )
-    }
-
-  def valueAsExpression: ParseResult[ValueAt[Expression]] =
-    currentTokenResult.flatMap {
-      case JsonPathToken.StartExpression =>
-        options.expressionParser.getValueAsExpression(input, currentIndex)
-      case JsonPathToken.StartFilterExpression =>
-        options.expressionParser
-          .getValueAsExpression(input, currentIndex + 1)
-          .map { case ValueAt(expression, _, raw) =>
-            ValueAt(expression, index, s"?$raw")
-          }
-      case invalidToken =>
-        ParseError.invalidToken(
-          invalidToken,
-          currentIndex,
-          input,
-          JsonPathToken.ValueString
-        )
-    }
-
-  private def tokenAt(i: Int): ParseResult[JsonPathToken] =
-    input.charAt(i) match {
-      case '$' => Parsed(JsonPathToken.Root)
-      case '@' => Parsed(JsonPathToken.Current)
-      case '*' => Parsed(JsonPathToken.Wildcard)
-      case '[' => Parsed(JsonPathToken.StartSelector)
-      case ']' => Parsed(JsonPathToken.EndSelector)
-      case '.' =>
-        if (input.lift(i + 1).contains('.'))
-          Parsed(JsonPathToken.RecursiveDescent)
-        else Parsed(JsonPathToken.DotSelector)
-      case '?' if input.lift(i + 1).contains('(') =>
-        Parsed(JsonPathToken.StartFilterExpression)
-      case '(' => Parsed(JsonPathToken.StartExpression)
-      // case ')'                                    => Parsed(JsonPathToken.EndExpression)
-      case ','             => Parsed(JsonPathToken.Union)
-      case ':'             => Parsed(JsonPathToken.Slice)
-      case '\'' | '"'      => Parsed(JsonPathToken.ValueString)
-      case c if c.isLetter => Parsed(JsonPathToken.ValueString)
-      case '-'             => Parsed(JsonPathToken.ValueInt)
-      case c if c.isDigit  => Parsed(JsonPathToken.ValueInt)
-      case c =>
-        ParseError(
-          s"Invalid character '$c' at right $i in '$input'.",
-          i,
-          input
-        )
-    }
-}
+import scala.collection.mutable
 
 object JsonPathParser {
 
-  def apply(input: String): JsonPathParser =
-    new JsonPathParser(input)
+  type Builder = mutable.Builder[JsonPathNode, List[JsonPathNode]]
 
-  def apply(input: String, options: JsonPathParserOptions): JsonPathParser =
-    new JsonPathParser(input, options)
+  /** Parse the input string into a [[JsonPath]] if valid, or a [[ParseError]]
+    * if not.
+    * @return
+    *   A [[ParseResult]] of a [[JsonPath]] from the input string.
+    */
+  def parse(input: String): ParseResult[JsonPath] = {
 
-  final case class JsonPathParserOptions(
-      expressionParser: ExpressionParser[JsonPath.Expression] =
-        ExpressionParser.BalancedExpressionParser
-  )
+    @tailrec
+    def go(
+        context: JsonPathParseContext,
+        builder: Builder
+    ): ParseResult[JsonPathParseContext] = {
+      if (!context.hasNext) Parsed(context)
+      else
+        parseNext(context, builder) match {
+          case error: ParseError => error
+          case Parsed(context)   => go(context, builder)
+        }
+    }
 
-  object JsonPathParserOptions {
-
-    final val default = JsonPathParserOptions()
+    for {
+      x <- parseRoot(JsonPathParseContext(input))
+      (maybeRoot, newContext) = x
+      builder = List.newBuilder[JsonPathNode]
+      finalContext <- go(newContext, builder)
+      path = builder.result
+    } yield JsonPath(maybeRoot, path)
   }
 
-  sealed abstract class JsonPathToken extends ParserToken
+  def take(input: String): ParseResult[ValueAt[JsonPath]] = {
 
-  sealed abstract class SymbolToken(override val symbol: String)
-      extends JsonPathToken
-      with ParserToken.SymbolToken
+    @tailrec
+    def go(
+        context: JsonPathParseContext,
+        builder: Builder
+    ): ParseResult[JsonPathParseContext] = {
+      if (!context.hasNext) Parsed(context)
+      else
+        parseNext(context, builder) match {
+          case error: ParseError => Parsed(context)
+          case Parsed(context)   => go(context, builder)
+        }
+    }
 
-  sealed trait ValueToken extends JsonPathToken with ParserToken.ValueToken
-
-  object JsonPathToken {
-
-    case object Root extends SymbolToken("$")
-    case object Current extends SymbolToken("@")
-    case object Wildcard extends SymbolToken("*")
-    case object StartSelector extends SymbolToken("[")
-    case object EndSelector extends SymbolToken("]")
-    case object DotSelector extends SymbolToken(".")
-    case object RecursiveDescent extends SymbolToken("..")
-    case object Union extends SymbolToken(",")
-    case object Slice extends SymbolToken(":")
-    case object StartFilterExpression extends ValueToken // SymbolToken("?(")
-    case object StartExpression extends ValueToken // SymbolToken("(")
-    // final case object EndExpression extends SymbolToken(")")
-
-    case object ValueString extends ValueToken
-    case object ValueInt extends ValueToken
+    for {
+      x <- parseRoot(JsonPathParseContext(input))
+      (maybeRoot, newContext) = x
+      builder = List.newBuilder[JsonPathNode]
+      finalContext <- go(newContext, builder)
+      path = builder.result
+      finalIndex = finalContext.nextIndex.getOrElse(input.length)
+      _ = println(JsonPath(maybeRoot, path))
+    } yield ValueAt(JsonPath(maybeRoot, path), 0, input.take(finalIndex))
   }
 
+  private def parseRoot(
+      context: JsonPathParseContext
+  ): ParseResult[(Option[JsonPathRoot], JsonPathParseContext)] =
+    context.peek
+      .flatMap {
+        case Some(JsonPathToken.Root) if context.index == 0 =>
+          Parsed(Some(Root) -> context.nextToken())
+        case Some(JsonPathToken.Current) if context.index == 0 =>
+          Parsed(Some(Current) -> context.nextToken())
+        case other => Parsed(None -> context)
+      }
+
+  private def parseNext(
+      context: JsonPathParseContext,
+      builder: Builder
+  ): ParseResult[JsonPathParseContext] = {
+    val newContext = context.nextToken()
+    newContext.currentTokenOrEndOfInput.flatMap {
+      case JsonPathToken.RecursiveDescent =>
+        parseRecursiveDescent(newContext, builder)
+      case JsonPathToken.StartSelector | JsonPathToken.DotSelector =>
+        parseProperty(newContext, builder)
+      case invalidToken =>
+        ParseError.invalidToken(
+          invalidToken,
+          newContext.index,
+          newContext.input,
+          JsonPathToken.RecursiveDescent,
+          JsonPathToken.StartSelector,
+          JsonPathToken.DotSelector
+        )
+    }
+  }
+
+  def parseRecursiveDescent(
+      context: JsonPathParseContext,
+      builder: Builder
+  ): ParseResult[JsonPathParseContext] = {
+    context.currentTokenOrEndOfInput
+      .flatMap {
+        case JsonPathToken.RecursiveDescent =>
+          context.peek.flatMap { nextToken =>
+            nextToken
+              .fold[ParseResult[JsonPathParseContext]] {
+                builder.addOne(RecursiveDescent())
+                Parsed(context)
+              } {
+                case JsonPathToken.Wildcard | JsonPathToken.ValueInt |
+                    JsonPathToken.ValueString =>
+                  parseDotSelectorChild(context).map {
+                    case (context, selector) =>
+                      builder.addOne(RecursiveDescent(selector))
+                      context
+                  }
+                case JsonPathToken.StartSelector =>
+                  parseSelector(context).map { case (context, selector) =>
+                    builder.addOne(RecursiveDescent(selector))
+                    context
+                  }
+                case token =>
+                  builder.addOne(RecursiveDescent())
+                  Parsed(context)
+              }
+          }
+        case invalidToken =>
+          ParseError.invalidToken(
+            invalidToken,
+            context.index,
+            context.input,
+            JsonPathToken.RecursiveDescent
+          )
+      }
+  }
+
+  def parseProperty(
+      context: JsonPathParseContext,
+      builder: Builder
+  ): ParseResult[JsonPathParseContext] =
+    parseSelector(context).map { case (context, selector) =>
+      builder.addOne(Property(selector))
+      context
+    }
+
+  def parseSelector(
+      context: JsonPathParseContext
+  ): ParseResult[(JsonPathParseContext, Selector)] =
+    context.currentTokenOrEndOfInput
+      .flatMap {
+        case JsonPathToken.StartSelector => parseBracketSelector(context)
+        case JsonPathToken.DotSelector   => parseDotSelectorChild(context)
+        case invalidToken =>
+          ParseError
+            .invalidToken(
+              invalidToken,
+              context.index,
+              context.input,
+              JsonPathToken.DotSelector,
+              JsonPathToken.StartSelector
+            )
+      }
+
+  private def parseUnion(
+      first: SingleSelector,
+      context: JsonPathParseContext
+  ): ParseResult[(JsonPathParseContext, Union)] = {
+
+    def go(
+        context: JsonPathParseContext,
+        acc: mutable.Builder[SingleSelector, Seq[SingleSelector]]
+    ): ParseResult[
+      (
+          JsonPathParseContext,
+          mutable.Builder[SingleSelector, Seq[SingleSelector]]
+      )
+    ] = {
+      val c1 = context.nextToken()
+      for {
+        nextSelector <- c1.currentTokenOrEndOfInput.flatMap {
+          case JsonPathToken.ValueString =>
+            c1.valueAsString.map(string => Attribute(string.value))
+          case JsonPathToken.ValueInt =>
+            c1.valueAsNumber.map(number => Index(number.value))
+          case invalidToken =>
+            ParseError.invalidToken(
+              invalidToken,
+              c1.index,
+              c1.input,
+              JsonPathToken.ValueString,
+              JsonPathToken.ValueInt
+            )
+        }
+        c2 = c1.nextToken()
+        result <- c2.currentTokenOrEndOfInput.flatMap {
+          case JsonPathToken.EndSelector =>
+            Parsed(c2 -> acc.addOne(nextSelector))
+          case JsonPathToken.Union => go(c2, acc.addOne(nextSelector))
+          case invalidToken =>
+            ParseError.invalidToken(
+              invalidToken,
+              c2.index,
+              c2.input,
+              JsonPathToken.Union,
+              JsonPathToken.EndSelector
+            )
+        }
+      } yield result
+    }
+
+    go(context, Seq.newBuilder[SingleSelector])
+      .map { case (context, builder) =>
+        context -> builder.result()
+      }
+      .flatMap {
+        case (context, second :: tail) =>
+          Parsed(context -> Union(first, second, tail))
+        case _ =>
+          ParseError(
+            s"Trailing '${JsonPathToken.Union}' token at index ${context.index}.",
+            context.index,
+            context.input
+          )
+      }
+  }
+
+  private def parseSlice(
+      context: JsonPathParseContext,
+      start: Option[Int]
+  ): ParseResult[(JsonPathParseContext, Slice)] = {
+
+    def go(
+        context: JsonPathParseContext,
+        builder: mutable.Builder[Option[Int], Seq[Option[Int]]]
+    ): ParseResult[
+      (
+          parser.JsonPathParseContext,
+          mutable.Builder[Option[Int], Seq[Option[Int]]]
+      )
+    ] = {
+      val newContext = context.nextToken()
+      newContext.currentTokenOrEndOfInput.flatMap {
+        case JsonPathToken.EndSelector => Parsed(newContext -> builder)
+        case JsonPathToken.Slice | JsonPathToken.ValueInt
+            if builder.knownSize > 3 =>
+          ParseError(
+            s"Too many slice arguments.",
+            newContext.index,
+            newContext.input
+          )
+        case JsonPathToken.Slice => go(newContext, builder.addOne(None))
+        case JsonPathToken.ValueInt =>
+          val c2 = newContext.nextToken()
+          (
+            newContext.valueAsNumber.map(_.value),
+            c2.currentTokenOrEndOfInput
+          ).mapN { case (value, token) =>
+            builder.addOne(Some(value))
+            token match {
+              case JsonPathToken.EndSelector => Parsed(c2, builder)
+              case JsonPathToken.Slice       => go(c2, builder)
+              case invalidToken =>
+                ParseError.invalidToken(
+                  invalidToken,
+                  newContext.index,
+                  newContext.input,
+                  JsonPathToken.ValueInt,
+                  JsonPathToken.Slice,
+                  JsonPathToken.EndSelector
+                )
+            }
+          }.flatten
+        case invalidToken =>
+          ParseError.invalidToken(
+            invalidToken,
+            newContext.index,
+            newContext.input,
+            JsonPathToken.ValueInt,
+            JsonPathToken.Slice,
+            JsonPathToken.EndSelector
+          )
+      }
+    }
+
+    go(context, Seq.newBuilder[Option[Int]].addOne(start))
+      .map { case (context, builder) =>
+        context -> builder.result()
+      }
+      .flatMap { case (context, parts) =>
+        Slice(
+          parts.headOption.flatten,
+          parts.lift(1).flatten,
+          parts.lift(2).flatten
+        )
+          .map(slice => Parsed(context, slice))
+          .getOrElse(
+            ParseError(
+              "At least one slice parameter is required.",
+              context.index,
+              context.input
+            )
+          )
+      }
+  }
+
+  def parseSlice(
+      context: JsonPathParseContext,
+      start: Int
+  ): ParseResult[(JsonPathParseContext, Slice)] =
+    parseSlice(context, Some(start))
+
+  private def parseBracketSelector(
+      context: JsonPathParseContext
+  ): ParseResult[(JsonPathParseContext, Selector)] = {
+    val c1 = context.nextToken()
+    for {
+      firstToken <- c1.currentTokenOrEndOfInput
+      maybeFirstSelector <- Option(firstToken).collect {
+        case JsonPathToken.ValueString =>
+          c1.valueAsString.map(v => Attribute(v.value))
+        case JsonPathToken.ValueInt =>
+          c1.valueAsNumber.map(v => Index(v.value))
+        case JsonPathToken.Wildcard => Parsed(Wildcard)
+        case JsonPathToken.StartExpression =>
+          c1.valueAsExpression.map(v => Script(v.value))
+        case JsonPathToken.StartFilterExpression =>
+          c1.valueAsExpression.map(v => Filter(v.value))
+      }.sequence
+      c2 = if (maybeFirstSelector.isDefined) c1.nextToken() else c1
+      secondToken <- Option
+        .when(maybeFirstSelector.isDefined)(c2)
+        .traverse(_.currentTokenOrEndOfInput)
+      selector <- (maybeFirstSelector, firstToken, secondToken) match {
+        case (Some(firstSelector), _, Some(JsonPathToken.EndSelector)) =>
+          Parsed(c2 -> firstSelector)
+        case (
+              Some(singleSelector: SingleSelector),
+              _,
+              Some(JsonPathToken.Union)
+            ) =>
+          parseUnion(singleSelector, c2)
+        case (Some(Index(index)), _, Some(JsonPathToken.Slice)) =>
+          parseSlice(c2, index)
+        case (None, JsonPathToken.Slice, None) =>
+          parseSlice(c2, None)
+        case (_, invalidToken, _) =>
+          ParseError.invalidToken(
+            invalidToken,
+            c2.index,
+            c2.input,
+            JsonPathToken.EndSelector,
+            JsonPathToken.Union,
+            JsonPathToken.Slice
+          )
+      }
+    } yield selector
+  }
+
+  private def parseDotSelectorChild(
+      context: JsonPathParseContext
+  ): ParseResult[(JsonPathParseContext, Selector)] = {
+    val nextContext = context.nextToken()
+    nextContext.currentTokenOrEndOfInput.flatMap {
+      case JsonPathToken.Wildcard => Parsed(nextContext -> Wildcard)
+      case JsonPathToken.ValueString =>
+        nextContext.valueAsString
+          .map(string => nextContext -> Attribute(string.value))
+      case JsonPathToken.ValueInt =>
+        nextContext.valueAsNumber
+          .map(number => nextContext -> Index(number.value))
+      case invalidToken =>
+        ParseError.invalidToken(
+          invalidToken,
+          nextContext.index,
+          nextContext.input,
+          JsonPathToken.Wildcard,
+          JsonPathToken.ValueString,
+          JsonPathToken.ValueInt
+        )
+    }
+  }
 }

@@ -31,7 +31,6 @@ class AttributeSpec
   }
 
   it should "escape double quotes in names" in {
-    println(Attribute("\"foobar\"").quotedName)
     Attribute("\"foobar\"").quotedName should be("\"\\\"foobar\\\"\"")
   }
 

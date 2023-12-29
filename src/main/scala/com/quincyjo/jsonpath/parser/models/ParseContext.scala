@@ -13,6 +13,12 @@ abstract class ParseContext[Token <: ParserToken] {
   def index: Int
   def currentTokenResult: OptionT[ParseResult, Token]
 
+  def currentTokenOrEndOfInput: ParseResult[Token] =
+    currentTokenResult
+      .getOrElseF(
+        ParseError("Unexpected end of input.", index, input)
+      )
+
   private var currentValue: Option[ValueAt[_]] = None
 
   def currentToken: Option[Token] =
@@ -33,6 +39,8 @@ abstract class ParseContext[Token <: ParserToken] {
   def value(): ParseResult[ValueAt[Any]]
 
   protected def tokenAt(i: Int): ParseResult[Token]
+
+  def step: ParseResult[Int] = Parsed(0)
 
   def nextIndex: ParseResult[Int] =
     OptionT
@@ -59,18 +67,11 @@ abstract class ParseContext[Token <: ParserToken] {
   protected def valueAs[T](
       pf: PartialFunction[Token, ParseResult[ValueAt[T]]]
   ): ParseResult[ValueAt[T]] =
-    currentTokenResult
-      .semiflatMap { token =>
+    currentTokenOrEndOfInput
+      .flatMap { token =>
         pf.lift(token)
           .getOrElse(ParseError(s"Unexpected token $token", index, input))
       }
-      .getOrElseF(
-        ParseError(
-          s"Unexpected end of input.",
-          index,
-          input
-        )
-      )
       .tap(_.map(v => currentValue = Some(v)))
 
   protected def parseQuotedString(index: Int): ParseResult[ValueAt[String]] =

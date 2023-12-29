@@ -1,9 +1,8 @@
 package com.quincyjo.jsonpath.parser
 
+import com.quincyjo.jsonpath.Expression._
 import com.quincyjo.jsonpath.JsonPath
 import com.quincyjo.jsonpath.JsonPath._
-import com.quincyjo.jsonpath.parser.ExpressionParser.BalancedExpressionParser
-import com.quincyjo.jsonpath.parser.models._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -14,7 +13,7 @@ class JsonPathReaderSpec
     with TableDrivenPropertyChecks
     with ParseResultValues {
 
-  "it" should "parse all basic path nodes" in {
+  "parse" should "parse all basic path nodes" in {
     val cases = Table(
       "input" -> "expected",
       "$" -> $,
@@ -44,7 +43,7 @@ class JsonPathReaderSpec
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathReader(input).parseInput().value should be(expected)
+      JsonPathParser.parse(input).value should be(expected)
     }
   }
 
@@ -59,7 +58,7 @@ class JsonPathReaderSpec
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathReader(input).parseInput().value should be(expected)
+      JsonPathParser.parse(input).value should be(expected)
     }
   }
 
@@ -71,94 +70,46 @@ class JsonPathReaderSpec
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathReader(input).parseInput().value should be(expected)
+      JsonPathParser.parse(input).value should be(expected)
     }
   }
 
   it should "parse expressions according to the configured expression parser" in {
     val cases = Table(
       "input" -> "expected",
-      "$[(@.foobar>3)]" -> $ / ScriptExpression(
-        LiteralExpression("@.foobar>3")
+      "$[(@.foobar>3)]" -> $ / Script(
+        GreaterThan(JsonPathValue(`@` / "foobar"), JsonNumber(3))
       ),
-      "$[?(!!@.length >= 5 && @[5].isValid)]" -> $ / FilterExpression(
-        LiteralExpression("!!@.length >= 5 && @[5].isValid")
+      "$[?(!!@.length >= 5 && @[5].isValid)]" -> $ / Filter(
+        And(
+          GreaterThanOrEqualTo(
+            Not(Not(JsonPathValue(`@` / "length"))),
+            JsonNumber(5)
+          ),
+          JsonPathValue(`@` / 5 / "isValid")
+        )
       )
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathReader(input).parseInput().value should be(expected)
+      JsonPathParser.parse(input).value should be(expected)
     }
   }
 
   "take" should "read up to the first parse error" in {
     val cases = Table(
-      "input" -> "expected",
-      "$.foobar" -> $ / "foobar",
-      "$.foobar > 5" -> $ / "foobar",
-      "$ > 5" -> $,
-      "@[:-1]" -> `@` / Slice.dropRight(1),
-      "['foobar']" -> JsonPath.empty / "foobar"
+      ("input" , "JsonPath", "raw"),
+      ("$.foobar" , $ / "foobar", "$.foobar"),
+      ("$.foobar > 5" , $ / "foobar", "$.foobar "),
+      ("$ > 5" , $, "$ "),
+      ("@[:-1]" , `@` / Slice.dropRight(1), "@[:-1]"),
+      ("['foobar']" , JsonPath.empty / "foobar", "['foobar']"),
     )
 
-    forAll(cases) { (input, expected) =>
-      val result = JsonPathReader(input).take().value
-      result.value should be(expected)
-    }
-  }
-
-  "BalancedExpressionParser" should "parse basic literal expressions" in {
-    val cases = Table(
-      "input" -> "expected",
-      "(@.foo.bar[0])" -> LiteralExpression("@.foo.bar[0]"),
-      "(@.predicate>3 && (@.right < 5 || @.right > 10))" -> LiteralExpression(
-        "@.predicate>3 && (@.right < 5 || @.right > 10)"
-      )
-    )
-
-    forAll(cases) { (input, expected) =>
-      BalancedExpressionParser.getValueAsExpression(input, 0).value match {
-        case ValueAt(expression, index, raw) =>
-          expression should be(expected)
-          index should be(0)
-          raw should be(input)
-      }
-    }
-  }
-
-  it should "parse within bounds of the script expression" in {
-    val cases = Table(
-      "input" -> "expected",
-      "(@.foo.bar[0])].foobar" -> LiteralExpression("@.foo.bar[0]"),
-      "(@.foo.bar[0]),0]" -> LiteralExpression("@.foo.bar[0]")
-    )
-
-    forAll(cases) { (input, expected) =>
-      BalancedExpressionParser.getValueAsExpression(input, 0).value match {
-        case ValueAt(expression, index, raw) =>
-          expression should be(expected)
-          index should be(0)
-          raw should be(s"(${expected.value})")
-      }
-    }
-  }
-
-  it should "parse according to the provided right" in {
-    val cases = Table(
-      ("input", "right", "expected"),
-      ("foobar[(@.foo.bar[0])]", 7, LiteralExpression("@.foo.bar[0]")),
-      ("deadbeef[?(@.foo.bar[0]),0]", 10, LiteralExpression("@.foo.bar[0]"))
-    )
-
-    forAll(cases) { (input, givenIndex, expected) =>
-      BalancedExpressionParser
-        .getValueAsExpression(input, givenIndex)
-        .value match {
-        case ValueAt(expression, index, raw) =>
-          expression should be(expected)
-          index should be(givenIndex)
-          raw should be(s"(${expected.value})")
-      }
+    forAll(cases) { (input, jsonPath, raw) =>
+      val result = JsonPathParser.take(input).value
+      result.value should be(jsonPath)
+      result.raw should be(raw)
     }
   }
 }

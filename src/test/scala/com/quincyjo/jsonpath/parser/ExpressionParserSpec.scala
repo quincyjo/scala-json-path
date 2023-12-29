@@ -1,12 +1,12 @@
 package com.quincyjo.jsonpath.parser
 
-import com.quincyjo.jsonpath.{Expression, JsonPath}
 import com.quincyjo.jsonpath.Expression._
+import com.quincyjo.jsonpath.JsonPath
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class ExpressionParserNewSpec
+class ExpressionParserSpec
     extends AnyFlatSpecLike
     with Matchers
     with ParseResultValues
@@ -31,7 +31,7 @@ class ExpressionParserNewSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParserNew.parse(input).value should be(expected)
+      ExpressionParser.parse(input).value should be(expected)
     }
   }
 
@@ -49,7 +49,7 @@ class ExpressionParserNewSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParserNew.parse(input).value should be(expected)
+      ExpressionParser.parse(input).value should be(expected)
     }
   }
 
@@ -80,7 +80,7 @@ class ExpressionParserNewSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParserNew.parse(input).value should be(expected)
+      ExpressionParser.parse(input).value should be(expected)
     }
   }
 
@@ -94,7 +94,7 @@ class ExpressionParserNewSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParserNew.parse(input).value should be(expected)
+      ExpressionParser.parse(input).value should be(expected)
     }
   }
 
@@ -115,7 +115,7 @@ class ExpressionParserNewSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParserNew.parse(input).value should be(expected)
+      ExpressionParser.parse(input).value should be(expected)
     }
   }
 }

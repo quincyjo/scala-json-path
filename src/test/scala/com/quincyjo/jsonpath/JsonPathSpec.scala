@@ -1,5 +1,6 @@
 package com.quincyjo.jsonpath
 
+import Expression._
 import com.quincyjo.jsonpath.JsonPath._
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -139,17 +140,21 @@ class JsonPathSpec
     Union(1, 2, 3).toString should be("1,2,3")
   }
 
-  "FilterExpression" should "encode with parentheses and leading '?'" in {
-    val expression = LiteralExpression("@.foobar>3")
-    val filterExpression = FilterExpression(expression)
+  "Filter" should "encode with parentheses and leading '?'" in {
+    val expression = GreaterThan(
+      JsonPathValue(`@` / "foobar"), JsonNumber(3)
+    )
+    val filterExpression = Filter(expression)
 
-    filterExpression.toString should be("?(@.foobar>3)")
+    filterExpression.toString should be(s"?($expression)")
   }
 
-  "ScriptExpression" should "encode with parentheses" in {
-    val expression = LiteralExpression("@.foobar>3")
-    val scriptExpression = ScriptExpression(expression)
+  "Script" should "encode with parentheses" in {
+    val expression = GreaterThan(
+      JsonPathValue(`@` / "foobar"), JsonNumber(3)
+    )
+    val scriptExpression = Script(expression)
 
-    scriptExpression.toString should be("(@.foobar>3)")
+    scriptExpression.toString should be(s"($expression)")
   }
 }

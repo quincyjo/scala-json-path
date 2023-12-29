@@ -630,76 +630,15 @@ object JsonPath {
       }
   }
 
-  sealed trait Expression {
-
-    /** Applies the expression to the given context.
-      * @param root
-      *   The root document of the [[JsonPath]] evaluation.
-      * @param current
-      *   The current document for this expression, ie, the json values matched
-      *   by the [[JsonPathNode]] containing this expression.
-      * @tparam Json
-      *   The type of the json.
-      * @return
-      *   The result of the expression.
-      */
-    @throws[UnsupportedOperationException](
-      "If the path contains NonExecutableExpression."
-    )
-    def apply[Json: JsonSupport](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Json
-  }
-
-  trait ExecutableExpression extends Expression
-
-  trait NonExecutableExpression extends Expression {
-
-    override def apply[Json: JsonSupport](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Json =
-      throw new UnsupportedOperationException(
-        s"Cannot execute non-executable expression '$this'. In order to support executing evaluation of script expressions, provide an ExpressionParser via JsonPathParserOptions which parses ExecutableExpressions."
-      )
-  }
-
-  final case class LiteralExpression(value: String)
-      extends NonExecutableExpression {
-
-    override def toString: String = value
-  }
-
-  final case class JsonPathExpression(jsonPath: JsonPath)
-      extends ExecutableExpression {
-
-    override def apply[Json: JsonSupport](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Json =
-      evaluator
-        .evaluate(jsonPath, root, Some(current))
-        .headOption
-        .getOrElse(
-          implicitly[JsonSupport[Json]].Null
-        )
-
-    override def toString: String = jsonPath.toString
-  }
-
   sealed trait ScriptSelector extends Selector
 
-  final case class FilterExpression(expression: Expression)
+  final case class Filter(expression: Expression)
       extends ScriptSelector {
 
     override def toString: String = s"?($expression)"
   }
 
-  final case class ScriptExpression(expression: Expression)
+  final case class Script(expression: Expression)
       extends ScriptSelector {
 
     override def toString: String = s"($expression)"
