@@ -16,6 +16,8 @@ val circeCore = "io.circe" %% "circe-core" % circeVersion
 
 // skip / publish := true
 ThisBuild / version := "0.1"
+// Default to same as circe or SBT isn't happy.
+// https://github.com/sbt/sbt/issues/3465
 ThisBuild / scalaVersion := Scala2_13
 ThisBuild / crossScalaVersions := List(Scala2_13, Scala3)
 ThisBuild / organization := "com.quincyjo"
@@ -61,9 +63,6 @@ lazy val core = project
     name := "Scala Jsonpath",
     moduleName := "scala-json-path",
     commonSettings,
-    // Default to same as circe or SBT isn't happy.
-    // https://github.com/sbt/sbt/issues/3465
-    scalaVersion := Scala2_13,
     crossScalaVersions := List(Scala2_13, Scala3)
   )
 
@@ -73,8 +72,16 @@ lazy val circe = project
   .settings(
     name := "Scala Jsonpath Circe",
     moduleName := "scala-json-path-circe",
-    scalaVersion := Scala2_13,
-    commonSettings,
-    libraryDependencies += circeCore,
-    crossScalaVersions := List(Scala2_13)
+    skip := tlIsScala3.value,
+    update / skip := false,
+    libraryDependencies ++= (
+      if (tlIsScala3.value) Nil
+      else
+        Seq(
+          scalameta,
+          scalaTest,
+          scalaTestFlatSpec,
+          circeCore
+        )
+    )
   )
