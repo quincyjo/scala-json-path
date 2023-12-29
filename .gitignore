@@ -50,12 +50,16 @@
 # sbt's target directories
 /target/
 /project/**/target/
+/modules/**/target/
 /test/macro-annot/target/
 /test/files/target/
 /test/target/
 /build-sbt/
 local.sbt
 jitwatch.out
+.js
+.jvm
+.native
 
 # Used by the restarr/restarrFull commands as target directories
 /build-restarr/

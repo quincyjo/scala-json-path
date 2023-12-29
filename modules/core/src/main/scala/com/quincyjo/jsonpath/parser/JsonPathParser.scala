@@ -65,7 +65,6 @@ object JsonPathParser {
       finalContext <- go(newContext, builder)
       path = builder.result
       finalIndex = finalContext.nextIndex.getOrElse(input.length)
-      _ = println(JsonPath(maybeRoot, path))
     } yield ValueAt(JsonPath(maybeRoot, path), 0, input.take(finalIndex))
   }
 

@@ -1,5 +1,5 @@
-val scala3Version = "3.3.1"
-val scala2Version = "2.13.12"
+val Scala3 = "3.3.1"
+val Scala2_13 = "2.13.12"
 
 val scalatestVersion = "3.2.17"
 val scalaTest = "org.scalatest" %% "scalatest" % scalatestVersion % Test
@@ -8,19 +8,25 @@ val scalaTestFlatSpec =
 
 val scalameta = "org.scalameta" %% "munit" % "0.7.29" % Test
 
-val catsVersion = "2.10.0"
+val catsVersion = "2.9.0"
 val catsCore = "org.typelevel" %% "cats-core" % catsVersion
 
-skip / publish := true
-organization := "com.quincyjo"
-homepage := Some(url("https://github.com/quincyjo/scala-json-path"))
-scmInfo := Some(
+val circeVersion = "0.14.6"
+val circeCore = "io.circe" %% "circe-core" % circeVersion
+
+// skip / publish := true
+ThisBuild / version := "0.1"
+ThisBuild / scalaVersion := Scala2_13
+ThisBuild / organization := "com.quincyjo"
+ThisBuild / homepage := Some(url("https://github.com/quincyjo/scala-json-path"))
+ThisBuild / startYear := Some(2023)
+ThisBuild / scmInfo := Some(
   ScmInfo(
     url("https://github.com/quincyjo/scala-json-path"),
     "git@github.com:quincyjo/scala-json-path.git"
   )
 )
-developers := List(
+ThisBuild / developers := List(
   Developer(
     "quincyjo",
     "Quincy Jo",
@@ -28,21 +34,40 @@ developers := List(
     url("https://github.com/quincyjo")
   )
 )
-licenses += ("Apache-2.0", url("http://www.apache.org/licenses/LICENSE-2.0"))
-ThisBuild / sonatypeCredentialHost := "s01.oss.sonatype.org"
-sonatypeRepository := "https://s01.oss.sonatype.org/service/local"
+ThisBuild / licenses := Seq(License.Apache2)
 
-lazy val root = project
-  .in(file("."))
+val commonSettings = Seq(
+  libraryDependencies ++= Seq(
+    scalameta,
+    scalaTest,
+    scalaTestFlatSpec,
+    catsCore
+  )
+)
+
+lazy val root = tlCrossRootProject
+  .aggregate(core, circe)
+
+lazy val core = project
+  .in(file("modules/core"))
   .settings(
-    name := "scala-jsonpath",
-    version := "0.1.0-SNAPSHOT",
-    scalaVersion := scala3Version,
-    crossScalaVersions := List(scala3Version, scala2Version),
-    libraryDependencies ++= Seq(
-      scalameta,
-      scalaTest,
-      scalaTestFlatSpec,
-      catsCore
-    )
+    name := "Scala Jsonpath",
+    moduleName := "scala-json-path",
+    commonSettings,
+    // Default to same as circe or SBT isn't happy.
+    // https://github.com/sbt/sbt/issues/3465
+    scalaVersion := Scala2_13,
+    crossScalaVersions := List(Scala2_13, Scala3)
+  )
+
+lazy val circe = project
+  .in(file("modules/circe"))
+  .dependsOn(core)
+  .settings(
+    name := "Scala Jsonpath Circe",
+    moduleName := "scala-json-path-circe",
+    scalaVersion := Scala2_13,
+    commonSettings,
+    libraryDependencies += circeCore,
+    crossScalaVersions := List(Scala2_13)
   )
