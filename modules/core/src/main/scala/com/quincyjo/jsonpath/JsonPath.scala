@@ -394,8 +394,6 @@ object JsonPath {
       override def value: SingleSelector = field
     }
 
-    import scala.language.implicitConversions
-
     implicit def toJsFieldSingleSelectorWrapper[T](field: T)(implicit
         w: SingleSelectorMagnet[T]
     ): SingleSelectorWrapper =

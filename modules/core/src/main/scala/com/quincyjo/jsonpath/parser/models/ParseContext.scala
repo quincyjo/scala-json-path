@@ -71,6 +71,8 @@ abstract class ParseContext[Token <: ParserToken] {
               }
             case token: SymbolToken =>
               Parsed(input.indexWhere(!_.isWhitespace, index + token.length))
+            case _ =>
+              ParseError(s"Unexpected token $currentToken", index, input)
           }
       )
       .semiflatMap {

@@ -24,9 +24,8 @@ import com.quincyjo.jsonpath.parser.models._
 
 final case class JsonPathParseContext private (
     input: String,
-    index: Int = 0,
-    currentTokenResult: OptionT[ParseResult, JsonPathToken] =
-      OptionT.none[ParseResult, JsonPathToken]
+    index: Int,
+    currentTokenResult: OptionT[ParseResult, JsonPathToken]
 ) extends ParseContext[JsonPathToken] {
 
   override def nextToken(): JsonPathParseContext = {
@@ -41,9 +40,9 @@ final case class JsonPathParseContext private (
   def valueAsString: ParseResult[ValueAt[String]] =
     valueAs { case JsonPathToken.ValueString =>
       input.charAt(index) match {
-        case quote @ ('\'' | '"') =>
+        case _ @('\'' | '"') =>
           parseQuotedString(index)
-        case other =>
+        case _ =>
           val source = input
             .substring(index)
             .takeWhile(c => c.isLetterOrDigit || c == '_')
@@ -141,7 +140,7 @@ final case class JsonPathParseContext private (
 object JsonPathParseContext {
 
   def apply(input: String): JsonPathParseContext =
-    new JsonPathParseContext(input)
+    new JsonPathParseContext(input, 0, OptionT.none[ParseResult, JsonPathToken])
 
   sealed abstract class JsonPathToken extends ParserToken
 

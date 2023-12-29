@@ -29,9 +29,8 @@ import scala.util.chaining.scalaUtilChainingOps
 
 final case class ExpressionParseContext private (
     input: String,
-    index: Int = 0,
-    currentTokenResult: OptionT[ParseResult, ExpressionToken] =
-      OptionT.none[ParseResult, ExpressionToken]
+    index: Int,
+    currentTokenResult: OptionT[ParseResult, ExpressionToken]
 ) extends ParseContext[ExpressionToken] {
 
   def nextToken(): ExpressionParseContext = {
@@ -139,13 +138,17 @@ final case class ExpressionParseContext private (
 object ExpressionParseContext {
 
   def apply(string: String): ExpressionParseContext =
-    new ExpressionParseContext(string)
+    new ExpressionParseContext(
+      string,
+      0,
+      OptionT.none[ParseResult, ExpressionToken]
+    )
 
   sealed trait ExpressionToken extends ParserToken
 
   object ExpressionToken {
 
-    sealed trait OperatorToken extends ExpressionToken
+    sealed trait OperatorToken extends SymbolToken
 
     sealed trait BinaryToken extends OperatorToken
 

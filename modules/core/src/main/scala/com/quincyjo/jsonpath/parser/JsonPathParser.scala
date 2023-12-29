@@ -54,8 +54,8 @@ object JsonPathParser {
       x <- parseRoot(JsonPathParseContext(input))
       (maybeRoot, newContext) = x
       builder = List.newBuilder[JsonPathNode]
-      finalContext <- go(newContext, builder)
-      path = builder.result
+      _ <- go(newContext, builder)
+      path = builder.result()
     } yield JsonPath(maybeRoot, path)
   }
 
@@ -69,7 +69,7 @@ object JsonPathParser {
       if (!context.hasNext) Parsed(context)
       else
         parseNext(context, builder) match {
-          case error: ParseError => Parsed(context)
+          case _: ParseError => Parsed(context)
           case Parsed(context)   => go(context, builder)
         }
     }
@@ -79,7 +79,7 @@ object JsonPathParser {
       (maybeRoot, newContext) = x
       builder = List.newBuilder[JsonPathNode]
       finalContext <- go(newContext, builder)
-      path = builder.result
+      path = builder.result()
       finalIndex = finalContext.nextIndex.getOrElse(input.length)
     } yield ValueAt(JsonPath(maybeRoot, path), 0, input.take(finalIndex))
   }
@@ -93,7 +93,7 @@ object JsonPathParser {
           Parsed(Some(Root) -> context.nextToken())
         case Some(JsonPathToken.Current) if context.index == 0 =>
           Parsed(Some(Current) -> context.nextToken())
-        case other => Parsed(None -> context)
+        case _ => Parsed(None -> context)
       }
 
   private def parseNext(
@@ -143,7 +143,7 @@ object JsonPathParser {
                     builder.addOne(RecursiveDescent(selector))
                     context
                   }
-                case token =>
+                case _ =>
                   builder.addOne(RecursiveDescent())
                   Parsed(context)
               }
@@ -281,7 +281,7 @@ object JsonPathParser {
           ).mapN { case (value, token) =>
             builder.addOne(Some(value))
             token match {
-              case JsonPathToken.EndSelector => Parsed(c2, builder)
+              case JsonPathToken.EndSelector => Parsed(c2 -> builder)
               case JsonPathToken.Slice       => go(c2, builder)
               case invalidToken =>
                 ParseError.invalidToken(
@@ -316,7 +316,7 @@ object JsonPathParser {
           parts.lift(1).flatten,
           parts.lift(2).flatten
         )
-          .map(slice => Parsed(context, slice))
+          .map(slice => Parsed(context -> slice))
           .getOrElse(
             ParseError(
               "At least one slice parameter is required.",

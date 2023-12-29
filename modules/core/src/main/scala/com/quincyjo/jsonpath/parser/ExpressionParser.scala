@@ -20,12 +20,7 @@ import cats.implicits._
 import com.quincyjo.jsonpath.Expression
 import com.quincyjo.jsonpath.Expression._
 import com.quincyjo.jsonpath.parser.ExpressionParseContext.ExpressionToken
-import com.quincyjo.jsonpath.parser.models.{
-  ParseError,
-  ParseResult,
-  Parsed,
-  ParserToken
-}
+import com.quincyjo.jsonpath.parser.models.{ParseError, ParseResult, Parsed, ParserToken}
 
 import scala.annotation.tailrec
 import scala.collection.mutable

@@ -16,8 +16,6 @@
 
 package com.quincyjo.jsonpath
 
-import scala.language.existentials
-
 sealed trait JsonBean
 
 object JsonBean {
@@ -190,8 +188,6 @@ object JsonBean {
       extends JsonValueWrapper {
     override def value: JsonBean = field
   }
-
-  import scala.language.implicitConversions
 
   implicit def toJsFieldJsonBeanWrapper[T](field: T)(implicit
       w: JsonValueMagnet[T]

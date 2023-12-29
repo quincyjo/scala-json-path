@@ -22,8 +22,6 @@ import org.scalatest.exceptions.{StackDepthException, TestFailedException}
 
 trait ParseResultValues {
 
-  import scala.language.implicitConversions
-
   implicit def convertParseResultToValuable[T](parseResult: ParseResult[T])(
       implicit pos: source.Position
   ): ParseResultValuable[T] =

@@ -18,10 +18,12 @@ package com.quincyjo.jsonpath.parser.util
 
 import com.quincyjo.jsonpath.parser.BalancedExpressionReader.ExpressionGroup
 
+import scala.annotation.nowarn
 import scala.collection.mutable
 
 private[parser] object Across {
 
+  @nowarn
   def across[Out](input: String)(
       f: Iterable[(Char, Int)] => (((Char, Int)) => Boolean) => Out
   )(map: (Char, Int, Boolean) => Boolean, onTrailingEnd: => Out): Out = {

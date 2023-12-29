@@ -42,6 +42,10 @@ val commonSettings = Seq(
     scalaTest,
     scalaTestFlatSpec,
     catsCore
+  ),
+  scalacOptions ++= Seq(
+    "-feature",
+    "-language:implicitConversions"
   )
 )
 

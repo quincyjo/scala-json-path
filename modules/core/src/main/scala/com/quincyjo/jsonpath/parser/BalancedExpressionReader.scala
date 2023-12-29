@@ -24,7 +24,7 @@ final case class BalancedExpressionReader(input: String) {
   def takeGroup: String = {
     val builder = new StringBuilder()
     across(input)(_.takeWhile)(
-      (char, index, isStackEmpty) => {
+      (char, _, isStackEmpty) => {
         builder.addOne(char)
         !isStackEmpty
       },
@@ -35,7 +35,7 @@ final case class BalancedExpressionReader(input: String) {
 
   def isBalanced: Boolean =
     across(input)(_.forall)(
-      (char, index, isStackEmpty) => index + 1 < input.length || isStackEmpty,
+      (_, index, isStackEmpty) => index + 1 < input.length || isStackEmpty,
       onTrailingEnd = false
     )
 

@@ -68,9 +68,7 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
         case Current => current.toList
       }
     ) { case (values, node) =>
-      val newValues = values.flatMap(step(root, _, node))
-      println(s"$node: $newValues")
-      newValues
+      values.flatMap(step(root, _, node))
     }
   }
 
