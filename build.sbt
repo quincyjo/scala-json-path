@@ -17,6 +17,7 @@ val circeCore = "io.circe" %% "circe-core" % circeVersion
 // skip / publish := true
 ThisBuild / version := "0.1"
 ThisBuild / scalaVersion := Scala2_13
+ThisBuild / crossScalaVersions := List(Scala2_13, Scala3)
 ThisBuild / organization := "com.quincyjo"
 ThisBuild / homepage := Some(url("https://github.com/quincyjo/scala-json-path"))
 ThisBuild / startYear := Some(2023)
