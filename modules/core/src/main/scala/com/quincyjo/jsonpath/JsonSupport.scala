@@ -125,8 +125,7 @@ trait JsonSupport[Json] {
 
   /** If the given JSON is an associative, coerce it into a primitive. Else, the
     * JSON is returned unchanged. There is no preferred target primitive type
-    * for this coercion, but this function uses
-    * [[coerceToString]].
+    * for this coercion, but this function uses [[coerceToString]].
     * @param json
     *   The JSON to coerce.
     * @return
