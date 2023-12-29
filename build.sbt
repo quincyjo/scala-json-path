@@ -43,10 +43,12 @@ val commonSettings = Seq(
     scalaTestFlatSpec,
     catsCore
   ),
-  scalacOptions ++= Seq(
-    "-feature",
-    "-language:implicitConversions"
-  )
+  scalacOptions ++= (if (!tlIsScala3.value)
+                       Seq(
+                         "-feature",
+                         "-language:implicitConversions"
+                       )
+                     else Seq.empty)
 )
 
 lazy val root = tlCrossRootProject
