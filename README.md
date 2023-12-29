@@ -122,6 +122,95 @@ scala> JsonBeanEvaluator.evaluate(jsonPath, json)
 val res1: List[JsonBean] = List({ "keep": true }, { "keep": true }, { "keep": true })
 ```
 
+## Modules
+
+### Circe Support
+
+```scala
+scala> val json = Json.obj(
+     |   "products" -> Json.obj(
+     |     "fruit" -> Json.arr(
+     |       Json.obj(
+     |         "label" -> "Apple".asJson,
+     |         "price" -> 2.asJson,
+     |         "quantity" -> 15.asJson
+     |       ),     
+     |       Json.obj(
+     |         "label" -> "Banana".asJson,
+     |         "price" -> 1.asJson,
+     |         "quantity" -> 23.asJson
+     |       )
+     |     ),
+     |     "other" -> Json.arr(
+     |       Json.obj(
+     |         "label" -> "Dinner Set".asJson,
+     |         "price" -> 30.asJson,
+     |         "quantity" -> 2.asJson
+     |       ),
+     |       Json.obj(
+     |         "label" -> "Silverware Set".asJson,
+     |         "price" -> 10.asJson,
+     |         "quantity" -> 4.asJson
+     |       )
+     |     )
+     |   )
+     | )
+val json: io.circe.Json =
+{
+  "products" : {
+    "fruit" : [
+      {
+        "label" : "Apple",
+        "price" : 2,
+        "quantity" : 15
+      },
+      {
+        "label" : "Banana",
+        "price" : 1,
+        "quantity" : 23
+      }
+    ],
+    "other" : [
+      {
+        "label" : "Dinner Set",
+        "price" : 30,
+        "quantity" : 2
+      },
+      {
+        "label" : "Silverware Set",
+        "price" : 10,
+        "quantity" : 4
+      }
+    ]
+  }
+}
+
+scala> val jsonPath = $ / "products" / Wildcard /
+     |   Filter(
+     |     LessThanOrEqualTo(
+     |       JsonPathValue(`@` / "price"),
+     |       JsonNumber(10)
+     |     )
+     |   )
+val jsonPath: com.quincyjo.jsonpath.JsonPath = $.products.*[?(@.price <= 10)]
+
+scala> CirceEvaluator.evaluate(jsonPath, json)
+val res0: List[io.circe.Json] =
+List({
+  "label" : "Apple",
+  "price" : 2,
+  "quantity" : 15
+}, {
+  "label" : "Banana",
+  "price" : 1,
+  "quantity" : 23
+}, {
+  "label" : "Silverware Set",
+  "price" : 10,
+  "quantity" : 4
+})
+```
+
 ## Variance from Core Library
 
 There are a few small variances from the behavior of the core Javascript library in some edge cases.

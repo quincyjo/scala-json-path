@@ -1,3 +1,19 @@
+/*
+ * Copyright 2023 Typelevel
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.quincyjo.jsonpath
 
 import com.quincyjo.jsonpath
@@ -45,15 +61,18 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
       path: JsonPath,
       root: Json,
       current: Option[Json]
-  ): List[Json] =
+  ): List[Json] = {
     path.path.foldLeft(
       path.root.fold(List.empty[Json]) {
         case Root    => List(root)
         case Current => current.toList
       }
     ) { case (values, node) =>
-      values.flatMap(step(root, _, node))
+      val newValues = values.flatMap(step(root, _, node))
+      println(s"$node: $newValues")
+      newValues
     }
+  }
 
   def step(root: Json, json: Json, node: JsonPathNode): Iterable[Json] =
     node match {
@@ -71,13 +90,14 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
       case index: Index         => this.index(json, index.value)
       case Wildcard             => this.wildcard(json)
     }
+
   def select(root: Json, json: Json, selector: Selector): Iterable[Json] =
     selector match {
       case singleSelector: SingleSelector => select(json, singleSelector)
       case union: Union                   => this.union(json, union)
       case slice: Slice                   => this.slice(json, slice)
-      case filter: Filter       => this.filter(json, filter)
-      case script: Script       => this.script(root, json, script)
+      case filter: Filter                 => this.filter(root, json, filter)
+      case script: Script                 => this.script(root, json, script)
     }
 
   def attribute(json: Json, attribute: String): Iterable[Json] =
@@ -120,13 +140,12 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
         }
     }
 
-  def filter(json: Json, filter: Filter): Iterable[Json] = {
+  def filter(root: Json, json: Json, filter: Filter): Iterable[Json] =
     json.arrayOrObject(
       Iterable.empty,
-      _.filter(j => filter.expression(this, json, j).coerceToBoolean),
-      _.values.filter(j => filter.expression(this, json, j).coerceToBoolean)
+      _.filter(j => filter.expression(this, root, j).coerceToBoolean),
+      _.values.filter(j => filter.expression(this, root, j).coerceToBoolean)
     )
-  }
 
   def script(root: Json, json: Json, script: Script): Iterable[Json] =
     script

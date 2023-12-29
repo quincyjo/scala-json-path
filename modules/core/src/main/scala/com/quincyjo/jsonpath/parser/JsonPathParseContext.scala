@@ -1,3 +1,19 @@
+/*
+ * Copyright 2023 Typelevel
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.quincyjo.jsonpath.parser
 
 import cats.data.OptionT
@@ -6,7 +22,7 @@ import com.quincyjo.jsonpath.Expression
 import com.quincyjo.jsonpath.parser.JsonPathParseContext._
 import com.quincyjo.jsonpath.parser.models._
 
-final case class JsonPathParseContext private(
+final case class JsonPathParseContext private (
     input: String,
     index: Int = 0,
     currentTokenResult: OptionT[ParseResult, JsonPathToken] =
@@ -61,12 +77,14 @@ final case class JsonPathParseContext private(
   def valueAsExpression: ParseResult[ValueAt[Expression]] =
     valueAs {
       case JsonPathToken.StartExpression =>
-        val balanced = BalancedExpressionReader(input.substring(index)).takeGroup
+        val balanced =
+          BalancedExpressionReader(input.substring(index)).takeGroup
         ExpressionParser.parse(balanced).map { expression =>
           ValueAt(expression, index, balanced)
         }
       case JsonPathToken.StartFilterExpression =>
-        val balanced = BalancedExpressionReader(input.substring(index + 1)).takeGroup
+        val balanced =
+          BalancedExpressionReader(input.substring(index + 1)).takeGroup
         ExpressionParser.parse(balanced).map { expression =>
           ValueAt(expression, index, s"?$balanced")
         }
@@ -131,9 +149,7 @@ object JsonPathParseContext {
       extends JsonPathToken
       with ParserToken.SymbolToken
 
-  sealed trait ValueToken
-      extends JsonPathToken
-      with ParserToken.ValueToken
+  sealed trait ValueToken extends JsonPathToken with ParserToken.ValueToken
 
   object JsonPathToken {
 

@@ -1,12 +1,11 @@
 package com.quincyjo.jsonpath.parser
 
 import com.quincyjo.jsonpath.parser.BalancedExpressionReader.ExpressionGroup
+import com.quincyjo.jsonpath.parser.BalancedExpressionReader.ExpressionGroup._
+import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.OptionValues
-import BalancedExpressionReader.ExpressionGroup
-import BalancedExpressionReader.ExpressionGroup._
 
 class BalancedExpressionReaderSpec
     extends AnyFlatSpecLike

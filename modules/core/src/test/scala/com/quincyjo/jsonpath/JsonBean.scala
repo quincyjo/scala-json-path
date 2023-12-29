@@ -61,7 +61,7 @@ object JsonBean {
 
   final case class JString(value: String) extends JsonBean {
 
-    override def toString: String = s"\"$value\""
+    override def toString: String = s"""\"$value\""""
   }
 
   case object JNull extends JsonBean {

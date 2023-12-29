@@ -98,12 +98,12 @@ class JsonPathReaderSpec
 
   "take" should "read up to the first parse error" in {
     val cases = Table(
-      ("input" , "JsonPath", "raw"),
-      ("$.foobar" , $ / "foobar", "$.foobar"),
-      ("$.foobar > 5" , $ / "foobar", "$.foobar "),
-      ("$ > 5" , $, "$ "),
-      ("@[:-1]" , `@` / Slice.dropRight(1), "@[:-1]"),
-      ("['foobar']" , JsonPath.empty / "foobar", "['foobar']"),
+      ("input", "JsonPath", "raw"),
+      ("$.foobar", $ / "foobar", "$.foobar"),
+      ("$.foobar > 5", $ / "foobar", "$.foobar "),
+      ("$ > 5", $, "$ "),
+      ("@[:-1]", `@` / Slice.dropRight(1), "@[:-1]"),
+      ("['foobar']", JsonPath.empty / "foobar", "['foobar']")
     )
 
     forAll(cases) { (input, jsonPath, raw) =>

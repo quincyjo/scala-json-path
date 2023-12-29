@@ -252,8 +252,7 @@ class ExpressionSpec
 
     it should "serialize the expression with parentheses if necessary" in {
       val expression = Plus(JsonNumber(5), JsonNumber(5))
-      constructor(expression).toString should be( s"$symbol($expression)"
-      )
+      constructor(expression).toString should be(s"$symbol($expression)")
     }
   }
 
