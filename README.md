@@ -4,6 +4,40 @@
 provides a direct ADT for modeling JSONPaths with support for serialization and parsing. In addition, evaluation of
 JSONPaths may be done on any type of `Json` which provides support via `JsonSupport` API.
 
+## Getting Started
+
+## Getting Started
+
+To get started, you can add play-json as a dependency in your project:
+
+* sbt
+  ```scala
+  libraryDependencies += "com.quincyjo" %% "scala-json-path" % -version-
+  ```
+* Gradle
+  ```
+  compile group: 'com.quincyjo', name: 'scala-json-path_2.13', version: -version-
+  ```
+* Maven
+  ```xml
+  <dependency>
+    <groupId>com.quincyjo</groupId>
+    <artifactId>scala-json-path_2.13</artifactId>
+    <version>-version-</version>
+  </dependency>
+  ```
+
+See [GitHub releases](https://github.com/quincyjo/scala-json-path/releases) for the correct version.
+
+Play JSON supports Scala 2.13 and Scala 3.3+. Choosing the right JAR is automatically managed in sbt. Currently, circe
+does not compile to Scala 3, and so that module is limited to Scala 2.13.
+
+* Modules
+  ```
+  libraryDependencies += "com.quincyjo" %% "scala-json-path-circe" % -version-
+  libraryDependencies += "com.quincyjo" %% "scala-json-path-play" % -version-
+  ```
+
 ## Usage
 
 ### Direct Modeling
@@ -124,7 +158,7 @@ val res1: List[JsonBean] = List({ "keep": true }, { "keep": true }, { "keep": tr
 
 ## Modules
 
-### Circe Support
+### Example with Circe Support
 
 ```scala
 scala> val json = Json.obj(
