@@ -14,6 +14,9 @@ val catsCore = "org.typelevel" %% "cats-core" % catsVersion
 val circeVersion = "0.14.6"
 val circeCore = "io.circe" %% "circe-core" % circeVersion
 
+val playJsonVersion = "3.0.1"
+val playJson = "org.playframework" %% "play-json" % playJsonVersion
+
 // skip / publish := true
 ThisBuild / version := "0.1"
 // Default to same as circe or SBT isn't happy.
@@ -62,8 +65,7 @@ lazy val core = project
   .settings(
     name := "Scala Jsonpath",
     moduleName := "scala-json-path",
-    commonSettings,
-    crossScalaVersions := List(Scala2_13, Scala3)
+    commonSettings
   )
 
 lazy val circe = project
@@ -84,4 +86,14 @@ lazy val circe = project
           circeCore
         )
     )
+  )
+
+lazy val play = project
+  .in(file("modules/play"))
+  .dependsOn(core)
+  .settings(
+    name := "Scala Jsonpath Play",
+    moduleName := "scala-json-path-play",
+    commonSettings,
+    libraryDependencies += playJson
   )
