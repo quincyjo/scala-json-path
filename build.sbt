@@ -58,7 +58,7 @@ val commonSettings = Seq(
 )
 
 lazy val root = tlCrossRootProject
-  .aggregate(core, circe)
+  .aggregate(core, circe, play)
 
 lazy val core = project
   .in(file("modules/core"))
