@@ -23,7 +23,7 @@ import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
-class JsonPathReaderSpec
+class JsonPathParserSpec
     extends AnyFlatSpecLike
     with Matchers
     with TableDrivenPropertyChecks

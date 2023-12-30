@@ -6,8 +6,6 @@ JSONPaths may be done on any type of `Json` which provides support via `JsonSupp
 
 ## Getting Started
 
-## Getting Started
-
 To get started, you can add play-json as a dependency in your project:
 
 * sbt

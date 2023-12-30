@@ -46,11 +46,10 @@ abstract class ParseContext[Token <: ParserToken] {
     currentTokenResult.value.isSuccess &&
       nextIndex.map(_ < input.length).getOrElse(false)
 
-  def peek: ParseResult[Option[Token]] =
+  def peek: OptionT[ParseResult, Token] =
     OptionT
       .whenF(hasNext)(nextIndex)
       .semiflatMap(tokenAt)
-      .value
 
   def value(): ParseResult[ValueAt[Any]]
 
