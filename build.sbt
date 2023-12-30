@@ -41,6 +41,7 @@ ThisBuild / developers := List(
   )
 )
 ThisBuild / licenses := Seq(License.Apache2)
+ThisBuild / tlJdkRelease := Some(11)
 
 val commonSettings = Seq(
   libraryDependencies ++= Seq(
