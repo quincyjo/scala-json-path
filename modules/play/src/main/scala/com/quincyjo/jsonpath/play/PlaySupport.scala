@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Typelevel
+ * Copyright 2023 Quincy Jo
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,18 @@ object PlaySupport extends JsonSupport[JsValue] {
 
   override def boolean(boolean: Boolean): JsValue =
     JsBoolean(boolean)
+
+  override def arr(json: JsValue*): JsValue =
+    JsArray(json.toSeq)
+
+  override def obj(field: (String, JsValue)*): JsValue =
+    JsObject(field.toMap)
+
+  override def fromValues(values: Iterable[JsValue]): JsValue =
+    JsArray(values.toSeq)
+
+  override def fromFields(fields: Iterable[(String, JsValue)]): JsValue =
+    JsObject(fields.toMap)
 
   override def Null: JsValue =
     JsNull

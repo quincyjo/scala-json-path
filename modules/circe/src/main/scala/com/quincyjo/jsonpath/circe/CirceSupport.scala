@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Typelevel
+ * Copyright 2023 Quincy Jo
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,18 @@ object CirceSupport extends JsonSupport[Json] {
 
   override def boolean(boolean: Boolean): Json =
     if (boolean) Json.True else Json.False
+
+  override def arr(json: Json*): Json =
+    Json.fromValues(json)
+
+  override def obj(field: (String, Json)*): Json =
+    Json.fromFields(field)
+
+  override def fromValues(values: Iterable[Json]): Json =
+    Json.fromValues(values)
+
+  override def fromFields(fields: Iterable[(String, Json)]): Json =
+    Json.fromFields(fields)
 
   override def Null: Json =
     Json.Null

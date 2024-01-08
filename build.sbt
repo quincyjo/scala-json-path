@@ -2,11 +2,11 @@ val Scala3 = "3.3.1"
 val Scala2_13 = "2.13.12"
 
 val scalatestVersion = "3.2.17"
-val scalaTest = "org.scalatest" %% "scalatest" % scalatestVersion % Test
+val scalaTest = "org.scalatest" %% "scalatest" % scalatestVersion
 val scalaTestFlatSpec =
-  "org.scalatest" %% "scalatest-flatspec" % scalatestVersion % Test
+  "org.scalatest" %% "scalatest-flatspec" % scalatestVersion
 
-val scalameta = "org.scalameta" %% "munit" % "0.7.29" % Test
+val scalameta = "org.scalameta" %% "munit" % "0.7.29"
 
 val catsVersion = "2.9.0"
 val catsCore = "org.typelevel" %% "cats-core" % catsVersion
@@ -46,11 +46,13 @@ ThisBuild / developers := List(
 ThisBuild / licenses := Seq(License.Apache2)
 ThisBuild / tlJdkRelease := Some(11)
 
+Global / excludeLintKeys += tlBaseVersion
+
 val commonSettings = Seq(
   libraryDependencies ++= Seq(
-    scalameta,
-    scalaTest,
-    scalaTestFlatSpec,
+    scalameta % Test,
+    scalaTest % Test,
+    scalaTestFlatSpec % Test,
     catsCore
   ),
   scalacOptions ++= (if (!tlIsScala3.value)
@@ -62,7 +64,7 @@ val commonSettings = Seq(
 )
 
 lazy val root = tlCrossRootProject
-  .aggregate(core, circe, play)
+  .aggregate(core, circe, play, testBehaviours)
 
 lazy val core = project
   .in(file("modules/core"))
@@ -74,7 +76,7 @@ lazy val core = project
 
 lazy val circe = project
   .in(file("modules/circe"))
-  .dependsOn(core)
+  .dependsOn(core, testBehaviours % Test)
   .settings(
     name := "Scala Jsonpath Circe",
     moduleName := "scala-json-path-circe",
@@ -94,10 +96,23 @@ lazy val circe = project
 
 lazy val play = project
   .in(file("modules/play"))
-  .dependsOn(core)
+  .dependsOn(core, testBehaviours % Test)
   .settings(
     name := "Scala Jsonpath Play",
     moduleName := "scala-json-path-play",
     commonSettings,
     libraryDependencies += playJson
+  )
+
+lazy val testBehaviours = project
+  .in(file("modules/test-behaviours"))
+  .dependsOn(core)
+  .settings(
+    publish / skip := true,
+    update / skip := false,
+    libraryDependencies ++= Seq(
+      scalameta,
+      scalaTest,
+      scalaTestFlatSpec
+    )
   )

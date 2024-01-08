@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Typelevel
+ * Copyright 2023 Quincy Jo
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
   @throws[UnsupportedOperationException](
     "If the path contains NonExecutableExpression."
   )
-  def evaluate(path: JsonPath, json: Json): List[Json] =
+  final def evaluate(path: JsonPath, json: Json): List[Json] =
     evaluate(path, json, None)
 
   /** Apply the JsonPath to the provided context. Unlike
@@ -57,7 +57,7 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
   @throws[UnsupportedOperationException](
     "If the path contains NonExecutableExpression."
   )
-  private[jsonpath] def evaluate(
+  final private[jsonpath] def evaluate(
       path: JsonPath,
       root: Json,
       current: Option[Json]
@@ -72,7 +72,11 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     }
   }
 
-  def step(root: Json, json: Json, node: JsonPathNode): Iterable[Json] =
+  final private[jsonpath] def step(
+      root: Json,
+      json: Json,
+      node: JsonPathNode
+  ): Iterable[Json] =
     node match {
       case RecursiveDescent(selector) =>
         selector.fold(descend(json)) { selector =>
@@ -82,14 +86,21 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
         select(root, json, selector)
     }
 
-  def select(json: Json, selector: SingleSelector): Iterable[Json] =
+  final private[jsonpath] def select(
+      json: Json,
+      selector: SingleSelector
+  ): Iterable[Json] =
     selector match {
       case attribute: Attribute => this.attribute(json, attribute.value)
       case index: Index         => this.index(json, index.value)
       case Wildcard             => this.wildcard(json)
     }
 
-  def select(root: Json, json: Json, selector: Selector): Iterable[Json] =
+  final private[jsonpath] def select(
+      root: Json,
+      json: Json,
+      selector: Selector
+  ): Iterable[Json] =
     selector match {
       case singleSelector: SingleSelector => select(json, singleSelector)
       case union: Union                   => this.union(json, union)
@@ -98,20 +109,26 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
       case script: Script                 => this.script(root, json, script)
     }
 
-  def attribute(json: Json, attribute: String): Iterable[Json] =
+  final private[jsonpath] def attribute(
+      json: Json,
+      attribute: String
+  ): Iterable[Json] =
     json.asObject.flatMap(_.get(attribute)) orElse
       json.asArray.collect {
         case arr if attribute == "length" =>
           implicitly[jsonpath.JsonSupport[Json]].number(arr.size)
       }
 
-  def index(json: Json, index: Int): Iterable[Json] =
+  final private[jsonpath] def index(json: Json, index: Int): Iterable[Json] =
     json.asArray.flatMap(_.lift(index))
 
-  def wildcard(json: Json): Iterable[Json] =
+  final private[jsonpath] def wildcard(json: Json): Iterable[Json] =
     json.arrayOrObject(Iterable.empty, identity, _.values)
 
-  def union(json: Json, union: Union): Iterable[Json] = {
+  final private[jsonpath] def union(
+      json: Json,
+      union: Union
+  ): Iterable[Json] = {
     val builder = Iterable.newBuilder[Json]
     select(json, union.head).foreach(builder.addOne)
     select(json, union.second).foreach(builder.addOne)
@@ -120,7 +137,7 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     builder.result()
   }
 
-  def slice(json: Json, slice: Slice): Iterable[Json] =
+  final private[jsonpath] def slice(json: Json, slice: Slice): Iterable[Json] =
     json.asArray.fold(Iterable.empty[Json]) { arr =>
       val roundedStart = slice.start.fold(0) { start =>
         if (start < 0) arr.size + start else start
@@ -138,14 +155,22 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
         }
     }
 
-  def filter(root: Json, json: Json, filter: Filter): Iterable[Json] =
+  final private[jsonpath] def filter(
+      root: Json,
+      json: Json,
+      filter: Filter
+  ): Iterable[Json] =
     json.arrayOrObject(
       Iterable.empty,
       _.filter(j => filter.expression(this, root, j).coerceToBoolean),
       _.values.filter(j => filter.expression(this, root, j).coerceToBoolean)
     )
 
-  def script(root: Json, json: Json, script: Script): Iterable[Json] =
+  final private[jsonpath] def script(
+      root: Json,
+      json: Json,
+      script: Script
+  ): Iterable[Json] =
     script
       .expression(this, root, json)
       .fold(
@@ -160,7 +185,7 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
         _ => Iterable.empty
       )
 
-  private[jsonpath] def descend(json: Json): List[Json] = {
+  final private[jsonpath] def descend(json: Json): List[Json] = {
 
     @tailrec
     def go(

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Typelevel
+ * Copyright 2023 Quincy Jo
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,10 @@ trait JsonSupport[Json] {
   def string(string: String): Json
   def number(bigDecimal: BigDecimal): Json
   def boolean(boolean: Boolean): Json
+  def arr(json: Json*): Json
+  def obj(field: (String, Json)*): Json
+  def fromValues(values: Iterable[Json]): Json
+  def fromFields(fields: Iterable[(String, Json)]): Json
 
   def Null: Json
 

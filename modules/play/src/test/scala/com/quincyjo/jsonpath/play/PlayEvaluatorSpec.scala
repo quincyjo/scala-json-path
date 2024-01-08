@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Typelevel
+ * Copyright 2023 Quincy Jo
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,50 +16,9 @@
 
 package com.quincyjo.jsonpath.play
 
-import com.quincyjo.jsonpath.Expression._
-import com.quincyjo.jsonpath.JsonPath._
-import org.scalatest.flatspec.AnyFlatSpecLike
-import org.scalatest.matchers.should.Matchers
-import play.api.libs.json._
+import com.quincyjo.jsonpath.JsonPathEvaluatorSpecLike
 
-class PlayEvaluatorSpec extends AnyFlatSpecLike with Matchers {
+class PlayEvaluatorSpec extends JsonPathEvaluatorSpecLike {
 
-  private val apple = Json.obj(
-    "label" -> "Apple",
-    "price" -> 2,
-    "quantity" -> 15
-  )
-  private val banana = Json.obj(
-    "label" -> "Banana",
-    "price" -> 1,
-    "quantity" -> 23
-  )
-  private val json = Json.obj(
-    "products" -> Json.arr(
-      apple,
-      banana,
-      Json.obj(
-        "label" -> "Dinner Set",
-        "price" -> 30,
-        "quantity" -> 2
-      )
-    )
-  )
-
-  "evaluate" should "behave" in {
-    val jsonPath = $ / "products" / Filter(
-      LessThanOrEqualTo(
-        JsonPathValue(`@` / "price"),
-        JsonNumber(10)
-      )
-    )
-
-    PlayEvaluator.evaluate(
-      jsonPath,
-      json
-    ) should contain theSameElementsAs Seq(
-      apple,
-      banana
-    )
-  }
+  it should behave like basicEvaluations(PlayEvaluator)(PlaySupport)
 }

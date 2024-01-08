@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Typelevel
+ * Copyright 2023 Quincy Jo
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,33 +16,10 @@
 
 package com.quincyjo.jsonpath.circe
 
+import com.quincyjo.jsonpath.JsonSupportSpecLike
 import io.circe.Json
-import org.scalatest.flatspec.AnyFlatSpecLike
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks
 
-class CirceSupportSpec
-    extends AnyFlatSpecLike
-    with Matchers
-    with TableDrivenPropertyChecks {
+class CirceSupportSpec extends JsonSupportSpecLike {
 
-  "asObject" should "only be defined for objects" in {
-    val cases = Table[Json, Option[Map[String, Json]]](
-      ("given", "expected"),
-      (Json.Null, None),
-      (Json.fromString("foo"), None),
-      (Json.fromBoolean(true), None),
-      (Json.fromInt(42), None),
-      (Json.arr(Json.True), None),
-      (Json.obj(), Some(Map.empty)),
-      (
-        Json.obj("foo" -> Json.fromString("bar")),
-        Some(Map("foo" -> Json.fromString("bar")))
-      )
-    )
-
-    forAll(cases) { (json, expected) =>
-      CirceSupport.asObject(json) should be(expected)
-    }
-  }
+  it should behave like supportFor[Json](CirceSupport)
 }

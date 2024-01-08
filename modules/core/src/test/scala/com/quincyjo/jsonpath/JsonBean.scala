@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Typelevel
+ * Copyright 2023 Quincy Jo
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -94,6 +94,18 @@ object JsonBean {
 
       override def boolean(boolean: Boolean): JsonBean =
         JBoolean(boolean)
+
+      override def arr(json: JsonBean*): JsonBean =
+        JsonBean.fromValues(json)
+
+      override def obj(field: (String, JsonBean)*): JsonBean =
+        JsonBean.fromAttributes(field)
+
+      override def fromValues(values: Iterable[JsonBean]): JsonBean =
+        JsonBean.fromValues(values)
+
+      override def fromFields(fields: Iterable[(String, JsonBean)]): JsonBean =
+        JsonBean.fromAttributes(fields)
 
       final val Null: JsonBean = JNull
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Typelevel
+ * Copyright 2023 Quincy Jo
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,9 @@ class JsonPathEvaluatorSpec
     val streetAddress = "123 Sesame St"
     val city = "Cityville"
     val country = "ABC"
+    val mobilePhoneType = "mobile"
     val mobilePhoneNumber = "555-111-2222"
+    val homePhoneType = "home"
     val homePhoneNumber = "555-333-4444"
     val address = JsonBean.obj(
       "streetAddress" -> streetAddress,
@@ -43,17 +45,17 @@ class JsonPathEvaluatorSpec
       "country" -> country
     )
     val mobilePhone = JsonBean.obj(
-      "type" -> "mobile",
+      "type" -> mobilePhoneType,
       "number" -> mobilePhoneNumber
     )
     val homePhone = JsonBean.obj(
-      "type" -> "home",
+      "type" -> homePhoneType,
       "number" -> homePhoneNumber
     )
     val phoneNumbers = JsonBean.arr(mobilePhone, homePhone)
     val json = JsonBean.obj(
-      "firstName" -> "Jane",
-      "lastName" -> "Doe",
+      "firstName" -> firstName,
+      "lastName" -> lastName,
       "address" -> address,
       "phoneNumbers" -> phoneNumbers
     )
@@ -84,9 +86,9 @@ class JsonPathEvaluatorSpec
         JsonBean(country),
         mobilePhone,
         homePhone,
-        JsonBean("mobile"),
+        JsonBean(mobilePhoneType),
         JsonBean(mobilePhoneNumber),
-        JsonBean("home"),
+        JsonBean(homePhoneType),
         JsonBean(homePhoneNumber)
       )
     )
@@ -239,7 +241,7 @@ class JsonPathEvaluatorSpec
     )
   }
 
-  "_index" should "select an array's right" in {
+  "index" should "select an array's right" in {
     val givenIndex = 0
     val givenIndexValue = JsonBean.string("Test attribute right!")
     val givenJson = JsonBean.arr(

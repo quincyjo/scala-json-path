@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 Typelevel
+ * Copyright 2023 Quincy Jo
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,33 +16,10 @@
 
 package com.quincyjo.jsonpath.play
 
-import org.scalatest.flatspec.AnyFlatSpecLike
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.prop.TableDrivenPropertyChecks
+import com.quincyjo.jsonpath.JsonSupportSpecLike
 import play.api.libs.json._
 
-class PlaySupportSpec
-    extends AnyFlatSpecLike
-    with Matchers
-    with TableDrivenPropertyChecks {
+class PlaySupportSpec extends JsonSupportSpecLike {
 
-  "asObject" should "only be defined for objects" in {
-    val cases = Table[JsValue, Option[Map[String, JsValue]]](
-      ("given", "expected"),
-      (JsNull, None),
-      (JsString("foo"), None),
-      (JsBoolean(true), None),
-      (JsNumber(42), None),
-      (Json.arr(true), None),
-      (Json.obj(), Some(Map.empty)),
-      (
-        Json.obj("foo" -> "bar"),
-        Some(Map("foo" -> JsString("bar")))
-      )
-    )
-
-    forAll(cases) { case (json, expected) =>
-      PlaySupport.asObject(json) should be(expected)
-    }
-  }
+  it should behave like supportFor[JsValue](PlaySupport)
 }
