@@ -35,9 +35,9 @@ sealed trait ParseResult[+T] {
   def isFailure: Boolean
 
   /** If this parse result is a success, keep it if the value passes the
-    * $predicate, or return the result of the $orElse statement if it fails the
-    * $predicate. If this parse result is a failure, then the failure is
-    * returned.
+    * <pre>predicate</pre>, or return the result of the <pre>orElse</pre>
+    * statement if it fails the <pre>predicate</pre>. If this parse result is a
+    * failure, then the failure is returned.
     *
     * This is equivalent to:
     * {{{
@@ -67,8 +67,9 @@ sealed trait ParseResult[+T] {
       orElse: => ParseResult[B]
   ): ParseResult[B]
 
-  /** Returns the result of applying $f to this parse result value if the parse
-    * result is a success. Otherwise, evaluates expression `orElse`.
+  /** Returns the result of applying <pre>f</pre> to this parse result value if
+    * the parse result is a success. Otherwise, evaluates expression
+    * <pre>orElse</pre>
     *
     * This is equivalent to:
     * {{{
@@ -89,7 +90,7 @@ sealed trait ParseResult[+T] {
   def fold[B](orElse: => B)(f: T => B): B
 
   /** Returns this result right if this is a success, otherwise the result of
-    * $default.
+    * <pre>default</pre>.
     *
     * This is equivalent to:
     * {{{

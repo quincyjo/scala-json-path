@@ -64,7 +64,7 @@ val commonSettings = Seq(
 )
 
 lazy val root = tlCrossRootProject
-  .aggregate(core, circe, play, testBehaviours)
+  .aggregate(core, circe, play)
 
 lazy val core = project
   .in(file("modules/core"))
@@ -108,8 +108,10 @@ lazy val testBehaviours = project
   .in(file("modules/test-behaviours"))
   .dependsOn(core)
   .settings(
+    skip := true,
     publish / skip := true,
     update / skip := false,
+    compile / skip := false,
     libraryDependencies ++= Seq(
       scalameta,
       scalaTest,
