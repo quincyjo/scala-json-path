@@ -19,13 +19,8 @@ package com.quincyjo.jsonpath.parser
 import cats.implicits._
 import com.quincyjo.jsonpath.Expression
 import com.quincyjo.jsonpath.Expression._
-import com.quincyjo.jsonpath.parser.ExpressionParseContext.ExpressionToken
-import com.quincyjo.jsonpath.parser.models.{
-  ParseError,
-  ParseResult,
-  Parsed,
-  ParserToken
-}
+import com.quincyjo.jsonpath.parser.models.ExpressionParseContext.ExpressionToken
+import com.quincyjo.jsonpath.parser.models._
 
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -40,17 +35,14 @@ object ExpressionParser {
         stack: mutable.Stack[Expression],
         pending: mutable.Stack[ExpressionToken.OperatorToken]
     ): ParseResult[ExpressionParseContext] = {
-      context.currentTokenResult
-        .semiflatMap {
+      context.currentTokenOrEndOfInput
+        .flatMap {
           case token: ExpressionToken.BinaryToken =>
             pending.push(token)
             parseExpression(context.nextToken(), stack, pending)
           case _ =>
             parseExpression(context, stack, pending)
-        }
-        .getOrElseF(
-          ParseError(s"Unexpected end of input.", context.index, string)
-        ) match {
+        } match {
         case error: ParseError                   => error
         case Parsed(context) if !context.hasNext => Parsed(context)
         case Parsed(context)                     => go(context.nextToken(), stack, pending)
@@ -133,8 +125,7 @@ object ExpressionParser {
       context: ExpressionParseContext,
       stack: mutable.Stack[Expression],
       pending: mutable.Stack[ExpressionToken.OperatorToken]
-  ): ParseResult[ExpressionParseContext] = {
-
+  ): ParseResult[ExpressionParseContext] =
     pending.headOption
       .map {
         case ExpressionToken.OpenParenthesis =>
@@ -169,7 +160,6 @@ object ExpressionParser {
           resolvePending(expression, context, stack, pending)
         }
     }
-  }
 
   private def makeBinaryOperator(
       token: ExpressionToken.BinaryToken,
@@ -194,8 +184,8 @@ object ExpressionParser {
   }
 
   private def parseValue(context: ExpressionParseContext): ParseResult[Value] =
-    context.currentTokenResult
-      .semiflatMap {
+    context.currentTokenOrEndOfInput
+      .flatMap {
         case ExpressionToken.ValueString =>
           context.valueAsString.map(string => JsonString(string.value))
         case ExpressionToken.ValueBoolean =>
@@ -211,7 +201,4 @@ object ExpressionParser {
             context.input
           )
       }
-      .getOrElseF(
-        ParseError("Unexpected end of input.", context.index, context.input)
-      )
 }

@@ -18,12 +18,15 @@ val playJsonVersion = "3.0.1"
 val playJson = "org.playframework" %% "play-json" % playJsonVersion
 
 // skip / publish := true
-ThisBuild / version := "0.1"
+ThisBuild / tlBaseVersion := "0.1"
+ThisBuild / version := "0.1.1"
 // Default to same as circe or SBT isn't happy.
 // https://github.com/sbt/sbt/issues/3465
 ThisBuild / scalaVersion := Scala2_13
 ThisBuild / crossScalaVersions := List(Scala2_13, Scala3)
 ThisBuild / organization := "com.quincyjo"
+ThisBuild / organizationName := "Quincy Jo"
+ThisBuild / organizationHomepage := Some(url("https://quincyjo.com"))
 ThisBuild / homepage := Some(url("https://github.com/quincyjo/scala-json-path"))
 ThisBuild / startYear := Some(2023)
 ThisBuild / scmInfo := Some(

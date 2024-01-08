@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-package com.quincyjo.jsonpath.parser
+package com.quincyjo.jsonpath.parser.models
 
 import cats.data.OptionT
 import cats.implicits._
 import com.quincyjo.jsonpath.JsonPath
-import com.quincyjo.jsonpath.parser.ExpressionParseContext.ExpressionToken
-import com.quincyjo.jsonpath.parser.ExpressionParseContext.ExpressionToken._
+import com.quincyjo.jsonpath.parser.JsonPathParser
+import com.quincyjo.jsonpath.parser.models.ExpressionParseContext.ExpressionToken
+import com.quincyjo.jsonpath.parser.models.ExpressionParseContext.ExpressionToken._
 import com.quincyjo.jsonpath.parser.models.ParserToken._
-import com.quincyjo.jsonpath.parser.models._
 
 import scala.util.Try
 import scala.util.chaining.scalaUtilChainingOps
 
-final case class ExpressionParseContext private (
+private[parser] final case class ExpressionParseContext private (
     input: String,
     index: Int,
     currentTokenResult: OptionT[ParseResult, ExpressionToken]

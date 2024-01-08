@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-package com.quincyjo.jsonpath.parser
+package com.quincyjo.jsonpath.parser.models
 
 import cats.data.OptionT
 import cats.implicits._
 import com.quincyjo.jsonpath.Expression
-import com.quincyjo.jsonpath.parser.JsonPathParseContext._
-import com.quincyjo.jsonpath.parser.models._
+import com.quincyjo.jsonpath.parser.ExpressionParser
+import com.quincyjo.jsonpath.parser.models.JsonPathParseContext._
+import com.quincyjo.jsonpath.parser.util.BalancedExpressionReader
 
-final case class JsonPathParseContext private (
+private[parser] final case class JsonPathParseContext private (
     input: String,
     index: Int,
     currentTokenResult: OptionT[ParseResult, JsonPathToken]

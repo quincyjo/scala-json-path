@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.quincyjo.jsonpath.parser
+package com.quincyjo.jsonpath.parser.util
 
-import com.quincyjo.jsonpath.parser.BalancedExpressionReader.ExpressionGroup._
 import com.quincyjo.jsonpath.parser.util.Across.across
+import com.quincyjo.jsonpath.parser.util.BalancedExpressionReader.ExpressionGroup._
 
 final case class BalancedExpressionReader(input: String) {
 

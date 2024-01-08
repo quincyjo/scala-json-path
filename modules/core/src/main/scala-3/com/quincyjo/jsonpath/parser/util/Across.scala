@@ -16,7 +16,7 @@
 
 package com.quincyjo.jsonpath.parser.util
 
-import com.quincyjo.jsonpath.parser.BalancedExpressionReader.ExpressionGroup
+import BalancedExpressionReader.ExpressionGroup
 
 import scala.collection.mutable
 import scala.util.boundary

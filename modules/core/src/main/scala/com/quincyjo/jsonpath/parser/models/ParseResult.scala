@@ -17,7 +17,7 @@
 package com.quincyjo.jsonpath.parser.models
 
 import cats.{Applicative, Eval, Monad, Traverse}
-import com.quincyjo.jsonpath.parser.JsonPathParseContext.JsonPathToken
+import com.quincyjo.jsonpath.parser.models.JsonPathParseContext.JsonPathToken
 
 /** Models a parsed right which may have failed.
   *
@@ -26,28 +26,78 @@ import com.quincyjo.jsonpath.parser.JsonPathParseContext.JsonPathToken
   */
 sealed trait ParseResult[+T] {
 
+  /** True if this is a success, false if it is a failure.
+    */
   def isSuccess: Boolean
 
+  /** True if this is a failure, false if it is a success.
+    */
   def isFailure: Boolean
 
-  /** Filter this result based on the given predicate, resulting in the provided
-    * orElse if the predicate is false.
+  /** If this parse result is a success, keep it if the value passes the
+    * $predicate, or return the result of the $orElse statement if it fails the
+    * $predicate. If this parse result is a failure, then the failure is
+    * returned.
+    *
+    * This is equivalent to:
+    * {{{
+    * parseResult match {
+    *   case Parsed(value) if predicate(value) => Parsed(value)
+    *   case Parsed(_) => orElse
+    *   case error: ParseError => error
+    * }}}
+    * This is also equivalent to:
+    * {{{
+    * parseResult.flatMap { value =>
+    *   if (predicate(value)) Parsed(value) else orElse
+    * }
+    * }}}
     * @param predicate
-    *   Filter to apply to this result right.
+    *   Filter to apply to this result value.
     * @param orElse
     *   Value to return if the predicate is false.
     * @tparam B
     *   The type of the right to return if the predicate is false.
     * @return
-    *   This result if it passes the predicate, otherwise the provided orElse.
+    *   If this is a failure, this failure, otherwise this result if it passes
+    *   the predicate, otherwise the provided orElse.
     */
   def filterOrElse[B >: T](
       predicate: T => Boolean,
       orElse: => ParseResult[B]
   ): ParseResult[B]
 
-  /** Returns this result right if this is a success, otherwise the provided
-    * default.
+  /** Returns the result of applying $f to this parse result value if the parse
+    * result is a success. Otherwise, evaluates expression `orElse`.
+    *
+    * This is equivalent to:
+    * {{{
+    * parseResult match {
+    *   case Parsed(x)     => f(x)
+    *   case _: ParseError => ifEmpty
+    * }
+    * }}}
+    * This is also equivalent to:
+    * {{{
+    * parseResult map f getOrElse ifEmpty
+    * }}}
+    * @param orElse
+    *   the expression to evaluate if this result is a failure.
+    * @param f
+    *   the function to apply if this result is a success.
+    */
+  def fold[B](orElse: => B)(f: T => B): B
+
+  /** Returns this result right if this is a success, otherwise the result of
+    * $default.
+    *
+    * This is equivalent to:
+    * {{{
+    * parseResult match {
+    *   case Parsed(value) => value
+    *   case _: ParseError => default
+    * }
+    * }}}
     * @param default
     *   Value to return if this result is a failure.
     * @tparam B
@@ -127,6 +177,8 @@ final case class Parsed[T](value: T) extends ParseResult[T] {
   ): ParseResult[B] =
     if (predicate(value)) this else orElse
 
+  def fold[B](orElse: => B)(f: T => B): B = f(value)
+
   override def getOrElse[B >: T](default: => B): B = value
 
   @throws[ParseError]("If this result is a ParseError.")
@@ -135,7 +187,7 @@ final case class Parsed[T](value: T) extends ParseResult[T] {
 
 final case class ParseError(message: String, index: Int, input: String)
     extends Throwable(
-      s"Failed to parse JsonPath due to '$message' at right $index in '$input'"
+      s"Failed to parse JsonPath due to '$message' at index $index in '$input'"
     )
     // with NoStackTrace
     with ParseResult[Nothing] {
@@ -147,8 +199,9 @@ final case class ParseError(message: String, index: Int, input: String)
   override def filterOrElse[B >: Nothing](
       predicate: Nothing => Boolean,
       orElse: => ParseResult[B]
-  ): ParseResult[B] =
-    this
+  ): ParseResult[B] = this
+
+  def fold[B](orElse: => B)(f: Nothing => B): B = orElse
 
   override def getOrElse[B >: Nothing](default: => B): B = default
 
@@ -165,7 +218,7 @@ object ParseError {
       validTokens: JsonPathToken*
   ): ParseError =
     new ParseError(
-      s"Invalid token $invalidToken at right $i, expected one of: ${validTokens.mkString(", ")}",
+      s"Invalid token $invalidToken at index $i, expected one of: ${validTokens.mkString(", ")}",
       index = i,
       input = input
     )

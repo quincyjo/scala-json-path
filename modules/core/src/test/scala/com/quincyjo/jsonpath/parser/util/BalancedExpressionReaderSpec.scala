@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package com.quincyjo.jsonpath.parser
+package com.quincyjo.jsonpath.parser.util
 
-import com.quincyjo.jsonpath.parser.BalancedExpressionReader.ExpressionGroup
-import com.quincyjo.jsonpath.parser.BalancedExpressionReader.ExpressionGroup._
+import com.quincyjo.jsonpath.parser.util.BalancedExpressionReader.ExpressionGroup
+import com.quincyjo.jsonpath.parser.util.BalancedExpressionReader.ExpressionGroup._
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
