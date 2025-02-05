@@ -83,8 +83,14 @@ private[parser] final case class JsonPathParseContext private (
           ValueAt(expression, index, balanced)
         }
       case JsonPathToken.StartFilterExpression =>
+        val hasParens = input.lift(index + 1).contains('(')
         val balanced =
-          BalancedExpressionReader(input.substring(index + 1)).takeGroup
+          if (hasParens)
+            BalancedExpressionReader(input.substring(index + 1)).takeGroup
+          else
+            BalancedExpressionReader(input.substring(index + 1))
+              .takeUntil(char => char == ']' || char == ',')
+        println(s"Balanced: $balanced, hasParens: $hasParens")
         ExpressionParser.parse(balanced).map { expression =>
           ValueAt(expression, index, s"?$balanced")
         }
@@ -108,8 +114,7 @@ private[parser] final case class JsonPathParseContext private (
         if (input.lift(i + 1).contains('.'))
           Parsed(JsonPathToken.RecursiveDescent)
         else Parsed(JsonPathToken.DotSelector)
-      case '?' if input.lift(i + 1).contains('(') =>
-        Parsed(JsonPathToken.StartFilterExpression)
+      case '?' => Parsed(JsonPathToken.StartFilterExpression)
       case '(' => Parsed(JsonPathToken.StartExpression)
       // case ')'                                    => Parsed(JsonPathToken.EndExpression)
       case ','             => Parsed(JsonPathToken.Union)

@@ -43,18 +43,25 @@ class AttributeSpec
   }
 
   "quotedName" should "wrap simple names in double quotes" in {
-    Attribute("foobar").quotedName should be("\"foobar\"")
+    Attribute("foobar").quotedName should be("'foobar'")
   }
 
   it should "escape double quotes in names" in {
-    Attribute("\"foobar\"").quotedName should be("\"\\\"foobar\\\"\"")
+    Attribute("\"foobar\"").quotedName should be("'\"foobar\"'")
   }
 
-  "toString" should "be just the right for simple names" in {
-    Attribute("foobar").toString should be("foobar")
+  "toString" should "be quoted" in {
+    Attribute("\"foobar\"").toString should be("\'\"foobar\"\'")
   }
 
-  it should "be quoted for complex names" in {
-    Attribute("\"foobar\"").toString should be("\"\\\"foobar\\\"\"")
+  it should "encode things" in {
+    val cases = Table(
+      "input" -> "expected",
+      "foobar's" -> "'foobar\\'s'"
+    )
+
+    forAll(cases) { (input, expected) =>
+      Attribute(input).toString should be(expected)
+    }
   }
 }

@@ -84,4 +84,20 @@ class BalancedExpressionReaderSpec
       BalancedExpressionReader(input).takeGroup should be(expected)
     }
   }
+
+  "takeUntil" should "take until the given predicate" in {
+    val cases = Table(
+      "input" -> "expected",
+      "?foo > 5]" -> "?foo > 5",
+      "?foo > 5, @.foo.bar]" -> "?foo > 5",
+      "?foo > @.foo[?(), ?()]]" -> "?foo > @.foo[?(), ?()]",
+      "?@.foo[5] && $.evaluate]" -> "?@.foo[5] && $.evaluate"
+    )
+
+    forAll(cases) { case (input, expected) =>
+      BalancedExpressionReader(input).takeUntil(char =>
+        char == ',' || char == ']'
+      ) should be(expected)
+    }
+  }
 }

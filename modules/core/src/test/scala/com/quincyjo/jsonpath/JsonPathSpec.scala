@@ -30,13 +30,13 @@ class JsonPathSpec
   "toString" should "encode rooted paths with their root" in {
     val jsonPath = JsonPath.$ / "foobar"
 
-    jsonPath.toString should be("$.foobar")
+    jsonPath.toString should be("$['foobar']")
   }
 
   it should "encode relative paths with leading selector" in {
     val jsonPath = JsonPath.empty / "foobar" / "deadbeef"
 
-    jsonPath.toString should be(".foobar.deadbeef")
+    jsonPath.toString should be("['foobar']['deadbeef']")
   }
 
   "hasParent" should "be true for paths that have a parent" in {
@@ -100,35 +100,35 @@ class JsonPathSpec
     Property(1).toString should be("[1]")
   }
 
-  it should "encode simple attribute with dot notation" in {
-    Property("name").toString should be(".name")
+  it should "encode attributes with single quote brackets" in {
+    Property("name").toString should be("['name']")
   }
 
   it should "encode ambiguous attributes with quotes" in {
-    Property("1").toString should be("[\"1\"]")
+    Property("1").toString should be("['1']")
   }
 
   it should "encode complex attributes with quotes in bracket notation" in {
     Property("Foobar and deadbeef").toString should be(
-      "[\"Foobar and deadbeef\"]"
+      "[\'Foobar and deadbeef\']"
     )
   }
 
-  it should "escape double quotes" in {
-    Property("\"Proper Noun\"").toString should be("[\"\\\"Proper Noun\\\"\"]")
+  it should "escape leave double quotes" in {
+    Property("\"Proper Noun\"").toString should be("['\"Proper Noun\"']")
   }
 
   "RecursiveDescent" should "encode indices with brackets" in {
     RecursiveDescent(1).toString should be("..[1]")
   }
 
-  it should "encode simple attribute with dot notation" in {
-    RecursiveDescent("name").toString should be("..name")
+  it should "encode attributes with bracket notation" in {
+    RecursiveDescent("name").toString should be("..['name']")
   }
 
   it should "encode complex attributes with quotes in bracket notation" in {
     RecursiveDescent("Foobar and deadbeef").toString should be(
-      "..[\"Foobar and deadbeef\"]"
+      "..['Foobar and deadbeef']"
     )
   }
 

@@ -69,14 +69,7 @@ class JsonPathEvaluatorSpec
         JsonBean(mobilePhoneNumber),
         JsonBean(homePhoneNumber)
       ),
-      JsonPath.$ / RecursiveDescent() -> List(
-        json,
-        address,
-        phoneNumbers,
-        mobilePhone,
-        homePhone
-      ),
-      JsonPath.$ / RecursiveDescent() / Wildcard -> List(
+      JsonPath.$ / RecursiveDescent(Wildcard) -> List(
         JsonBean(firstName),
         JsonBean(lastName),
         address,

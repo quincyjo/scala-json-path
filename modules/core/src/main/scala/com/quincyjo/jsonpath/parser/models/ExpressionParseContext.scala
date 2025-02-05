@@ -125,6 +125,9 @@ private[parser] final case class ExpressionParseContext private (
 
   def valueAsJsonPath: ParseResult[ValueAt[JsonPath]] =
     valueAs[JsonPath] { case ExpressionToken.Root | ExpressionToken.Current =>
+      println()
+      println(input.substring(index))
+      println()
       JsonPathParser
         .take(input.substring(index))
         .map {

@@ -16,8 +16,10 @@
 
 package com.quincyjo.jsonpath.parser.models
 
-import cats.{Applicative, Eval, Monad, Traverse}
+import cats.{Applicative, Eval, Monad, MonadError, Traverse}
 import com.quincyjo.jsonpath.parser.models.JsonPathParseContext.JsonPathToken
+
+import scala.util.control.NoStackTrace
 
 /** Models a parsed right which may have failed.
   *
@@ -115,10 +117,12 @@ sealed trait ParseResult[+T] {
   @throws[ParseError]("If this result is a ParseError.")
   def get: T
 }
+
 object ParseResult {
 
   implicit val monad: Monad[ParseResult] = new Monad[ParseResult]
-    with Traverse[ParseResult] {
+    with Traverse[ParseResult]
+    with MonadError[ParseResult, ParseError] {
 
     override def pure[A](x: A): ParseResult[A] =
       Parsed(x)
@@ -145,7 +149,7 @@ object ParseResult {
     )(f: A => G[B]): G[ParseResult[B]] =
       fa match {
         case Parsed(a) =>
-          Applicative[G].map(f(a))(Applicative[ParseResult].pure)
+          Applicative[G].map(f(a))(pure)
         case error: ParseError =>
           Applicative[G].pure(error)
       }
@@ -163,6 +167,15 @@ object ParseResult {
         case Parsed(value) => f(value, lb)
         case _: ParseError => lb
       }
+
+    override def raiseError[A](e: ParseError): ParseResult[A] = e
+
+    override def handleErrorWith[A](fa: ParseResult[A])(
+        f: ParseError => ParseResult[A]
+    ): ParseResult[A] = fa match {
+      case parsed: Parsed[A] => parsed
+      case error: ParseError => f(error)
+    }
   }
 }
 
@@ -190,7 +203,6 @@ final case class ParseError(message: String, index: Int, input: String)
     extends Throwable(
       s"Failed to parse JsonPath due to '$message' at index $index in '$input'"
     )
-    // with NoStackTrace
     with ParseResult[Nothing] {
 
   override val isSuccess: Boolean = false
@@ -219,9 +231,23 @@ object ParseError {
       validTokens: JsonPathToken*
   ): ParseError =
     new ParseError(
-      s"Invalid token $invalidToken at index $i, expected one of: ${validTokens.mkString(", ")}",
+      expectedMessage(validTokens).fold(invalidTokenMessage(invalidToken, i)) {
+        x =>
+          s"${invalidTokenMessage(invalidToken, i)}, $x"
+      },
       index = i,
       input = input
     )
 
+  private def invalidTokenMessage(invalidToken: JsonPathToken, i: Int): String =
+    s"Invalid token $invalidToken at index $i"
+
+  private def expectedMessage(
+      validTokens: Iterable[JsonPathToken]
+  ): Option[String] = {
+    validTokens.headOption.map { head =>
+      if (validTokens.size == 1) s"expected $head"
+      else s"expected one of: ${validTokens.tail.mkString(", ")}"
+    }
+  }
 }

@@ -24,7 +24,7 @@ final case class BalancedExpressionReader(input: String) {
   def takeGroup: String = {
     val builder = new StringBuilder()
     across(input)(_.takeWhile)(
-      (char, _, isStackEmpty) => {
+      (char, _, isStackEmpty, _) => {
         builder.addOne(char)
         !isStackEmpty
       },
@@ -33,12 +33,47 @@ final case class BalancedExpressionReader(input: String) {
     builder.result()
   }
 
+  /** Takes from the input until the given predicate is true outside any
+    * expression group. That is to say that if the predicate alone would be true
+    * inside an expression group then it is ignored. This means that the
+    * expression must be balanced before the predicate can be met.
+    *
+    * This differs from
+    * [[com.quincyjo.jsonpath.parser.util.BalancedExpressionReader.takeGroup]]
+    * in that the first character of the input does not have to begin an
+    * expression group.
+    *
+    * Example:
+    * {{{
+    * scala> BalancedExpressionReader(
+    *     | "This sentence has two periods (one within a group.)."
+    *     | ).takeUntil(_== '.')
+    * val res1: String = This sentence has two periods (one within a group.)
+    * }}}
+    *
+    * @param until
+    *   The predicate to take until.
+    * @return
+    *   The input taken until the predicate is true.
+    */
+  def takeUntil(until: Char => Boolean): String = {
+    val builder = new StringBuilder()
+    across(input)(_.takeWhile)(
+      (char, _, isStackEmpty, stackWasEmptied) => {
+        val isEnd = isStackEmpty && until(char) && !stackWasEmptied
+        if (!isEnd) builder.addOne(char)
+        !isEnd
+      },
+      onTrailingEnd = Iterable.empty
+    )
+    builder.result()
+  }
+
   def isBalanced: Boolean =
     across(input)(_.forall)(
-      (_, index, isStackEmpty) => index + 1 < input.length || isStackEmpty,
+      (_, index, isStackEmpty, _) => index + 1 < input.length || isStackEmpty,
       onTrailingEnd = false
     )
-
 }
 
 object BalancedExpressionReader {
@@ -168,5 +203,4 @@ object BalancedExpressionReader {
         Set(group.start -> group, group.end -> group)
     }.toMap
   }
-
 }

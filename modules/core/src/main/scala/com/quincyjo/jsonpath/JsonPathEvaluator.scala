@@ -35,11 +35,24 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     * @return
     *   A list of all matching JSONs within the given JSON.
     */
-  @throws[UnsupportedOperationException](
-    "If the path contains NonExecutableExpression."
-  )
   final def evaluate(path: JsonPath, json: Json): List[Json] =
     evaluate(path, json, None)
+
+  /** Evaluates the given [[JsonPath]] against the given JSON as a singular
+    * query, that is to say a JSON path that returns a single JSON. If no
+    * results or more than one results are found, then None is returned.
+    * @param path
+    *   The [[JsonPath]] to evaluate against the given JSON.
+    * @param json
+    *   The JSON to match against.
+    * @return
+    *   A singular JSON matching the given path or None.
+    */
+  final def singular(path: JsonPath, json: Json): Option[Json] =
+    evaluate(path, json) match {
+      case single :: Nil => Some(single)
+      case _             => None
+    }
 
   /** Apply the JsonPath to the provided context. Unlike
     * [[evaluate(JsonPath,Json)]], this API is mean for when the root JSON and
@@ -54,9 +67,6 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     * @return
     *   A list of all matching JSONs within the given JSON.
     */
-  @throws[UnsupportedOperationException](
-    "If the path contains NonExecutableExpression."
-  )
   final private[jsonpath] def evaluate(
       path: JsonPath,
       root: Json,
@@ -75,13 +85,11 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
   final private[jsonpath] def step(
       root: Json,
       json: Json,
-      node: JsonPathNode
+      node: JsonPathSegment
   ): Iterable[Json] =
     node match {
       case RecursiveDescent(selector) =>
-        selector.fold(descend(json)) { selector =>
-          descend(json).flatMap(select(root, _, selector))
-        }
+        descend(json).flatMap(select(root, _, selector))
       case Property(selector) =>
         select(root, json, selector)
     }

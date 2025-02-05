@@ -42,7 +42,7 @@ import scala.collection.mutable
   */
 object JsonPathParser {
 
-  private type Builder = mutable.Builder[JsonPathNode, List[JsonPathNode]]
+  private type Builder = mutable.Builder[JsonPathSegment, List[JsonPathSegment]]
 
   /** Parse the input string into a [[JsonPath]] if valid, or a
     * [[models.ParseError]] if not.
@@ -84,7 +84,7 @@ object JsonPathParser {
     for {
       x <- parseRoot(JsonPathParseContext(input))
       (maybeRoot, newContext) = x
-      builder = List.newBuilder[JsonPathNode]
+      builder = List.newBuilder[JsonPathSegment]
       finalContext <- go(newContext, builder)
     } yield finalContext -> JsonPath(maybeRoot, builder.result())
   }
@@ -128,25 +128,29 @@ object JsonPathParser {
     context.currentTokenOrEndOfInput
       .flatMap {
         case JsonPathToken.RecursiveDescent =>
-          context.peek.foldF {
-            builder.addOne(RecursiveDescent())
-            Parsed(context)
-          } {
+          val nextContext = context.nextToken()
+          nextContext.currentTokenOrEndOfInput.flatMap {
             case JsonPathToken.Wildcard | JsonPathToken.ValueInt |
                 JsonPathToken.ValueString =>
-              val nextContext = context.nextToken()
               parseSingleSelector(nextContext).map { selector =>
                 builder.addOne(RecursiveDescent(selector))
                 nextContext
               }
             case JsonPathToken.StartSelector =>
-              parseSelector(context).map { case (context, selector) =>
+              parseSelector(nextContext).map { case (context, selector) =>
                 builder.addOne(RecursiveDescent(selector))
                 context
               }
-            case _ =>
-              builder.addOne(RecursiveDescent())
-              Parsed(context)
+            case invalidToken =>
+              ParseError.invalidToken(
+                invalidToken,
+                nextContext.index,
+                nextContext.input,
+                JsonPathToken.Wildcard,
+                JsonPathToken.ValueInt,
+                JsonPathToken.ValueString,
+                JsonPathToken.StartSelector
+              )
           }
         case invalidToken =>
           ParseError.invalidToken(
@@ -277,7 +281,8 @@ object JsonPathParser {
             ParseError.invalidToken(
               invalidToken,
               nextContext.index,
-              nextContext.input
+              nextContext.input,
+              JsonPathToken.EndSelector
             )
         }
       }

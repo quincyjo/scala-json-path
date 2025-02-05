@@ -48,6 +48,7 @@ class JsonPathParserSpec
       "$.*.deadbeef" -> $ / Wildcard / "deadbeef",
       "$.store.book[*].author" -> $ / "store" / "book" / Wildcard / "author",
       "$..author" -> $ / RecursiveDescent(Attribute("author")),
+      "$..['author']" -> $ / RecursiveDescent(Attribute("author")),
       "$.store.*" -> $ / "store" / Wildcard,
       "$.store..price" -> $ / "store" / RecursiveDescent(Attribute("price")),
       "$..book[2]" -> $ / RecursiveDescent(Attribute("book")) / 2,
@@ -97,6 +98,34 @@ class JsonPathParserSpec
         GreaterThan(JsonPathValue(`@` / "foobar"), JsonNumber(3))
       ),
       "$[?(!!@.length >= 5 && @[5].isValid)]" -> $ / Filter(
+        And(
+          GreaterThanOrEqualTo(
+            Not(Not(JsonPathValue(`@` / "length"))),
+            JsonNumber(5)
+          ),
+          JsonPathValue(`@` / 5 / "isValid")
+        )
+      )
+    )
+
+    forAll(cases) { (input, expected) =>
+      JsonPathParser.parse(input).value should be(expected)
+    }
+  }
+
+  it should "handle filter expressions without parentheses" in {
+    val cases = Table(
+      "input" -> "expected",
+      "$[?@.foobar>3]" -> $ / Filter(
+        GreaterThan(JsonPathValue(`@` / "foobar"), JsonNumber(3))
+      ),
+      /* TODO: RFC is inconclusive if filters can be in a union
+      "$[?@.foobar>3, 'foobar']" -> $ / Filter(
+        GreaterThan(JsonPathValue(`@` / "foobar"), JsonNumber(3))
+      ),
+       */
+      "@[5].isValid" -> `@` / 5 / "isValid",
+      "$[?!!@.length >= 5 && @[5].isValid]" -> $ / Filter(
         And(
           GreaterThanOrEqualTo(
             Not(Not(JsonPathValue(`@` / "length"))),
