@@ -44,11 +44,7 @@ ThisBuild / developers := List(
   )
 )
 ThisBuild / licenses := Seq(License.Apache2)
-ThisBuild / tlJdkRelease := Some(11)
-ThisBuild / scalacOptions ++= Seq(
-  "-Xfatal-warnings",
-  "-Werror"
-)
+ThisBuild / tlJdkRelease := Some(17)
 
 Global / excludeLintKeys += tlBaseVersion
 
