@@ -173,7 +173,7 @@ object ParseResult {
     override def handleErrorWith[A](fa: ParseResult[A])(
         f: ParseError => ParseResult[A]
     ): ParseResult[A] = fa match {
-      case parsed: Parsed[A] => parsed
+      case parsed: Parsed[_] => parsed.asInstanceOf[Parsed[A]]
       case error: ParseError => f(error)
     }
   }
@@ -199,11 +199,17 @@ final case class Parsed[T](value: T) extends ParseResult[T] {
   override def get: T = value
 }
 
-final case class ParseError(message: String, index: Int, input: String)
-    extends Throwable(
-      s"Failed to parse JsonPath due to '$message' at index $index in '$input'"
+final case class ParseError(
+    message: String,
+    index: Int,
+    input: String,
+    cause: Option[Throwable] = None
+) extends Throwable(
+      s"Failed to parse JsonPath due to '$message' at index $index in '$input'",
+      cause.orNull
     )
-    with ParseResult[Nothing] {
+    with ParseResult[Nothing]
+    with NoStackTrace {
 
   override val isSuccess: Boolean = false
 

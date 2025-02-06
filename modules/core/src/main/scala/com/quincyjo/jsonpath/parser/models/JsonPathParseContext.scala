@@ -90,7 +90,6 @@ private[parser] final case class JsonPathParseContext private (
           else
             BalancedExpressionReader(input.substring(index + 1))
               .takeUntil(char => char == ']' || char == ',')
-        println(s"Balanced: $balanced, hasParens: $hasParens")
         ExpressionParser.parse(balanced).map { expression =>
           ValueAt(expression, index, s"?$balanced")
         }
@@ -99,7 +98,8 @@ private[parser] final case class JsonPathParseContext private (
           invalidToken,
           index,
           input,
-          JsonPathToken.ValueString
+          JsonPathToken.StartExpression,
+          JsonPathToken.StartFilterExpression
         )
     }
 

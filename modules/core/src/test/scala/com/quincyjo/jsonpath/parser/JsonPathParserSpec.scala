@@ -157,4 +157,25 @@ class JsonPathParserSpec
       result.raw should be(raw)
     }
   }
+
+  it should "decode escape control characters" in {
+    val cases = Table(
+      "input" -> "expected",
+      "\\b" -> "\b",
+      "\\t" -> "\t",
+      "\\n" -> "\n",
+      "\\f" -> "\f",
+      "\\r" -> "\r",
+      "\\\\" -> "\\",
+      "\\\\\\'" -> "\\'",
+      "\\/" -> "/",
+      "\\'" -> "'",
+      "\\\"" -> "\"",
+      "\\u0061" -> "a"
+    )
+
+    forAll(cases) { case (input, expected) =>
+      JsonPathParser.parse(s"$$['$input']").value should be($ / expected)
+    }
+  }
 }

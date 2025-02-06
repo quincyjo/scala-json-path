@@ -17,7 +17,7 @@
 package com.quincyjo.jsonpath
 
 import com.quincyjo.jsonpath.JsonPath.Attribute
-import org.scalatest.LoneElement
+import org.scalatest.{EitherValues, LoneElement}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -26,6 +26,7 @@ class AttributeSpec
     extends AnyFlatSpecLike
     with Matchers
     with LoneElement
+    with EitherValues
     with TableDrivenPropertyChecks {
 
   "isSimple" should "determine if the name is dot-chainable" in {
@@ -42,15 +43,7 @@ class AttributeSpec
     }
   }
 
-  "quotedName" should "wrap simple names in double quotes" in {
-    Attribute("foobar").quotedName should be("'foobar'")
-  }
-
-  it should "escape double quotes in names" in {
-    Attribute("\"foobar\"").quotedName should be("'\"foobar\"'")
-  }
-
-  "toString" should "be quoted" in {
+  "toString" should "be quoted in single quotes" in {
     Attribute("\"foobar\"").toString should be("\'\"foobar\"\'")
   }
 

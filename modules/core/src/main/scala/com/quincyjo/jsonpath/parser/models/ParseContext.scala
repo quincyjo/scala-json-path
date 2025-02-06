@@ -19,8 +19,8 @@ package com.quincyjo.jsonpath.parser.models
 import cats.data.OptionT
 import cats.implicits._
 import com.quincyjo.jsonpath.parser.models.ParserToken.{SymbolToken, ValueToken}
+import com.quincyjo.jsonpath.parser.util.StringEscapes
 
-import scala.annotation.tailrec
 import scala.util.chaining.scalaUtilChainingOps
 
 abstract class ParseContext[Token <: ParserToken] {
@@ -95,36 +95,11 @@ abstract class ParseContext[Token <: ParserToken] {
     input
       .lift(index)
       .map {
-        case quote @ ('\'' | '"') =>
-          @tailrec
-          def go(
-              i: Int,
-              rawBuilder: StringBuilder,
-              valueBuilder: StringBuilder
-          ): (StringBuilder, StringBuilder) = {
-            if (i < input.length) {
-              val c = input.charAt(i)
-              if (c == quote && !rawBuilder.lastOption.contains('\\'))
-                (rawBuilder.addOne(quote), valueBuilder)
-              else if (c == quote) {
-                valueBuilder.update(valueBuilder.length() - 1, quote)
-                go(i + 1, rawBuilder.addOne(quote), valueBuilder)
-              } else
-                go(i + 1, rawBuilder.addOne(c), valueBuilder.addOne(c))
-            } else (rawBuilder, valueBuilder)
+        case '\'' | '"' =>
+          StringEscapes.takeQuotedString(input.substring(index)) match {
+            case Left(value)  => ParseError(value.getMessage, index, input)
+            case Right(value) => Parsed(ValueAt(value.value, index, value.raw))
           }
-
-          go(
-            index + 1,
-            new StringBuilder().addOne(quote),
-            new StringBuilder()
-          ) match {
-            case (raw, value) =>
-              if (raw.length > 1 && raw.endsWith(quote.toString))
-                Parsed(ValueAt(value.result(), index, raw.result()))
-              else ParseError("Unclosed quotation.", index, input)
-          }
-
         case nonQuote =>
           ParseError(s"Expected JSON string but was '$nonQuote'", index, input)
       }

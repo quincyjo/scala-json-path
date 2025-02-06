@@ -18,8 +18,8 @@ val playJsonVersion = "3.0.1"
 val playJson = "org.playframework" %% "play-json" % playJsonVersion
 
 // skip / publish := true
-ThisBuild / tlBaseVersion := "0.1"
-ThisBuild / version := "0.1.0"
+ThisBuild / tlBaseVersion := "0.2"
+ThisBuild / version := "0.2.0"
 // Default to same as circe or SBT isn't happy.
 // https://github.com/sbt/sbt/issues/3465
 ThisBuild / scalaVersion := Scala2_13
@@ -45,6 +45,10 @@ ThisBuild / developers := List(
 )
 ThisBuild / licenses := Seq(License.Apache2)
 ThisBuild / tlJdkRelease := Some(11)
+ThisBuild / scalacOptions ++= Seq(
+  "-Xfatal-warnings",
+  "-Werror"
+)
 
 Global / excludeLintKeys += tlBaseVersion
 
@@ -80,18 +84,8 @@ lazy val circe = project
   .settings(
     name := "Scala Jsonpath Circe",
     moduleName := "scala-json-path-circe",
-    skip := tlIsScala3.value,
-    update / skip := false,
-    libraryDependencies ++= (
-      if (tlIsScala3.value) Nil
-      else
-        Seq(
-          scalameta,
-          scalaTest,
-          scalaTestFlatSpec,
-          circeCore
-        )
-    )
+    tlVersionIntroduced := Map("3" -> "0.2.0"),
+    libraryDependencies ++= Seq(circeCore)
   )
 
 lazy val play = project

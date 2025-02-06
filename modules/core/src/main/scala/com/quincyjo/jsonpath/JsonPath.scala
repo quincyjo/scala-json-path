@@ -19,12 +19,13 @@ package com.quincyjo.jsonpath
 import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.JsonPath.SingleSelector.SingleSelectorWrapper
 import com.quincyjo.jsonpath.JsonPath._
+import com.quincyjo.jsonpath.parser.util.StringEscapes
 // import scala.annotation.{tailrec, targetName}
 
 final case class JsonPath(
     root: Option[JsonPathRoot],
     path: List[JsonPathSegment]
-) {
+) extends Serializable {
 
   /** Returns true if this path is absolute, IE; if it has is rooted in the root
     * document.
@@ -100,7 +101,7 @@ final case class JsonPath(
 
   /** DSL to append a child [[JsonPath.Selector]] to this [[JsonPath]].
     * @param singleSelectorWrapper
-    *   A wrapped [[JsonPath.SingleSelector]] right.
+    *   A wrapped [[JsonPath.SingleSelector]] to append.
     * @return
     *   This path with the given selector appended.
     */
@@ -318,9 +319,9 @@ object JsonPath {
 
   }
 
-  /** Recursively descends through exposing all associative JSON nodes
-    * throughout the target right. If a selector is provided, then that selector
-    * will be applied to each associative discovered by the recursive descent.
+  /** Recursively descends through a JSON, exposing all associative JSON nodes
+    * throughout the target right. The provided selector is then applied to each
+    * JSON discovered by the recursive descent.
     *
     * @param selector
     *   A selector to apply to the recursive descent.
@@ -340,8 +341,8 @@ object JsonPath {
       apply(selector.value)
   }
 
-  /** [[JsonPathSegment]] that applies a [[Selector]] to a JSON right to match
-    * zero or more of its leaf nodes.
+  /** [[JsonPathSegment]] that applies a [[Selector]] to a JSON to match zero or
+    * more of its leaf nodes.
     * @param selector
     *   The [[Selector]] which this node contains.
     */
@@ -369,14 +370,14 @@ object JsonPath {
       new Property(Index(index))
   }
 
-  /** A description of a selection of properties of a JSON right, such as an
-    * right, attribute, slice, etc.
+  /** A description of a selection of properties of a JSON value, such as an
+    * index, attribute, slice, etc.
     */
   sealed trait Selector
 
   /** A selector which describes a single property selection, and is not
-    * composed of other selectors. This includes selection by attribute right,
-    * right, or wildcard. Single selectors may be composed into a union.
+    * composed of other selectors. This includes selection by attribute name,
+    * array index, or wildcard. Single selectors may be composed into a union.
     */
   sealed trait SingleSelector extends Selector { // TODO: Add slices, and maybe filters? RFC seems unclear.
 
@@ -427,56 +428,42 @@ object JsonPath {
     }
   }
 
-  /** Selects the given attribute by right from a JSON object.
+  /** Selects the given attribute by name from a JSON object.
+    *
     * @param value
-    *   The attribute right to select.
+    *   The attribute name to select.
     */
   final case class Attribute(value: String) extends SingleSelector {
 
-    /** Returns true if the right is a simple identifier, meaning that it only
+    /** Returns true if the name is a simple identifier, meaning that it only
       * contains letters and digits.
       * @return
-      *   True if the right is a simple identifier or false otherwise.
+      *   True if the name is a simple identifier or false otherwise.
       */
     def isSimple: Boolean =
       value.headOption.forall(_.isLetter) && value.forall(_.isLetterOrDigit)
 
-    def quotedName: String = s"'$encoded'"
-
-    // TODO: Write full escaping code.
-    private def encoded: String = value
-      .replace("\\", "\\\\")
-      .replace("\b", "\\b")
-      .replace("\t", "\\t")
-      .replace("\n", "\\n")
-      .replace("\f", "\\f")
-      .replace("\r", "\\r")
-      .replace("\'", "\\'")
-
     override def toString: String =
-      quotedName
+      s"'${StringEscapes.escape(value)}'"
   }
 
   object Attribute {
-
-    def decode(string: String): Attribute =
-      new Attribute(StringContext.processEscapes(string))
 
     // TODO: Remove in favour of extension function.
     final val length = Attribute("length")
   }
 
-  /** Selects the given right from a JSON array.
+  /** Selects the given index from a JSON array.
     * @param value
-    *   The right to select.
+    *   The index to select.
     */
   final case class Index(value: Int) extends SingleSelector {
 
     override def toString: String = value.toString
   }
 
-  /** Selects all direct children of an associative JSON right. If the target
-    * right is atomic, nothing is matched.
+  /** Selects all direct children of an associative JSON. If the target is
+    * atomic, nothing is matched.
     */
   case object Wildcard extends SingleSelector {
 
@@ -554,8 +541,8 @@ object JsonPath {
 
   object Slice {
 
-    /** Creates a slice with the given start right, ie, the subarray from the
-      * given idnex.
+    /** Creates a slice with the given start index, ie, the subarray from the
+      * given index`.
       * @param int
       *   The start of the slice.
       * @return
@@ -563,8 +550,8 @@ object JsonPath {
       */
     def start(int: Int): Slice = new Slice(Some(int), None, None)
 
-    /** Creates a slice with the given end right, ie, the subarray up to the
-      * given right.
+    /** Creates a slice with the given end index, ie, the subarray up to the
+      * given index.
       * @param int
       *   The end of the slice.
       * @return
@@ -594,7 +581,7 @@ object JsonPath {
       */
     def take(n: Int): Slice = end(n)
 
-    /** Creates a slice which takes the rightmost `n` elements of the array.
+    /** Creates a slice which takes the right most `n` elements of the array.
       * @param n
       *   The number of elements to take.
       * @return
@@ -602,7 +589,7 @@ object JsonPath {
       */
     def takeRight(n: Int): Slice = start(0 - n)
 
-    /** Creates a slice which drops the rightmost `n` elements of the array.
+    /** Creates a slice which drops the right most `n` elements of the array.
       * @param n
       *   The number of elements to drop.
       * @return
@@ -620,9 +607,9 @@ object JsonPath {
 
     /** Creates a slice with the given start and end.
       * @param start
-      *   The starting right of the slice, inclusive.
+      *   The starting index of the slice, inclusive.
       * @param end
-      *   The ending right of the slice, exclusive.
+      *   The ending index of the slice, exclusive.
       * @return
       *   The slice.
       */
@@ -631,9 +618,9 @@ object JsonPath {
 
     /** Creates a slice with the given start, end, and step.
       * @param start
-      *   The starting right of the slice, inclusive.
+      *   The starting index of the slice, inclusive.
       * @param end
-      *   The ending right of the slice, exclusive.
+      *   The ending index of the slice, exclusive.
       * @param step
       *   The step of the slice.
       * @return
@@ -646,9 +633,9 @@ object JsonPath {
       * none of the parameters are defined, then [[scala.None]] will be
       * returned, otherwise the slice will be returned.
       * @param start
-      *   The starting right of the slice, inclusive.
+      *   The starting index of the slice, inclusive.
       * @param end
-      *   The ending right of the slice, exclusive.
+      *   The ending index of the slice, exclusive.
       * @param step
       *   The step of the slice.
       * @return
@@ -672,6 +659,7 @@ object JsonPath {
     override def toString: String = s"?($expression)"
   }
 
+  // TODO: Looks like non-filter script are not a thing in the RFC.
   final case class Script(expression: Expression) extends ScriptSelector {
 
     override def toString: String = s"($expression)"
