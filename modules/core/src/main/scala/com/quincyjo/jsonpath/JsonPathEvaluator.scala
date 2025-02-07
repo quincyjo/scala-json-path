@@ -26,6 +26,7 @@ import scala.collection.mutable
 
 abstract class JsonPathEvaluator[Json: JsonSupport] {
 
+  // TODO: Model out a Node and return a list of those instead.
   /** Apply this JsonPath to a JSON, returning a list of JSON values matching
     * this path within the given JSON.
     * @param path
@@ -72,8 +73,8 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
       root: Json,
       current: Option[Json]
   ): List[Json] = {
-    path.path.foldLeft(
-      path.root.fold(List.empty[Json]) {
+    path.segments.foldLeft(
+      path.root match {
         case Root    => List(root)
         case Current => current.toList
       }
@@ -90,18 +91,10 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     node match {
       case RecursiveDescent(selector) =>
         descend(json).flatMap(select(root, _, selector))
-      case Property(selector) =>
+      case Child(selector) =>
         select(root, json, selector)
-    }
-
-  final private[jsonpath] def select(
-      json: Json,
-      selector: SingleSelector
-  ): Iterable[Json] =
-    selector match {
-      case attribute: Attribute => this.attribute(json, attribute.value)
-      case index: Index         => this.index(json, index.value)
-      case Wildcard             => this.wildcard(json)
+      case Children(selector) =>
+        select(root, json, selector)
     }
 
   final private[jsonpath] def select(
@@ -110,11 +103,13 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
       selector: Selector
   ): Iterable[Json] =
     selector match {
-      case singleSelector: SingleSelector => select(json, singleSelector)
-      case union: Union                   => this.union(json, union)
-      case slice: Slice                   => this.slice(json, slice)
-      case filter: Filter                 => this.filter(root, json, filter)
-      case script: Script                 => this.script(root, json, script)
+      case attribute: Attribute => this.attribute(json, attribute.value)
+      case index: Index         => this.index(json, index.value)
+      case union: Union         => this.union(root, json, union)
+      case slice: Slice         => this.slice(json, slice)
+      case filter: Filter       => this.filter(root, json, filter)
+      case script: Script       => this.script(root, json, script)
+      case Wildcard             => this.wildcard(json)
     }
 
   final private[jsonpath] def attribute(
@@ -134,14 +129,15 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     json.arrayOrObject(Iterable.empty, identity, _.values)
 
   final private[jsonpath] def union(
+      root: Json,
       json: Json,
       union: Union
   ): Iterable[Json] = {
     val builder = Iterable.newBuilder[Json]
-    select(json, union.head).foreach(builder.addOne)
-    select(json, union.second).foreach(builder.addOne)
+    select(root, json, union.head).foreach(builder.addOne)
+    select(root, json, union.second).foreach(builder.addOne)
     for (selector <- union.tail)
-      yield select(json, selector).foreach(builder.addOne)
+      yield select(root, json, selector).foreach(builder.addOne)
     builder.result()
   }
 

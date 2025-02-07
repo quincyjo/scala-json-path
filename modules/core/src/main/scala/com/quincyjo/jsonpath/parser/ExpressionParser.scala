@@ -93,7 +93,7 @@ object ExpressionParser {
             .map {
               case ExpressionToken.OpenParenthesis =>
                 resolvePending(
-                  stack.removeHeadOption().getOrElse(JsonNull),
+                  stack.removeHeadOption().getOrElse(LiteralNull),
                   context,
                   stack,
                   pending
@@ -187,11 +187,11 @@ object ExpressionParser {
     context.currentTokenOrEndOfInput
       .flatMap {
         case ExpressionToken.ValueString =>
-          context.valueAsString.map(string => JsonString(string.value))
+          context.valueAsString.map(string => LiteralString(string.value))
         case ExpressionToken.ValueBoolean =>
-          context.valueAsBoolean.map(boolean => JsonBoolean(boolean.value))
+          context.valueAsBoolean.map(boolean => LiteralBoolean(boolean.value))
         case ExpressionToken.ValueNumber =>
-          context.valueAsNumber.map(number => JsonNumber(number.value))
+          context.valueAsNumber.map(number => LiteralNumber(number.value))
         case ExpressionToken.Root | ExpressionToken.Current =>
           context.valueAsJsonPath.map(jsonPath => JsonPathValue(jsonPath.value))
         case otherToken =>

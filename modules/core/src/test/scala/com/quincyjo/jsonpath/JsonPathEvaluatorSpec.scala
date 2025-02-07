@@ -122,15 +122,6 @@ class JsonPathEvaluatorSpec
     }
   }
 
-  it should "resolve to nothing if there is no root" in {
-    val json = JsonBean.obj(
-      "foobar" -> "deadbeef"
-    )
-
-    val jsonPath = JsonPath.empty / "foobar"
-    JsonBeanEvaluator.evaluate(jsonPath, json) should be(empty)
-  }
-
   it should "return atomic json values" in {
     val cases = Table(
       "json" -> "expected",
@@ -318,6 +309,7 @@ class JsonPathEvaluatorSpec
 
     JsonBeanEvaluator.union(
       givenJson,
+      givenJson,
       union
     ) should contain theSameElementsAs targetIndices.map(
       JsonBean.number
@@ -338,6 +330,7 @@ class JsonPathEvaluatorSpec
       Union(targetAttributes.head, targetAttributes(1), targetAttributes(2))
 
     JsonBeanEvaluator.union(
+      givenJson,
       givenJson,
       union
     ) should contain theSameElementsAs targetAttributes.map(raw)

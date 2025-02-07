@@ -27,16 +27,16 @@ class JsonPathSpec
     with Matchers
     with TableDrivenPropertyChecks {
 
-  "toString" should "encode rooted paths with their root" in {
+  "toString" should "encode absolute paths with a leading $" in {
     val jsonPath = JsonPath.$ / "foobar"
 
     jsonPath.toString should be("$['foobar']")
   }
 
-  it should "encode relative paths with leading selector" in {
-    val jsonPath = JsonPath.empty / "foobar" / "deadbeef"
+  it should "encode relative paths a leading @" in {
+    val jsonPath = JsonPath.`@` / "foobar" / "deadbeef"
 
-    jsonPath.toString should be("['foobar']['deadbeef']")
+    jsonPath.toString should be("@['foobar']['deadbeef']")
   }
 
   "hasParent" should "be true for paths that have a parent" in {
@@ -53,7 +53,7 @@ class JsonPathSpec
 
   "resolve" should "append relative paths" in {
     val rootJsonPath = JsonPath.$ / "foobar"
-    val relativeJsonPath = JsonPath.empty / "deadbeef"
+    val relativeJsonPath = JsonPath.`@` / "deadbeef"
 
     rootJsonPath.resolve(relativeJsonPath) should be(
       JsonPath.$ / "foobar" / "deadbeef"
@@ -70,12 +70,12 @@ class JsonPathSpec
   it should "be the base path if the other path is empty" in {
     val rootJsonPath = JsonPath.$ / "foobar"
 
-    rootJsonPath.resolve(JsonPath.empty) should be(rootJsonPath)
+    rootJsonPath.resolve(JsonPath.`@`) should be(rootJsonPath)
   }
 
   "resolveSibling" should "resolve relative paths against the parent path" in {
     val rootJsonPath = JsonPath.$ / "foobar"
-    val relativeJsonPath = JsonPath.empty / "deadbeef"
+    val relativeJsonPath = JsonPath.`@` / "deadbeef"
 
     rootJsonPath.resolveSibling(relativeJsonPath) should be(
       JsonPath.$ / "deadbeef"
@@ -91,31 +91,31 @@ class JsonPathSpec
 
   it should "take the other path if this path has no parent" in {
     val rootJsonPath = JsonPath.$
-    val otherJsonPath = JsonPath.empty / "deadbeef"
+    val otherJsonPath = JsonPath.`@` / "deadbeef"
 
     rootJsonPath.resolveSibling(otherJsonPath) should be(otherJsonPath)
   }
 
   "Property" should "encode indices with brackets" in {
-    Property(1).toString should be("[1]")
+    Child(1).toString should be("[1]")
   }
 
   it should "encode attributes with single quote brackets" in {
-    Property("name").toString should be("['name']")
+    Child("name").toString should be("['name']")
   }
 
   it should "encode ambiguous attributes with quotes" in {
-    Property("1").toString should be("['1']")
+    Child("1").toString should be("['1']")
   }
 
   it should "encode complex attributes with quotes in bracket notation" in {
-    Property("Foobar and deadbeef").toString should be(
+    Child("Foobar and deadbeef").toString should be(
       "[\'Foobar and deadbeef\']"
     )
   }
 
   it should "escape leave double quotes" in {
-    Property("\"Proper Noun\"").toString should be("['\"Proper Noun\"']")
+    Child("\"Proper Noun\"").toString should be("['\"Proper Noun\"']")
   }
 
   "RecursiveDescent" should "encode indices with brackets" in {
@@ -159,7 +159,7 @@ class JsonPathSpec
   "Filter" should "encode with parentheses and leading '?'" in {
     val expression = GreaterThan(
       JsonPathValue(`@` / "foobar"),
-      JsonNumber(3)
+      LiteralNumber(3)
     )
     val filterExpression = Filter(expression)
 
@@ -169,7 +169,7 @@ class JsonPathSpec
   "Script" should "encode with parentheses" in {
     val expression = GreaterThan(
       JsonPathValue(`@` / "foobar"),
-      JsonNumber(3)
+      LiteralNumber(3)
     )
     val scriptExpression = Script(expression)
 

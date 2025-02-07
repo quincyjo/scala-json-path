@@ -17,6 +17,7 @@
 package com.quincyjo.jsonpath
 
 import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
+import com.quincyjo.jsonpath.parser.util.StringEscapes
 
 sealed trait Expression {
 
@@ -57,6 +58,10 @@ object Expression {
       }}"
   }
 
+  // Literals, singular queries, functions of ValueType
+  trait Comparable
+
+  // Extends LogicalType
   sealed trait Comparator extends BinaryOperator {
 
     protected def compare[Json: JsonSupport](
@@ -85,14 +90,52 @@ object Expression {
     }
   }
 
+  // This is effectively ValueType
   sealed trait Value extends Expression
 
-  sealed trait JsonValue extends Value {
+  // Open trait for extension functions.
+  trait Extension
+
+  sealed trait ExtensionType
+
+  // JSON atomic literal or Nothing
+  // Can be coerced from a singular query.
+  trait ValueType extends ExtensionType {
+
+    def apply[Json: JsonSupport](
+        evaluator: JsonPathEvaluator[Json],
+        root: Json,
+        current: Json
+    ): Option[Json]
+  }
+
+  // Logical true or false, distinct from JSON true or false
+  // Can be coerced from a NodesType via size of at least 1
+  trait LogicalType extends ExtensionType {
+
+    def apply[Json: JsonSupport](
+        evaluator: JsonPathEvaluator[Json],
+        root: Json,
+        current: Json
+    ): Boolean
+  }
+
+  // JSONPath results as inputs, eg value(@['foobar'])
+  trait NodesType extends ExtensionType {
+
+    def apply[Json: JsonSupport](
+        evaluator: JsonPathEvaluator[Json],
+        root: Json,
+        current: Json
+    ): List[Json]
+  }
+
+  sealed trait Literal extends Value {
 
     def asJson[Json: JsonSupport]: Json
   }
 
-  case object JsonNull extends JsonValue {
+  case object LiteralNull extends Literal {
 
     override def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
@@ -106,7 +149,7 @@ object Expression {
     override def toString: String = "null"
   }
 
-  final case class JsonString(value: String) extends JsonValue {
+  final case class LiteralString(value: String) extends Literal {
 
     override def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
@@ -118,10 +161,10 @@ object Expression {
       implicitly[JsonSupport[Json]].string(value)
 
     override def toString: String =
-      s"""\"${value.replace("\"", "\\\"")}\""""
+      s"""\"${StringEscapes.escapeDoubleQuotes(value)}\""""
   }
 
-  final case class JsonNumber(value: BigDecimal) extends JsonValue {
+  final case class LiteralNumber(value: BigDecimal) extends Literal {
 
     override def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
@@ -135,7 +178,7 @@ object Expression {
     override def toString: String = value.toString
   }
 
-  final case class JsonBoolean(value: Boolean) extends JsonValue {
+  final case class LiteralBoolean(value: Boolean) extends Literal {
 
     override def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
@@ -149,13 +192,14 @@ object Expression {
     override def toString: String = value.toString
   }
 
+  // Extends NodesType, always coercible to LogicalType, and sometimes ValueType
   final case class JsonPathValue(path: JsonPath) extends Value {
 
     override def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
+    ): Json = // TODO: This should return Nothing on empty matches
       evaluator
         .evaluate(path, root, Some(current))
         .headOption

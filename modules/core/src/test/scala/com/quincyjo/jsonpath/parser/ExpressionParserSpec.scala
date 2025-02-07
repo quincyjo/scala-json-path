@@ -31,19 +31,19 @@ class ExpressionParserSpec
   "parse" should "handle basic expressions" in {
     val cases = Table(
       "input" -> "expected",
-      "5 == 5" -> Equal(JsonNumber(5), JsonNumber(5)),
-      "5 != 5" -> NotEqual(JsonNumber(5), JsonNumber(5)),
-      "5 > 5" -> GreaterThan(JsonNumber(5), JsonNumber(5)),
-      "5 >= 5" -> GreaterThanOrEqualTo(JsonNumber(5), JsonNumber(5)),
-      "'a' < 'b'" -> LessThan(JsonString("a"), JsonString("b")),
-      "5 <= 5" -> LessThanOrEqualTo(JsonNumber(5), JsonNumber(5)),
+      "5 == 5" -> Equal(LiteralNumber(5), LiteralNumber(5)),
+      "5 != 5" -> NotEqual(LiteralNumber(5), LiteralNumber(5)),
+      "5 > 5" -> GreaterThan(LiteralNumber(5), LiteralNumber(5)),
+      "5 >= 5" -> GreaterThanOrEqualTo(LiteralNumber(5), LiteralNumber(5)),
+      "'a' < 'b'" -> LessThan(LiteralString("a"), LiteralString("b")),
+      "5 <= 5" -> LessThanOrEqualTo(LiteralNumber(5), LiteralNumber(5)),
       "\"foobar\" + \"barfoo\"" -> Plus(
-        JsonString("foobar"),
-        JsonString("barfoo")
+        LiteralString("foobar"),
+        LiteralString("barfoo")
       ),
-      "5 - 5" -> Minus(JsonNumber(5), JsonNumber(5)),
-      "5 * 5" -> Multiply(JsonNumber(5), JsonNumber(5)),
-      "5 / 5" -> Divide(JsonNumber(5), JsonNumber(5))
+      "5 - 5" -> Minus(LiteralNumber(5), LiteralNumber(5)),
+      "5 * 5" -> Multiply(LiteralNumber(5), LiteralNumber(5)),
+      "5 / 5" -> Divide(LiteralNumber(5), LiteralNumber(5))
     )
 
     forAll(cases) { (input, expected) =>
@@ -55,12 +55,12 @@ class ExpressionParserSpec
     val cases = Table(
       "input" -> "expected",
       "5 == 5 == 5" -> Equal(
-        Equal(JsonNumber(5), JsonNumber(5)),
-        JsonNumber(5)
+        Equal(LiteralNumber(5), LiteralNumber(5)),
+        LiteralNumber(5)
       ),
       "'abc' + 'def' == 'abcdef'" -> Equal(
-        Plus(JsonString("abc"), JsonString("def")),
-        JsonString("abcdef")
+        Plus(LiteralString("abc"), LiteralString("def")),
+        LiteralString("abcdef")
       )
     )
 
@@ -72,26 +72,26 @@ class ExpressionParserSpec
   it should "respect parenthesis" in {
     val cases = Table(
       "input" -> "expected",
-      "(5 + 5)" -> Plus(JsonNumber(5), JsonNumber(5)),
+      "(5 + 5)" -> Plus(LiteralNumber(5), LiteralNumber(5)),
       "(5 == 5) == 5" -> Equal(
-        Equal(JsonNumber(5), JsonNumber(5)),
-        JsonNumber(5)
+        Equal(LiteralNumber(5), LiteralNumber(5)),
+        LiteralNumber(5)
       ),
       "5 == (5 == 5)" -> Equal(
-        JsonNumber(5),
-        Equal(JsonNumber(5), JsonNumber(5))
+        LiteralNumber(5),
+        Equal(LiteralNumber(5), LiteralNumber(5))
       ),
       "(5 == 5) == (5 == 5)" -> Equal(
-        Equal(JsonNumber(5), JsonNumber(5)),
-        Equal(JsonNumber(5), JsonNumber(5))
+        Equal(LiteralNumber(5), LiteralNumber(5)),
+        Equal(LiteralNumber(5), LiteralNumber(5))
       ),
       "((5 == 5)) == 5" -> Equal(
-        Equal(JsonNumber(5), JsonNumber(5)),
-        JsonNumber(5)
+        Equal(LiteralNumber(5), LiteralNumber(5)),
+        LiteralNumber(5)
       ),
       "((5 == 5) == 5)" -> Equal(
-        Equal(JsonNumber(5), JsonNumber(5)),
-        JsonNumber(5)
+        Equal(LiteralNumber(5), LiteralNumber(5)),
+        LiteralNumber(5)
       )
     )
 
@@ -121,7 +121,7 @@ class ExpressionParserSpec
         And(
           GreaterThanOrEqualTo(
             JsonPathValue(JsonPath.`@` / "author" / "lastName"),
-            JsonString("B")
+            LiteralString("B")
           ),
           LessThanOrEqualTo(
             JsonPathValue(JsonPath.`@` / "cost"),

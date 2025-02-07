@@ -32,31 +32,31 @@ class ExpressionSpec
   private val evaluator = JsonBean.JsonBeanEvaluator
 
   "JsonString" should "evaluate to a json string" in {
-    JsonString("foo").apply(evaluator, JsonBean.Null, JsonBean.Null) should be(
+    LiteralString("foo").apply(evaluator, JsonBean.Null, JsonBean.Null) should be(
       JsonBean.string("foo")
     )
   }
 
   it should "serialize to a JSON string" in {
-    JsonString("foo").toString should be("\"foo\"")
+    LiteralString("foo").toString should be("\"foo\"")
   }
 
   it should "escape nested quotes" in {
-    JsonString("foo\"bar").toString should be("\"foo\\\"bar\"")
+    LiteralString("foo\"bar").toString should be("\"foo\\\"bar\"")
   }
 
   "JsonNumber" should "evaluate to a json number" in {
-    JsonNumber(42).apply(evaluator, JsonBean.Null, JsonBean.Null) should be(
+    LiteralNumber(42).apply(evaluator, JsonBean.Null, JsonBean.Null) should be(
       JsonBean.number(42)
     )
   }
 
   it should "serialize to a JSON number" in {
-    JsonNumber(42).toString should be("42")
+    LiteralNumber(42).toString should be("42")
   }
 
   "JsonBoolean" should "evaluate to a json boolean" in {
-    JsonBoolean(true).apply(
+    LiteralBoolean(true).apply(
       evaluator,
       JsonBean.Null,
       JsonBean.Null
@@ -66,8 +66,8 @@ class ExpressionSpec
   }
 
   it should "serialize to a JSON boolean" in {
-    JsonBoolean(true).toString should be("true")
-    JsonBoolean(false).toString should be("false")
+    LiteralBoolean(true).toString should be("true")
+    LiteralBoolean(false).toString should be("false")
   }
 
   "Not" should behave like unarySerialization(Not.apply)("!")
@@ -100,13 +100,13 @@ class ExpressionSpec
   it should "compare same types" in {
     val cases = Table(
       ("left", "right", "expected"),
-      (JsonNumber(42), JsonNumber(42), true),
-      (JsonNumber(42), JsonNumber(5), false),
-      (JsonNull, JsonNull, true),
-      (JsonBoolean(true), JsonBoolean(true), true),
-      (JsonBoolean(true), JsonBoolean(false), false),
-      (JsonString("foobar"), JsonString("foobar"), true),
-      (JsonString("foobar"), JsonString("deadbeef"), false)
+      (LiteralNumber(42), LiteralNumber(42), true),
+      (LiteralNumber(42), LiteralNumber(5), false),
+      (LiteralNull, LiteralNull, true),
+      (LiteralBoolean(true), LiteralBoolean(true), true),
+      (LiteralBoolean(true), LiteralBoolean(false), false),
+      (LiteralString("foobar"), LiteralString("foobar"), true),
+      (LiteralString("foobar"), LiteralString("deadbeef"), false)
     )
 
     forAll(cases) { case (left, right, expected) =>
@@ -119,13 +119,13 @@ class ExpressionSpec
   it should "apply type conversion" in {
     val cases = Table(
       ("left", "right", "expected"),
-      (JsonNumber(42), JsonNumber(5), false),
-      (JsonNumber(42), JsonNumber(42), true),
-      (JsonBoolean(true), JsonNumber(0), false),
-      (JsonBoolean(false), JsonNumber(0), true),
-      (JsonNull, JsonString(""), false),
-      (JsonNull, JsonNull, true),
-      (JsonString("5"), JsonNumber(5), true)
+      (LiteralNumber(42), LiteralNumber(5), false),
+      (LiteralNumber(42), LiteralNumber(42), true),
+      (LiteralBoolean(true), LiteralNumber(0), false),
+      (LiteralBoolean(false), LiteralNumber(0), true),
+      (LiteralNull, LiteralString(""), false),
+      (LiteralNull, LiteralNull, true),
+      (LiteralString("5"), LiteralNumber(5), true)
     )
 
     forAll(cases) { case (left, right, expected) =>
@@ -177,7 +177,7 @@ class ExpressionSpec
     )
 
     forAll(cases) { case (left, right) =>
-      Plus(JsonNumber(left), JsonNumber(right))(
+      Plus(LiteralNumber(left), LiteralNumber(right))(
         evaluator,
         JsonBean.Null,
         JsonBean.Null
@@ -196,7 +196,7 @@ class ExpressionSpec
     )
 
     forAll(cases) { number =>
-      Plus(JsonNumber(number), JsonNull)(
+      Plus(LiteralNumber(number), LiteralNull)(
         evaluator,
         JsonBean.Null,
         JsonBean.Null
@@ -216,7 +216,7 @@ class ExpressionSpec
     )
 
     forAll(cases) { case (left, right) =>
-      Plus(JsonString(left), JsonString(right))(
+      Plus(LiteralString(left), LiteralString(right))(
         evaluator,
         JsonBean.Null,
         JsonBean.Null
@@ -262,12 +262,12 @@ class ExpressionSpec
   )(symbol: String): Unit = {
 
     it should "serialize with the correct symbol" in {
-      val expression = JsonNumber(42)
+      val expression = LiteralNumber(42)
       constructor(expression).toString should be(s"$symbol$expression")
     }
 
     it should "serialize the expression with parentheses if necessary" in {
-      val expression = Plus(JsonNumber(5), JsonNumber(5))
+      val expression = Plus(LiteralNumber(5), LiteralNumber(5))
       constructor(expression).toString should be(s"$symbol($expression)")
     }
   }
@@ -277,24 +277,24 @@ class ExpressionSpec
   )(symbol: String): Unit = {
 
     it should "serialize with the correct symbol" in {
-      val left = JsonNumber(42)
-      val right = JsonNumber(5)
+      val left = LiteralNumber(42)
+      val right = LiteralNumber(5)
       constructor(left, right).toString should be(
         s"$left $symbol $right"
       )
     }
 
     it should "serialize the right hand with parentheses if necessary" in {
-      val left = JsonNumber(42)
-      val right = Plus(JsonNumber(5), JsonNumber(5))
+      val left = LiteralNumber(42)
+      val right = Plus(LiteralNumber(5), LiteralNumber(5))
       constructor(left, right).toString should be(
         s"$left $symbol ($right)"
       )
     }
 
     it should "not add redundant parenthesis to the left hand side" in {
-      val left = Plus(JsonNumber(5), JsonNumber(5))
-      val right = JsonNumber(42)
+      val left = Plus(LiteralNumber(5), LiteralNumber(5))
+      val right = LiteralNumber(42)
       constructor(left, right).toString should be(
         s"$left $symbol $right"
       )
@@ -314,7 +314,7 @@ class ExpressionSpec
       )
 
       forAll(cases) { case (a, b) =>
-        constructor(JsonNumber(a), JsonNumber(b))(
+        constructor(LiteralNumber(a), LiteralNumber(b))(
           evaluator,
           JsonBean.Null,
           JsonBean.Null
@@ -332,7 +332,7 @@ class ExpressionSpec
       )
 
       forAll(cases) { case (a, b) =>
-        constructor(JsonString(a), JsonString(b))(
+        constructor(LiteralString(a), LiteralString(b))(
           evaluator,
           JsonBean.Null,
           JsonBean.Null
@@ -395,7 +395,7 @@ class ExpressionSpec
       )
 
       forAll(cases) { case (left, right) =>
-        constructor(JsonNumber(left), JsonNumber(right))(
+        constructor(LiteralNumber(left), LiteralNumber(right))(
           evaluator,
           JsonBean.Null,
           JsonBean.Null

@@ -101,7 +101,7 @@ class StringEscapesSpec
     )
 
     forAll(cases) { case (char, expected) =>
-      StringEscapes.escape(char) should be(expected)
+      StringEscapes.escapeSingleQuotes(char) should be(expected)
     }
   }
 }

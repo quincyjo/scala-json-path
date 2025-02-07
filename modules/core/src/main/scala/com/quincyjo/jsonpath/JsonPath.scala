@@ -16,15 +16,18 @@
 
 package com.quincyjo.jsonpath
 
+import cats.implicits.toTraverseOps
 import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
-import com.quincyjo.jsonpath.JsonPath.SingleSelector.SingleSelectorWrapper
+import com.quincyjo.jsonpath.JsonPath.SingularSelector.SingularSelectorWrapper
 import com.quincyjo.jsonpath.JsonPath._
+import com.quincyjo.jsonpath.JsonPathNew.{Query, SingularQuery}
 import com.quincyjo.jsonpath.parser.util.StringEscapes
 // import scala.annotation.{tailrec, targetName}
 
+// TODO: Separate queries from singular queries by type?
 final case class JsonPath(
-    root: Option[JsonPathRoot],
-    path: List[JsonPathSegment]
+    root: JsonPathRoot,
+    segments: List[JsonPathSegment]
 ) extends Serializable {
 
   /** Returns true if this path is absolute, IE; if it has is rooted in the root
@@ -32,20 +35,24 @@ final case class JsonPath(
     * @return
     *   A boolean indicating if this path is absolute.
     */
-  def isAbsolute: Boolean = root.contains(Root)
+  def isAbsolute: Boolean =
+    root == Root
 
-  /** Returns true if this path is dynamic, IE; if it is rooted in the current
+  /** Returns true if this path is relative, IE; if it is rooted in the current
     * document.
     * @return
     *   A boolean indicating if this path is dynamic.
     */
-  def isDynamic: Boolean = root.contains(Current)
+  def isRelative: Boolean =
+    root == Current
 
-  /** Returns true if this path is relative, IE; if it has not root.
+  /** Returns true if this path is singular, IE; it can point to at most one
+    * element.
     * @return
-    *   A boolean indicating if this path is relative.
+    *   A boolean indicating if this path is singular
     */
-  def isRelative: Boolean = root.isEmpty
+  def isSingular: Boolean =
+    !isRelative && segments.forall(_.isSingular)
 
   /** Appends the given [[JsonPath.JsonPathSegment]] to this path.
     *
@@ -55,7 +62,7 @@ final case class JsonPath(
     *   This path with the given node appended.
     */
   def appended(that: JsonPathSegment): JsonPath =
-    JsonPath(root, path appended that)
+    JsonPath(root, segments appended that)
 
   /** Appends all of the given [[JsonPath.JsonPathSegment]] s to this path.
     *
@@ -65,7 +72,7 @@ final case class JsonPath(
     *   This path with the given nodes appended.
     */
   def appendedAll(that: Iterable[JsonPathSegment]): JsonPath =
-    copy(path = path concat that)
+    copy(segments = segments concat that)
 
   /** Alias for [[appendedAll]].
     *
@@ -87,7 +94,7 @@ final case class JsonPath(
     *   This path with the given node prepended.
     */
   def prepended(that: JsonPathSegment): JsonPath =
-    JsonPath(root, path prepended that)
+    JsonPath(root, segments prepended that)
 
   /** Prepends all of the given [[JsonPath.JsonPathSegment]] s to this path.
     *
@@ -97,17 +104,18 @@ final case class JsonPath(
     *   This path with the given nodes prepended.
     */
   def prependedAll(that: Iterable[JsonPathSegment]): JsonPath =
-    copy(path = path concat that)
+    copy(segments = segments concat that)
 
   /** DSL to append a child [[JsonPath.Selector]] to this [[JsonPath]].
+    *
     * @param singleSelectorWrapper
-    *   A wrapped [[JsonPath.SingleSelector]] to append.
+    *   A wrapped [[JsonPath.SingularSelector]] to append.
     * @return
     *   This path with the given selector appended.
     */
   // @targetName("select")
-  def /(singleSelectorWrapper: SingleSelectorWrapper): JsonPath =
-    appended(Property(singleSelectorWrapper.value))
+  def /(singleSelectorWrapper: SingularSelectorWrapper): JsonPath =
+    appended(Child(singleSelectorWrapper.value))
 
   /** DSL to append a child [[JsonPath.Selector]] to this [[JsonPath]].
     * @param selector
@@ -117,7 +125,7 @@ final case class JsonPath(
     */
   // @targetName("select")
   def /(selector: Selector): JsonPath =
-    appended(Property(selector))
+    appended(JsonPathSegment(selector))
 
   /** DSL for appending many [[JsonPath.JsonPathSegment]] s to this path. Alias
     * for [[appendedAll]]
@@ -154,7 +162,7 @@ final case class JsonPath(
     * @return
     *   This path truncated to the first `n` [[JsonPath.JsonPathSegment]] s.
     */
-  def take(n: Int): JsonPath = copy(path = path.take(n))
+  def take(n: Int): JsonPath = copy(segments = segments.take(n))
 
   /** Drops the first `n` nodes of this path.
     *
@@ -163,7 +171,7 @@ final case class JsonPath(
     * @return
     *   This path with the first `n` [[JsonPath.JsonPathSegment]] s dropped.
     */
-  def drop(n: Int): JsonPath = copy(path = path.drop(n))
+  def drop(n: Int): JsonPath = copy(segments = segments.drop(n))
 
   /** Takes the last `n` nodes of this path.
     *
@@ -172,7 +180,7 @@ final case class JsonPath(
     * @return
     *   This path truncated to the last `n` [[JsonPath.JsonPathSegment]] s.
     */
-  def takeRight(n: Int): JsonPath = copy(path = path.takeRight(n))
+  def takeRight(n: Int): JsonPath = copy(segments = segments.takeRight(n))
 
   /** Drops the last `n` nodes of this path.
     *
@@ -181,34 +189,34 @@ final case class JsonPath(
     * @return
     *   This path with the last `n` [[JsonPath.JsonPathSegment]] s dropped.
     */
-  def dropRight(n: Int): JsonPath = copy(path = path.dropRight(n))
+  def dropRight(n: Int): JsonPath = copy(segments = segments.dropRight(n))
 
   /** Returns true if this path is empty and false otherwise. The root node of
     * the path is not considered.
     * @return
     *   True if this path is empty, false otherwise.
     */
-  def isEmpty: Boolean = path.isEmpty
+  def isEmpty: Boolean = segments.isEmpty
 
   /** Returns true if this path is not empty and false otherwise. The root node
     * of the path is not considered.
     * @return
     *   True if this path is not empty, false otherwise.
     */
-  def nonEmpty: Boolean = path.nonEmpty
+  def nonEmpty: Boolean = segments.nonEmpty
 
   /** Returns the number of [[JsonPath.JsonPathSegment]] in this path.
     *
     * @return
     *   The number of [[JsonPath.JsonPathSegment]] in this path.
     */
-  def size: Int = path.size
+  def size: Int = segments.size
 
   /** Returns the length of this path.
     * @return
     *   The length of this path.
     */
-  def length: Int = path.length
+  def length: Int = segments.length
 
   /** Returns true if this path has a parent and false otherwise.
     * @return
@@ -236,8 +244,8 @@ final case class JsonPath(
     *   The resolved path.
     */
   def resolve(that: JsonPath): JsonPath =
-    if (!that.isRelative) that
-    else appendedAll(that.path)
+    if (that.isAbsolute) that
+    else appendedAll(that.segments)
 
   /** Resolve the given [[JsonPath]] against this one as a sibling. If the given
     * path is not relative or if this path has no parent, then then the given
@@ -263,47 +271,422 @@ final case class JsonPath(
     */
   def toAbsolutePath: JsonPath =
     if (isAbsolute) this
-    else copy(root = Some(Root))
+    else copy(root = Root)
 
-  /** Returns this path as a relative path, ie with no [[root]].
+  /** Returns this path as a relative path, ie with no [[root]] of
+    * [[JsonPath.JsonPathRoot.Current]].
     * @return
     *   This path as a relative path.
     */
   def toRelativePath: JsonPath =
     if (isRelative) this
-    else copy(root = None)
-
-  /** Returns this path as an absolute path, IE, with a [[root]] of
-    * [[JsonPath.JsonPathRoot.Current]].
-    * @return
-    *   This path as a dynamic path.
-    */
-  def toDynamicPath: JsonPath =
-    if (isDynamic) this
-    else copy(root = Some(Current))
+    else copy(root = Current)
 
   override def toString: String =
-    root.fold(path.mkString) { root =>
-      s"$root${path.mkString}"
+    s"$root${segments.mkString}"
+}
+
+sealed trait JsonPathNew extends Serializable {
+
+  def root: JsonPathRoot
+
+  def segments: List[JsonPathSegment]
+
+  /** Returns true if this path is absolute, IE; if it has is rooted in the root
+    * document.
+    * @return
+    *   A boolean indicating if this path is absolute.
+    */
+  def isAbsolute: Boolean =
+    root == Root
+
+  /** Returns true if this path is relative, IE; if it is rooted in the current
+    * document.
+    * @return
+    *   A boolean indicating if this path is dynamic.
+    */
+  def isRelative: Boolean =
+    root == Current
+
+  /** Returns true if this path is singular, IE; it can point to at most one
+    * element.
+    * @return
+    *   A boolean indicating if this path is singular
+    */
+  def isSingular: Boolean =
+    segments.forall(_.isSingular)
+
+  /** Appends the given [[JsonPath.JsonPathSegment]] to this path.
+    *
+    * @param that
+    *   The [[JsonPath.JsonPathSegment]] to append.
+    * @return
+    *   This path with the given node appended.
+    */
+  def appended(that: Child): JsonPathNew
+
+  /** Appends the given [[JsonPath.JsonPathSegment]] to this path.
+    *
+    * @param that
+    *   The [[JsonPath.JsonPathSegment]] to append.
+    * @return
+    *   This path with the given node appended.
+    */
+  def appended(that: JsonPathSegment): JsonPathNew
+
+  /** Appends all of the given [[JsonPath.JsonPathSegment]] s to this path.
+    *
+    * @param that
+    *   An iterable of the [[JsonPath.JsonPathSegment]] s to append.
+    * @return
+    *   This path with the given nodes appended.
+    */
+  def appendedAll(that: Iterable[JsonPathSegment]): JsonPathNew = ???
+
+  /** Alias for [[appendedAll]].
+    *
+    * @param that
+    *   An iterable of the [[JsonPath.JsonPathSegment]] s to append.
+    * @return
+    *   This path with the given nodes appended.
+    * @see
+    *   [[appendedAll]].
+    */
+  def concat(that: Iterable[JsonPathSegment]): JsonPathNew =
+    appendedAll(that)
+
+  /** Prepends the given [[JsonPath.JsonPathSegment]] to this path.
+    *
+    * @param that
+    *   The [[JsonPath.JsonPathSegment]] to prepend.
+    * @return
+    *   This path with the given node prepended.
+    */
+  def prepended(that: Child): JsonPathNew =
+    Query(root, segments prepended that)
+
+  /** Prepends the given [[JsonPath.JsonPathSegment]] to this path.
+    *
+    * @param that
+    *   The [[JsonPath.JsonPathSegment]] to prepend.
+    * @return
+    *   This path with the given node prepended.
+    */
+  def prepended(that: JsonPathSegment): JsonPathNew =
+    Query(root, segments prepended that)
+
+  /** Prepends all of the given [[JsonPath.JsonPathSegment]] s to this path.
+    *
+    * @param that
+    *   An iterable of the [[JsonPath.JsonPathSegment]] s to prepend.
+    * @return
+    *   This path with the given nodes prepended.
+    */
+  def prependedAll(that: Iterable[JsonPathSegment]): JsonPathNew = ???
+
+  /** DSL to append a child [[JsonPath.Selector]] to this [[JsonPath]].
+    *
+    * @param singleSelectorWrapper
+    *   A wrapped [[JsonPath.SingularSelector]] to append.
+    * @return
+    *   This path with the given selector appended.
+    */
+  // @targetName("select")
+  def /(singleSelectorWrapper: SingularSelectorWrapper): JsonPathNew
+
+  /** DSL to append a child [[JsonPath.Selector]] to this [[JsonPath]].
+    * @param selector
+    *   The [[JsonPath.Selector]] to append.
+    * @return
+    *   This path with the given selector appended.
+    */
+  // @targetName("select")
+  def /(selector: SingularSelector): JsonPathNew
+
+  def /(selector: MultiSelector): Query =
+    Query(root, segments appended Children(selector))
+
+  def `//`(selector: Selector): Query =
+    Query(root, segments appended RecursiveDescent(selector))
+
+  def ?(expression: Expression): Query =
+    Query(root, segments appended Children(Filter(expression)))
+
+  /* TODO: implement
+  /** Takes the first `n` nodes of this path.
+   *
+   * @param n
+   *   The number of nodes to take.
+   * @return
+   *   This path truncated to the first `n` [[JsonPath.JsonPathSegment]] s.
+   */
+  def take(n: Int): this.type =
+    copy(segments = segments.take(n))
+
+  /** Drops the first `n` nodes of this path.
+   *
+   * @param n
+   *   The number of nodes to drop.
+   * @return
+   *   This path with the first `n` [[JsonPath.JsonPathSegment]] s dropped.
+   */
+  def drop(n: Int): this.type =
+    copy(segments = segments.drop(n))
+
+  /** Takes the last `n` nodes of this path.
+   *
+   * @param n
+   *   The number of nodes to take.
+   * @return
+   *   This path truncated to the last `n` [[JsonPath.JsonPathSegment]] s.
+   */
+  def takeRight(n: Int): this.type =
+    copy(segments = segments.takeRight(n))
+
+  /** Drops the last `n` nodes of this path.
+   *
+   * @param n
+   *   The number of nodes to drop.
+   * @return
+   *   This path with the last `n` [[JsonPath.JsonPathSegment]] s dropped.
+   */
+  def dropRight(n: Int): this.type =
+    copy(segments = segments.dropRight(n))
+   */
+
+  /** Returns true if this path is empty and false otherwise. The root node of
+    * the path is not considered.
+    * @return
+    *   True if this path is empty, false otherwise.
+    */
+  def isEmpty: Boolean = segments.isEmpty
+
+  /** Returns true if this path is not empty and false otherwise. The root node
+    * of the path is not considered.
+    * @return
+    *   True if this path is not empty, false otherwise.
+    */
+  def nonEmpty: Boolean = segments.nonEmpty
+
+  /** Returns the number of [[JsonPath.JsonPathSegment]] in this path.
+    *
+    * @return
+    *   The number of [[JsonPath.JsonPathSegment]] in this path.
+    */
+  def size: Int = segments.size
+
+  /** Returns the length of this path.
+    * @return
+    *   The length of this path.
+    */
+  def length: Int = segments.length
+
+  /** Returns true if this path has a parent and false otherwise.
+    * @return
+    *   True if this path has a parent, false otherwise.
+    */
+  def hasParent: Boolean = nonEmpty
+
+  /** Returns the parent path of this path, or an empty path if this path is
+    * empty. For example, if this path is `$.foo.bar`, this function would
+    * return `$.foo`.
+    * @return
+    *   The parent path of this path.
+    */
+  def parent: JsonPathNew // TODO:  This should be able to be generic
+
+  /** Resolve the given [[JsonPath]] against this one. If the given path is not
+    * relative, then then the given path is simply returned. Otherwise, the
+    * given path is appended to this path. For example, if this path is `$.foo`
+    * and the given path is `.bar[1,2,3]`, then `$.foo.bar[1,2,3]` is returned.
+    * If the given path is `$.deadbeef`, then `$.deadbeef` is returned
+    * regardless of whatever this path is.
+    * @param that
+    *   The path to resolve against this one.
+    * @return
+    *   The resolved path.
+    */
+  def resolve(
+      that: JsonPathNew
+  ): JsonPathNew =
+    if (that.isAbsolute) that
+    else
+      this -> that match {
+        case (a: SingularQuery, b: SingularQuery) =>
+          SingularQuery(root, segments = a.segments appendedAll b.segments)
+        case a -> b =>
+          Query(root, segments = a.segments appendedAll b.segments)
+      }
+
+  /** Resolve the given [[JsonPath]] against this one as a sibling. If the given
+    * path is not relative or if this path has no parent, then then the given
+    * path is simply returned. Otherwise, the given path is appended to this
+    * path's parent path. For example, if this path is `$.foo.bar` and the given
+    * path is `.deadbeef[1,2,3]`, then `$.foo.deadbeef[1,2,3]` is returned. If
+    * the given path is `$.deadbeef`, then `$.deadbeef` is returned regardless
+    * of whatever this path is. And if this path is `$` then the given path is
+    * returned.
+    * @param that
+    *   The path to resolve as this one's sibling.
+    * @return
+    *   The resolved sibling path.
+    */
+  def resolveSibling(
+      that: JsonPathNew
+  ): JsonPathNew =
+    if (!hasParent) that
+    else parent.resolve(that)
+
+  /** Returns this path as an absolute path, IE, with a [[root]] of
+    * [[JsonPath.JsonPathRoot.Root]].
+    * @return
+    *   This path as an absolute path.
+    */
+  def toAbsolutePath: JsonPathNew =
+    if (isAbsolute) this
+    else withRoot(Root)
+
+  /** Returns this path as a relative path, ie with no [[root]] of
+    * [[JsonPath.JsonPathRoot.Current]].
+    * @return
+    *   This path as a relative path.
+    */
+  def toRelativePath: JsonPathNew =
+    if (isRelative) this
+    else withRoot(Current)
+
+  def withRoot(root: JsonPathRoot): JsonPathNew
+
+  override def toString: String =
+    s"$root${segments.mkString}"
+}
+
+object JsonPathNew {
+
+  final val root: SingularQuery =
+    SingularQuery(Root, Nil)
+
+  final val current: SingularQuery =
+    SingularQuery(Current, Nil)
+
+  def $ : SingularQuery = root
+  def `@` : SingularQuery = current
+
+  def apply(
+      root: JsonPathRoot,
+      segment: Child,
+      segments: Child*
+  ): SingularQuery =
+    SingularQuery(root, segments.toList.prepended(segment))
+
+  def apply(
+      root: JsonPathRoot,
+      segment: JsonPathSegment,
+      segments: JsonPathSegment*
+  ): JsonPathNew =
+    if (segment.isSingular && segments.forall(_.isSingular)) {
+      SingularQuery(
+        root,
+        segments.toList.prepended(segment).asInstanceOf[List[Child]]
+      )
+    } else Query(root, segments.toList.prepended(segment))
+
+  final case class SingularQuery(
+      root: JsonPathRoot,
+      segments: List[Child]
+  ) extends JsonPathNew {
+
+    override def appended(child: Child): SingularQuery =
+      copy(segments = segments appended child)
+
+    override def appended(segment: JsonPathSegment): JsonPathNew =
+      segment match {
+        case segment: Child => appended(segment)
+        case segment        => Query(root, segments appended segment)
+      }
+
+    override def prepended(that: Child): SingularQuery =
+      copy(segments = segments.prepended(that))
+
+    override def prepended(that: JsonPathSegment): JsonPathNew = that match {
+      case child: Child => prepended(child)
+      case segment      => Query(root, segments.prepended(segment))
     }
+
+    def /(singleSelectorWrapper: SingularSelectorWrapper): SingularQuery =
+      appended(Child(singleSelectorWrapper.value))
+
+    def /(selector: SingularSelector): SingularQuery =
+      appended(Child(selector))
+
+    override def withRoot(root: JsonPathRoot): SingularQuery =
+      copy(root = root)
+
+    override def parent: SingularQuery =
+      copy(segments = segments.dropRight(1))
+  }
+
+  object SingularQuery {
+
+    def fromJsonPath(jsonPath: JsonPath): Option[SingularQuery] =
+      jsonPath.segments
+        .traverse {
+          case child: Child => Some(child)
+          case _            => None
+        }
+        .map(SingularQuery(jsonPath.root, _))
+  }
+
+  final case class Query private[JsonPathNew] (
+      root: JsonPathRoot,
+      segments: List[JsonPathSegment]
+  ) extends JsonPathNew {
+
+    override def appended(segment: Child): Query =
+      copy(segments = segments appended segment)
+
+    override def appended(segment: JsonPathSegment): Query =
+      copy(segments = segments appended segment)
+
+    def /(singleSelectorWrapper: SingularSelectorWrapper): Query =
+      appended(Child(singleSelectorWrapper.value))
+
+    def /(selector: SingularSelector): Query =
+      copy(segments = segments appended JsonPathSegment(selector))
+
+    override def withRoot(root: JsonPathRoot): Query =
+      copy(root = root)
+
+    override def parent: Query =
+      copy(segments = segments.dropRight(1))
+  }
 }
 
 object JsonPath {
 
-  final val $ : JsonPath = JsonPath(Some(Root), List.empty)
-  final val `@` : JsonPath = JsonPath(Some(Current), List.empty)
-  final val empty: JsonPath = JsonPath(None, List.empty)
+  final val $ : JsonPath = JsonPath(Root, List.empty)
+  final val `@` : JsonPath = JsonPath(Current, List.empty)
 
   def apply(
       jsonPathHead: JsonPathRoot,
       jsonPathNodes: JsonPathSegment*
   ): JsonPath =
-    JsonPath(Some(jsonPathHead), jsonPathNodes.toList)
+    JsonPath(jsonPathHead, jsonPathNodes.toList)
 
-  def apply(jsonPathNodes: JsonPathSegment*): JsonPath =
-    JsonPath(None, jsonPathNodes.toList)
+  sealed trait JsonPathSegment {
 
-  sealed trait JsonPathSegment
+    def isSingular: Boolean
+
+    def selector: Selector
+  }
+
+  object JsonPathSegment {
+
+    def apply(selector: Selector): JsonPathSegment = selector match {
+      case selector: SingularSelector => Child(selector)
+      case selector: MultiSelector    => Children(selector)
+    }
+  }
 
   sealed trait JsonPathRoot
 
@@ -316,7 +699,6 @@ object JsonPath {
     case object Current extends JsonPathRoot {
       override def toString: String = "@"
     }
-
   }
 
   /** Recursively descends through a JSON, exposing all associative JSON nodes
@@ -329,6 +711,8 @@ object JsonPath {
   final case class RecursiveDescent(selector: Selector)
       extends JsonPathSegment {
 
+    override val isSingular: Boolean = false
+
     override def toString: String = selector match {
       case Wildcard => s"..$Wildcard"
       case selector => s"..[$selector]"
@@ -337,37 +721,50 @@ object JsonPath {
 
   object RecursiveDescent {
 
-    def apply(selector: SingleSelectorWrapper): RecursiveDescent =
+    def apply(selector: SingularSelectorWrapper): RecursiveDescent =
       apply(selector.value)
   }
 
   /** [[JsonPathSegment]] that applies a [[Selector]] to a JSON to match zero or
-    * more of its leaf nodes.
+    * more of its leaf nodes or children.
+    *
     * @param selector
-    *   The [[Selector]] which this node contains.
+    *   The [[SingularSelector]] which this node contains.
     */
-  final case class Property(selector: Selector) extends JsonPathSegment {
+  final case class Child(selector: SingularSelector) extends JsonPathSegment {
+
+    override val isSingular: Boolean = true
 
     override def toString: String = s"[$selector]"
   }
 
-  object Property {
+  object Child {
 
-    def apply(selector: SingleSelectorWrapper): Property =
-      new Property(selector.value)
+    def apply(selector: SingularSelectorWrapper): Child =
+      new Child(selector.value)
+
+    def attribute(attribute: String): Child =
+      new Child(Attribute(attribute))
+
+    def index(index: Int): Child =
+      new Child(Index(index))
+  }
+
+  final case class Children(selector: MultiSelector) extends JsonPathSegment {
+
+    override val isSingular: Boolean = false
+
+    override def toString: String = s"[$selector]"
+  }
+
+  object Children {
 
     def apply(
-        selector: SingleSelectorWrapper,
-        selector2: SingleSelectorWrapper,
-        selectors: SingleSelectorWrapper*
-    ): Property =
-      new Property(Union(selector, selector2, selectors: _*))
-
-    def attribute(attribute: String): Property =
-      new Property(Attribute(attribute))
-
-    def index(index: Int): Property =
-      new Property(Index(index))
+        selector: SingularSelectorWrapper,
+        selector2: SingularSelectorWrapper,
+        selectors: SingularSelectorWrapper*
+    ): Children =
+      new Children(Union(selector, selector2, selectors *))
   }
 
   /** A description of a selection of properties of a JSON value, such as an
@@ -375,11 +772,10 @@ object JsonPath {
     */
   sealed trait Selector
 
-  /** A selector which describes a single property selection, and is not
-    * composed of other selectors. This includes selection by attribute name,
-    * array index, or wildcard. Single selectors may be composed into a union.
+  /** Describes a selector that is not composed of multiple selectors. That is,
+    * all selectors except for [[Union]].
     */
-  sealed trait SingleSelector extends Selector { // TODO: Add slices, and maybe filters? RFC seems unclear.
+  sealed trait ComposableSelector extends Selector {
 
     /** Creates a union between this single selector and another.
       * @param that
@@ -387,53 +783,59 @@ object JsonPath {
       * @return
       *   A union of this selector and the other.
       */
-    def or(that: SingleSelector): Union = Union(this, that)
+    def and(that: SingularSelector): Union = Union(this, that)
   }
 
-  object SingleSelector {
+  /** A selector which describes a single property selection.
+    */
+  sealed trait SingularSelector extends ComposableSelector
 
-    sealed trait SingleSelectorWrapper {
+  object SingularSelector {
 
-      def value: SingleSelector
+    sealed trait SingularSelectorWrapper {
+
+      def value: SingularSelector
     }
 
-    private case class SingleSelectorWrapperImpl(field: SingleSelector)
-        extends SingleSelectorWrapper {
+    private case class SingularSelectorWrapperImpl(field: SingularSelector)
+        extends SingularSelectorWrapper {
 
-      override def value: SingleSelector = field
+      override def value: SingularSelector = field
     }
 
-    implicit def toJsFieldSingleSelectorWrapper[T](field: T)(implicit
-        w: SingleSelectorMagnet[T]
-    ): SingleSelectorWrapper =
-      SingleSelectorWrapperImpl(w(field))
+    implicit def toJsFieldSingularSelectorWrapper[T](field: T)(implicit
+        w: SingularSelectorMagnet[T]
+    ): SingularSelectorWrapper =
+      SingularSelectorWrapperImpl(w(field))
 
-    sealed trait SingleSelectorMagnet[T] {
+    sealed trait SingularSelectorMagnet[T] {
 
-      def apply(t: T): SingleSelector
+      def apply(t: T): SingularSelector
     }
 
-    object SingleSelectorMagnet {
+    object SingularSelectorMagnet {
 
       implicit case object AttributeMagnet
-          extends SingleSelectorMagnet[String] {
+          extends SingularSelectorMagnet[String] {
 
-        override def apply(t: String): SingleSelector = Attribute(t)
+        override def apply(t: String): SingularSelector = Attribute(t)
       }
 
-      implicit case object IndexMagnet extends SingleSelectorMagnet[Int] {
+      implicit case object IndexMagnet extends SingularSelectorMagnet[Int] {
 
-        override def apply(t: Int): SingleSelector = Index(t)
+        override def apply(t: Int): SingularSelector = Index(t)
       }
     }
   }
+
+  sealed trait MultiSelector extends Selector
 
   /** Selects the given attribute by name from a JSON object.
     *
     * @param value
     *   The attribute name to select.
     */
-  final case class Attribute(value: String) extends SingleSelector {
+  final case class Attribute(value: String) extends SingularSelector {
 
     /** Returns true if the name is a simple identifier, meaning that it only
       * contains letters and digits.
@@ -444,7 +846,7 @@ object JsonPath {
       value.headOption.forall(_.isLetter) && value.forall(_.isLetterOrDigit)
 
     override def toString: String =
-      s"'${StringEscapes.escape(value)}'"
+      s"'${StringEscapes.escapeSingleQuotes(value)}'"
   }
 
   object Attribute {
@@ -457,7 +859,7 @@ object JsonPath {
     * @param value
     *   The index to select.
     */
-  final case class Index(value: Int) extends SingleSelector {
+  final case class Index(value: Int) extends SingularSelector {
 
     override def toString: String = value.toString
   }
@@ -465,50 +867,59 @@ object JsonPath {
   /** Selects all direct children of an associative JSON. If the target is
     * atomic, nothing is matched.
     */
-  case object Wildcard extends SingleSelector {
+  case object Wildcard extends ComposableSelector with MultiSelector {
 
     override def toString: String = "*"
   }
 
-  /** Selects the union of two or more [[SingleSelector]] s, ie, this
+  /** Selects the union of two or more [[SingularSelector]] s, ie, this
     * [[Selector]] selects values which match any of the given
-    * [[SingleSelector]] s.
+    * [[SingularSelector]] s.
+    *
     * @param head
-    *   The first [[SingleSelector]] in the union.
+    *   The first [[SingularSelector]] in the union.
     * @param second
-    *   The second [[SingleSelector]] in the union.
+    *   The second [[SingularSelector]] in the union.
     * @param tail
-    *   The remaining [[SingleSelector]] s in the union.
+    *   The remaining [[SingularSelector]] s in the union.
     */
   final case class Union(
-      head: SingleSelector,
-      second: SingleSelector,
-      tail: Seq[SingleSelector] = Seq.empty
-  ) extends Selector {
+      head: ComposableSelector,
+      second: ComposableSelector,
+      tail: Seq[ComposableSelector] = Seq.empty
+  ) extends MultiSelector {
 
-    def or(that: SingleSelector): Union =
+    def and(that: ComposableSelector): Union =
       appended(that)
 
-    def appended(that: SingleSelector): Union =
+    def appended(that: ComposableSelector): Union =
       copy(tail = tail.appended(that))
 
     // @targetName("add")
-    def +(that: SingleSelector): Union =
+    def +(that: ComposableSelector): Union =
       appended(that)
+
+    def toSet: Set[ComposableSelector] = Set(head, second) ++ tail
 
     override def toString: String =
       tail
         .prepended(second)
         .prepended(head)
         .mkString(",")
+
+    override def equals(obj: Any): Boolean = obj match {
+      case that: Union =>
+        toSet == that.toSet
+      case _ => false
+    }
   }
 
   object Union {
 
     def apply(
-        head: SingleSelectorWrapper,
-        second: SingleSelectorWrapper,
-        tail: SingleSelectorWrapper*
+        head: SingularSelectorWrapper,
+        second: SingularSelectorWrapper,
+        tail: SingularSelectorWrapper*
     ): Union =
       new Union(head.value, second.value, tail.map(_.value))
   }
@@ -530,7 +941,8 @@ object JsonPath {
       start: Option[Int],
       end: Option[Int],
       step: Option[Int]
-  ) extends Selector {
+  ) extends ComposableSelector
+      with MultiSelector {
 
     override def toString: String =
       Seq(
@@ -651,7 +1063,7 @@ object JsonPath {
       }
   }
 
-  sealed trait ScriptSelector extends Selector
+  sealed trait ScriptSelector extends MultiSelector with ComposableSelector
 
   final case class Filter(expression: Expression) extends ScriptSelector {
     // TODO: This seems to also be valid with a union operator, even though RFC excludes both wildcards and filters in the single place it defined it.

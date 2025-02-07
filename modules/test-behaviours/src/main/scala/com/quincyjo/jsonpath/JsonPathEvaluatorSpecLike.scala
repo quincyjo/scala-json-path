@@ -122,7 +122,7 @@ trait JsonPathEvaluatorSpecLike
       val jsonPath = JsonPath.$ / "products" / JsonPath.Filter(
         Expression.LessThanOrEqualTo(
           Expression.JsonPathValue(JsonPath.`@` / "price"),
-          Expression.JsonNumber(10)
+          Expression.LiteralNumber(10)
         )
       )
 

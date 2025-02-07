@@ -106,7 +106,13 @@ object StringEscapes {
     * @return
     *   The escaped string
     */
-  def escape(string: String): String = {
+  def escapeSingleQuotes(string: String): String =
+    escapeQuotes(string, '\'')
+
+  def escapeDoubleQuotes(string: String): String =
+    escapeQuotes(string, '"')
+
+  private def escapeQuotes(string: String, quote: Char): String = {
     val builder = new StringBuilder()
 
     for (char <- string) encodeChar(char)
@@ -116,12 +122,13 @@ object StringEscapes {
       case '\\' => builder.addOne('\\').addOne('\\')
       // Escapable but not required.
       // case '/'  => builder.addOne('\\').addOne('/')
-      case '\b' => builder.addOne('\\').addOne('b')
-      case '\t' => builder.addOne('\\').addOne('t')
-      case '\n' => builder.addOne('\\').addOne('n')
-      case '\f' => builder.addOne('\\').addOne('f')
-      case '\r' => builder.addOne('\\').addOne('r')
-      case '\'' => builder.addOne('\\').addOne('\'')
+      case '\b'                  => builder.addOne('\\').addOne('b')
+      case '\t'                  => builder.addOne('\\').addOne('t')
+      case '\n'                  => builder.addOne('\\').addOne('n')
+      case '\f'                  => builder.addOne('\\').addOne('f')
+      case '\r'                  => builder.addOne('\\').addOne('r')
+      case '\'' if quote == '\'' => builder.addOne('\\').addOne('\'')
+      case '"' if quote == '"'   => builder.addOne('\\').addOne('"')
       case c if c.isSurrogate =>
         builder.addAll(f"u${c.asInstanceOf[Int]}%04x".toUpperCase)
       case c => builder.addOne(c)

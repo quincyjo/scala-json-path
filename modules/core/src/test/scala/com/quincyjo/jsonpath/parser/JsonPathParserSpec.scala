@@ -95,13 +95,13 @@ class JsonPathParserSpec
     val cases = Table(
       "input" -> "expected",
       "$[(@.foobar>3)]" -> $ / Script(
-        GreaterThan(JsonPathValue(`@` / "foobar"), JsonNumber(3))
+        GreaterThan(JsonPathValue(`@` / "foobar"), LiteralNumber(3))
       ),
       "$[?(!!@.length >= 5 && @[5].isValid)]" -> $ / Filter(
         And(
           GreaterThanOrEqualTo(
             Not(Not(JsonPathValue(`@` / "length"))),
-            JsonNumber(5)
+            LiteralNumber(5)
           ),
           JsonPathValue(`@` / 5 / "isValid")
         )
@@ -117,22 +117,38 @@ class JsonPathParserSpec
     val cases = Table(
       "input" -> "expected",
       "$[?@.foobar>3]" -> $ / Filter(
-        GreaterThan(JsonPathValue(`@` / "foobar"), JsonNumber(3))
+        GreaterThan(JsonPathValue(`@` / "foobar"), LiteralNumber(3))
       ),
-      /* TODO: RFC is inconclusive if filters can be in a union
-      "$[?@.foobar>3, 'foobar']" -> $ / Filter(
-        GreaterThan(JsonPathValue(`@` / "foobar"), JsonNumber(3))
+      "$[?@.foobar>3, 'foobar']" -> $ / Union(
+        Filter(
+          GreaterThan(JsonPathValue(`@` / "foobar"), LiteralNumber(3))
+        ),
+        Attribute("foobar")
       ),
-       */
       "@[5].isValid" -> `@` / 5 / "isValid",
       "$[?!!@.length >= 5 && @[5].isValid]" -> $ / Filter(
         And(
           GreaterThanOrEqualTo(
             Not(Not(JsonPathValue(`@` / "length"))),
-            JsonNumber(5)
+            LiteralNumber(5)
           ),
           JsonPathValue(`@` / 5 / "isValid")
         )
+      )
+    )
+
+    forAll(cases) { (input, expected) =>
+      JsonPathParser.parse(input).value should be(expected)
+    }
+  }
+
+  it should "parse complex unions" in {
+    val cases = Table(
+      "input" -> "expected",
+      "$[1,'foo',?(@.keep),1:2:3,*]" -> $ / Union(
+        Index(1),
+        Attribute("foo"),
+        Seq(Filter(JsonPathValue(`@` / "keep")), Slice(1, 2, 3), Wildcard)
       )
     )
 
@@ -148,7 +164,7 @@ class JsonPathParserSpec
       ("$.foobar > 5", $ / "foobar", "$.foobar "),
       ("$ > 5", $, "$ "),
       ("@[:-1]", `@` / Slice.dropRight(1), "@[:-1]"),
-      ("['foobar']", JsonPath.empty / "foobar", "['foobar']")
+      ("$['foobar']", JsonPath.$ / "foobar", "$['foobar']")
     )
 
     forAll(cases) { (input, jsonPath, raw) =>
