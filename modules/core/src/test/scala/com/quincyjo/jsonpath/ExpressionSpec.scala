@@ -269,7 +269,7 @@ class ExpressionSpec
 
   it should behave like arithmeticOperator(Divide.apply)(_ / _)
 
-  def unarySerialization[T <: UnaryOperator[?]](
+  private def unarySerialization[T <: UnaryOperator[?]](
       constructor: LogicalType => T
   )(symbol: String): Unit = {
 
@@ -286,7 +286,7 @@ class ExpressionSpec
     }
   }
 
-  def binarySerialization[T <: BinaryOperator[ValueType, ValueType]](
+  private def binarySerialization[T <: BinaryOperator[ValueType, ValueType]](
       constructor: (ValueType, ValueType) => T
   )(symbol: String): Unit = {
 

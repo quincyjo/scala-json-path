@@ -70,9 +70,29 @@ private[parser] final case class ExpressionParseContext private (
         case '-'            => Minus
         case '*'            => Multiply
         case '/'            => Divide
+        case ','            => Comma
         case '\'' | '"'     => ValueString
         case c if c.isDigit => ValueNumber
-        case 't' | 'f'      => ValueBoolean
+        // case 't' | 'f'      => ValueBoolean
+      }
+      .orElseF {
+        input
+          .lift(i)
+          .collect {
+            case c if c.isLower =>
+              val substr = input.substring(i)
+              if (substr.startsWith("true") || substr.startsWith("false"))
+                Parsed(ValueBoolean)
+              else {
+                val functionName = substr.takeWhile { c =>
+                  c.isLower || c.isDigit || c == '_'
+                }
+                if (substr.lift(functionName.length).contains('(')) {
+                  Parsed(FunctionExtension)
+                } else ParseError(s"", i, input)
+              }
+          }
+          .sequence
       }
       .getOrElseF(
         ParseError(s"Unexpected character '${input(i)}'", i, input)
@@ -84,6 +104,14 @@ private[parser] final case class ExpressionParseContext private (
       case ValueString    => valueAsString
       case ValueNumber    => valueAsNumber
       case Root | Current => valueAsJsonPath
+    }
+
+  def valueAsExtensionFunctionName: ParseResult[ValueAt[String]] =
+    valueAs[String] { case FunctionExtension =>
+      val name = input.substring(index).takeWhile { c =>
+        c.isLower || c.isDigit || c == '_'
+      }
+      Parsed(ValueAt(name, index, name))
     }
 
   def valueAsBoolean: ParseResult[ValueAt[Boolean]] =
@@ -126,7 +154,7 @@ private[parser] final case class ExpressionParseContext private (
 
   def valueAsJsonPath: ParseResult[ValueAt[JsonPath]] =
     valueAs[JsonPath] { case ExpressionToken.Root | ExpressionToken.Current =>
-      JsonPathParser
+      JsonPathParser.default
         .take(input.substring(index))
         .map {
           _.copy(
@@ -252,6 +280,12 @@ object ExpressionParseContext {
 
     case object CloseParenthesis extends ExpressionToken with SymbolToken {
       override def symbol: String = ")"
+    }
+
+    case object FunctionExtension extends ExpressionToken
+
+    case object Comma extends ExpressionToken with SymbolToken {
+      override def symbol: String = ","
     }
 
     case object ValueString extends ExpressionToken with ValueToken

@@ -16,7 +16,7 @@
 
 package com.quincyjo.jsonpath
 
-import com.quincyjo.jsonpath.JsonPath.{RecursiveDescent, Wildcard}
+import com.quincyjo.jsonpath.JsonPath.Wildcard
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks

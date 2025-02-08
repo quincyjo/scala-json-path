@@ -26,15 +26,15 @@ import com.quincyjo.jsonpath.parser.util.BalancedExpressionReader
 private[parser] final case class JsonPathParseContext private (
     input: String,
     index: Int,
-    currentTokenResult: OptionT[ParseResult, JsonPathToken]
+    currentTokenResult: OptionT[ParseResult, JsonPathToken],
+    expressionParser: ExpressionParser
 ) extends ParseContext[JsonPathToken] {
 
   override def nextToken(): JsonPathParseContext = {
     val newIndex = nextIndex
-    JsonPathParseContext(
-      input,
-      newIndex.getOrElse(index),
-      OptionT.liftF(newIndex.flatMap(tokenAt))
+    copy(
+      index = newIndex.getOrElse(index),
+      currentTokenResult = OptionT.liftF(newIndex.flatMap(tokenAt))
     )
   }
 
@@ -79,7 +79,7 @@ private[parser] final case class JsonPathParseContext private (
       case JsonPathToken.StartExpression =>
         val balanced =
           BalancedExpressionReader(input.substring(index)).takeGroup
-        ExpressionParser.parse(balanced).map { expression =>
+        expressionParser.parse(balanced).map { expression =>
           ValueAt(expression, index, balanced)
         }
       case JsonPathToken.StartFilterExpression =>
@@ -90,8 +90,11 @@ private[parser] final case class JsonPathParseContext private (
           else
             BalancedExpressionReader(input.substring(index + 1))
               .takeUntil(char => char == ']' || char == ',')
-        ExpressionParser.parse(balanced).map { expression =>
-          ValueAt(expression, index, s"?$balanced")
+        expressionParser.parse(balanced) match {
+          case Parsed(expression) =>
+            Parsed(ValueAt(expression, index + 1, s"?$balanced"))
+          case ParseError(message, index, input, cause) =>
+            ParseError(message, index + 1, input, cause)
         }
       case invalidToken =>
         ParseError.invalidToken(
@@ -145,8 +148,16 @@ private[parser] final case class JsonPathParseContext private (
 
 object JsonPathParseContext {
 
-  def apply(input: String): JsonPathParseContext =
-    new JsonPathParseContext(input, 0, OptionT.none[ParseResult, JsonPathToken])
+  def apply(
+      input: String,
+      expressionParser: ExpressionParser
+  ): JsonPathParseContext =
+    new JsonPathParseContext(
+      input,
+      0,
+      OptionT.none[ParseResult, JsonPathToken],
+      expressionParser
+    )
 
   sealed abstract class JsonPathToken extends ParserToken
 

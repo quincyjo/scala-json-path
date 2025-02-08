@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package com.quincyjo.jsonpath
+package com.quincyjo.jsonpath.extensions
 
-package object literal {
+import com.quincyjo.jsonpath.parser.JsonPathParser
 
-  implicit final class JsonPathStringContext(sc: StringContext) {
-
-    def jsonPath(args: Any*): JsonPath =
-      parser.parse(sc.s(args *)).get
-  }
-}
+trait StandardExtensions
+    extends Length.LengthExtension
+    with Count.CountExtension
+    with Match.MatchExtension
+    with Search.SearchExtension
+    with Value.ValueExtension { self: JsonPathParser => }

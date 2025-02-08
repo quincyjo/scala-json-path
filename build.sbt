@@ -48,6 +48,15 @@ ThisBuild / tlJdkRelease := Some(17)
 
 Global / excludeLintKeys += tlBaseVersion
 
+Global / initialCommands :=
+  """import com.quincyjo.jsonpath._
+    |import com.quincyjo.jsonpath.literal._
+    |import com.quincyjo.jsonpath.JsonPath._
+    |import com.quincyjo.jsonpath.Expression._
+    |import com.quincyjo.jsonpath.extensions._
+    |import com.quincyjo.jsonpath.parser.JsonPathParser
+    |""".stripMargin
+
 val commonSettings = Seq(
   libraryDependencies ++= Seq(
     scalameta % Test,

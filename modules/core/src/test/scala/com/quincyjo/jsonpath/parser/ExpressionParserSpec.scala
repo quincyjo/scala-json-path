@@ -18,12 +18,14 @@ package com.quincyjo.jsonpath.parser
 
 import com.quincyjo.jsonpath.Expression._
 import com.quincyjo.jsonpath.JsonPath
+import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 
 class ExpressionParserSpec
     extends AnyFlatSpecLike
+    with BeforeAndAfter
     with Matchers
     with ParseResultValues
     with TableDrivenPropertyChecks {
@@ -47,7 +49,7 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.parse(input).value should be(expected)
+      ExpressionParser.default.parse(input).value should be(expected)
     }
   }
 
@@ -67,7 +69,7 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.parse(input).value should be(expected)
+      ExpressionParser.default.parse(input).value should be(expected)
     }
   }
 
@@ -98,7 +100,7 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.parse(input).value should be(expected)
+      ExpressionParser.default.parse(input).value should be(expected)
     }
   }
 
@@ -112,11 +114,10 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.parse(input).value should be(expected)
+      ExpressionParser.default.parse(input).value should be(expected)
     }
   }
 
-  /* TODO: Expression type implicit conversion
   it should "handle complex expressions" in {
     val cases = Table(
       "input" -> "expected",
@@ -134,8 +135,7 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.parse(input).value should be(expected)
+      ExpressionParser.default.parse(input).value should be(expected)
     }
   }
-   */
 }

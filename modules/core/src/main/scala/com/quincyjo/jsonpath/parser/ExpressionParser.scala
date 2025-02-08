@@ -16,16 +16,21 @@
 
 package com.quincyjo.jsonpath.parser
 
+import cats.data.ValidatedNel
 import cats.implicits._
-import com.quincyjo.jsonpath.{Expression, JsonPath}
 import com.quincyjo.jsonpath.Expression._
+import com.quincyjo.jsonpath.extensions.{Extension, FunctionExtension}
+import com.quincyjo.jsonpath.extensions.Extension.InvalidArgs
 import com.quincyjo.jsonpath.parser.models.ExpressionParseContext.ExpressionToken
 import com.quincyjo.jsonpath.parser.models._
+import com.quincyjo.jsonpath.{Expression, JsonPath}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-object ExpressionParser {
+final case class ExpressionParser(
+    extensions: List[Extension[?, ?]] = List.empty
+) {
 
   def parse(string: String): ParseResult[Expression] = {
 
@@ -76,17 +81,13 @@ object ExpressionParser {
   ): ParseResult[ExpressionParseContext] = {
     context.currentTokenOrEndOfInput
       .flatMap {
-        case invalidToken: ExpressionToken.BinaryToken =>
-          ParseError(
-            s"Unexpected token: $invalidToken",
-            context.index,
-            context.input
-          )
         case _: ParserToken.ValueToken =>
           for {
             value <- parseValue(context)
             context <- resolvePending(context, value, stack, pending)
           } yield context
+        case ExpressionToken.FunctionExtension =>
+          parseFunctionExtension(context, stack, pending)
         case ExpressionToken.CloseParenthesis =>
           pending
             .removeHeadOption()
@@ -120,8 +121,126 @@ object ExpressionParser {
         case token: ExpressionToken.OperatorToken =>
           pending.push(ValueAt(token, context.index, token.symbol))
           parseExpression(context.nextToken(), stack, pending)
+        case invalidToken =>
+          ParseError(
+            s"Unexpected token: $invalidToken",
+            context.index,
+            context.input
+          )
       }
   }
+
+  private def parseFunctionExtension(
+      context: ExpressionParseContext,
+      stack: mutable.Stack[ValueAt[Expression]],
+      pending: mutable.Stack[ValueAt[ExpressionToken.OperatorToken]]
+  ): ParseResult[ExpressionParseContext] =
+    for {
+      functionName <- context.valueAsExtensionFunctionName
+      parametersAndContext <- parseFunctionExtensionParameters(
+        context.nextToken(),
+        stack,
+        pending
+      )
+      (context, parameters) = parametersAndContext
+      parser <- parseExtension.lift(functionName.value) match {
+        case Some(parser) =>
+          Parsed(parser)
+        case None =>
+          ParseError(
+            s"Unknown function: ${functionName.value}",
+            functionName.index,
+            context.input
+          )
+      }
+      func <- parser(parameters).fold(
+        invalidArgs => {
+          val message = invalidArgs
+            .map {
+              case InvalidArgs.InvalidArg(arg, message) =>
+                s"invalid argument '${arg.value}': $message"
+              case InvalidArgs.MissingArg(message) =>
+                message
+            }
+            .toList
+            .mkString(", ")
+          ParseError(
+            s"function '${functionName.value}' $message",
+            functionName.index,
+            context.input
+          )
+        },
+        Parsed.apply
+      )
+      _ = stack
+        .push(
+          ValueAt(func, context.index, functionName.value)
+        )
+    } yield context
+
+  private def parseFunctionExtensionParameters(
+      context: ExpressionParseContext,
+      stack: mutable.Stack[ValueAt[Expression]],
+      pending: mutable.Stack[ValueAt[ExpressionToken.OperatorToken]]
+  ): ParseResult[(ExpressionParseContext, List[ValueAt[Expression]])] = {
+
+    @tailrec
+    def go(
+        context: ExpressionParseContext,
+        builder: mutable.Builder[ValueAt[Expression], List[ValueAt[Expression]]]
+    ): ParseResult[(ExpressionParseContext, List[ValueAt[Expression]])] = {
+      parseExpression(context, stack, pending) match {
+        case error: ParseError => error
+        case Parsed(context) =>
+          val next = context.nextToken()
+          next.currentTokenOrEndOfInput match {
+            case error: ParseError => error
+            case Parsed(token) =>
+              builder.addOne(stack.pop())
+              token match {
+                case ExpressionToken.CloseParenthesis =>
+                  Parsed(next -> builder.result())
+                case ExpressionToken.Comma => go(next.nextToken(), builder)
+                case invalid =>
+                  ParseError.invalidToken(
+                    invalid,
+                    next.index,
+                    next.input,
+                    ExpressionToken.CloseParenthesis,
+                    ExpressionToken.Comma
+                  )
+              }
+          }
+      }
+    }
+
+    context.currentTokenOrEndOfInput.flatMap {
+      case ExpressionToken.OpenParenthesis =>
+        context.peek.foldF(
+          ParseError("Unexpected end of input.", context.index, context.input)
+        ) {
+          case ExpressionToken.CloseParenthesis =>
+            Parsed(context -> List.empty)
+          case _ =>
+            go(context.nextToken(), List.newBuilder[ValueAt[Expression]])
+        }
+      case other =>
+        ParseError.invalidToken(
+          other,
+          context.index,
+          context.input,
+          ExpressionToken.OpenParenthesis
+        )
+    }
+  }
+
+  private val parseExtension: PartialFunction[String, List[
+    ValueAt[Expression]
+  ] => ValidatedNel[InvalidArgs, FunctionExtension[?] & Expression]] =
+    extensions
+      .fold(PartialFunction.empty) { case (extension, acc) =>
+        acc orElse extension
+      }
 
   @tailrec
   private def resolvePending(
@@ -167,7 +286,7 @@ object ExpressionParser {
                   left,
                   value
                 )
-                  .map(ValueAt(_, 0, "")) // TODO:
+                  .map(ValueAt(_, context.index, context.input))
               }
               .getOrElse(
                 ParseError(
@@ -195,7 +314,7 @@ object ExpressionParser {
       token: ValueAt[ExpressionToken.BinaryToken],
       left: ValueAt[Expression],
       right: ValueAt[Expression]
-  ): ParseResult[BinaryOperator[ExpressionType, ExpressionType]] =
+  ): ParseResult[Expression] =
     token.value match {
       case ExpressionToken.Plus | ExpressionToken.Minus |
           ExpressionToken.Multiply | ExpressionToken.Divide =>
@@ -208,7 +327,7 @@ object ExpressionParser {
       token: ValueAt[ExpressionToken.BinaryToken],
       left: ValueAt[Expression],
       right: ValueAt[Expression]
-  ): ParseResult[BinaryOperator[ValueType, ValueType] & ValueType] =
+  ): ParseResult[Expression] =
     Option(token.value)
       .collect[(ValueType, ValueType) => BinaryOperator[
         ValueType,
@@ -231,12 +350,12 @@ object ExpressionParser {
       left: ValueAt[Expression],
       right: ValueAt[Expression]
   ): ParseResult[
-    BinaryOperator[ExpressionType, ExpressionType] & LogicalType
+    Expression & LogicalType
   ] = {
     Option(token.value)
       .collect[(ValueType, ValueType) => BinaryOperator[
-        ExpressionType,
-        ExpressionType
+        Expression,
+        Expression
       ] & LogicalType] {
         case ExpressionToken.Equal    => Equal.apply
         case ExpressionToken.NotEqual => NotEqual.apply
@@ -254,8 +373,8 @@ object ExpressionParser {
       } orElse
       Option(token.value)
         .collect[(LogicalType, LogicalType) => BinaryOperator[
-          ExpressionType,
-          ExpressionType
+          Expression,
+          Expression
         ] & LogicalType] {
           case ExpressionToken.And => And.apply
           case ExpressionToken.Or  => Or.apply
@@ -271,6 +390,35 @@ object ExpressionParser {
         context.input
       )
   }
+
+  private def parseValue(
+      context: ExpressionParseContext
+  ): ParseResult[ValueAt[Expression]] =
+    context.currentTokenOrEndOfInput
+      .flatMap {
+        case ExpressionToken.ValueString =>
+          context.valueAsString.map(_.map(string => LiteralString(string)))
+        case ExpressionToken.ValueBoolean =>
+          context.valueAsBoolean.map(
+            _.map(boolean => LiteralBoolean(boolean))
+          )
+        case ExpressionToken.ValueNumber =>
+          context.valueAsNumber.map(
+            _.map(number => LiteralNumber(number))
+          )
+        case ExpressionToken.Root | ExpressionToken.Current =>
+          context.valueAsJsonPath.map(_.map {
+            case singularQuery: JsonPath.SingularQuery =>
+              JsonPathValue(singularQuery)
+            case query: JsonPath.Query => JsonPathNodes(query)
+          })
+        case otherToken =>
+          ParseError(
+            s"Unexpected token: $otherToken",
+            context.index,
+            context.input
+          )
+      }
 
   private def enforceValueType(
       context: ExpressionParseContext,
@@ -303,32 +451,9 @@ object ExpressionParser {
         )
     }
 
-  private def parseValue(
-      context: ExpressionParseContext
-  ): ParseResult[ValueAt[Expression]] =
-    context.currentTokenOrEndOfInput
-      .flatMap {
-        case ExpressionToken.ValueString =>
-          context.valueAsString.map(_.map(string => LiteralString(string)))
-        case ExpressionToken.ValueBoolean =>
-          context.valueAsBoolean.map(
-            _.map(boolean => LiteralBoolean(boolean))
-          )
-        case ExpressionToken.ValueNumber =>
-          context.valueAsNumber.map(
-            _.map(number => LiteralNumber(number))
-          )
-        case ExpressionToken.Root | ExpressionToken.Current =>
-          context.valueAsJsonPath.map(_.map {
-            case singularQuery: JsonPath.SingularQuery =>
-              JsonPathValue(singularQuery)
-            case query: JsonPath.Query => JsonPathNodes(query)
-          })
-        case otherToken =>
-          ParseError(
-            s"Unexpected token: $otherToken",
-            context.index,
-            context.input
-          )
-      }
+}
+
+object ExpressionParser {
+
+  final val default = new ExpressionParser()
 }

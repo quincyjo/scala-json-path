@@ -21,7 +21,7 @@ import com.quincyjo.jsonpath.parser.models.ParseResult
 package object parser {
 
   def parse(input: String): ParseResult[JsonPath] =
-    JsonPathParser.parse(input)
+    JsonPathParser.default.parse(input)
 
   def parseUnsafe(input: String): JsonPath =
     parse(input).get

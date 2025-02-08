@@ -1,8 +1,8 @@
 # scala-json-path
 
-`scala-json-path` is a Scala library for usage of [JSONPath](https://goessner.net/articles/JsonPath/). This library
-provides a direct ADT for modeling JSONPaths with support for serialization and parsing. In addition, evaluation of
-JSONPaths may be done on any type of `Json` which provides support via `JsonSupport` API.
+`scala-json-path` is a Scala library for the usage of [JSON Path](https://datatracker.ietf.org/doc/rfc9535/#2.3.1). This
+library provides a direct ADT for modeling JSONPaths with support for serialization and parsing. In addition, evaluation
+of JSONPaths may be done on any type of `Json` which provides support via `JsonSupport` API.
 
 ## Getting Started
 
@@ -42,14 +42,23 @@ does not compile to Scala 3, and so that module is limited to Scala 2.13.
 
 JSONPaths may be defined using the ADT API directly, or via a simple DSL.
 
+`JsonPath` has two subtypes, `JsonPath.Query` and `JsonPath.SingularQuery`. The first represents a query which may
+resolve to more than one node, and the second is guaranteed to resolve to at most one node. `JsonPath.Query` is not
+directly constructable, but the `JsonPath` model handles switching between the two as it is built.
+
 ```
-scala> import com.quincyjo.jsonpath.JsonPath
+scala> JsonPath.$ / "foobar" / 5 
+val res0: com.quincyjo.jsonpath.JsonPath.SingularQuery = $['foobar'][5]
 
-scala> JsonPath(JsonPath.Root, JsonPath.Property("foobar"), JsonPath.Property(5), JsonPath.Property(JsonPath.Slice.takeRight(3)), JsonPath.Union("1", 1))
-val res0: com.quincyjo.jsonpath.JsonPath = $.foobar[5][-3:]["1",1]
+scala> JsonPath.$ / Wildcard / Slice.take(3)
+val res1: com.quincyjo.jsonpath.JsonPath.Query = $[*][:3]
 
-scala> JsonPath.$ / "foobar" / 5 / JsonPath.Slice.takeRight(3) / JsonPath.Union("1", 1)
-val res1: com.quincyjo.jsonpath.JsonPath = $.foobar[5][-3:]["1",1]
+scala> JsonPath.`@` */ Wildcard // <-- Recursive descent DSL
+val res2: com.quincyjo.jsonpath.JsonPath.Query = @..*
+
+cala> JsonPath.$ ?/ GreaterThan(Count(JsonPathNodes(JsonPath.`@`)), LiteralNumber(1
+0)) // <-- Filter DSL
+val res3: com.quincyjo.jsonpath.JsonPath.Query = $[?(count(@) > 10)]
 ```
 
 ### Parsing
@@ -70,14 +79,14 @@ val res0:
 Parsing and serialization of JSONPaths handles escape sequences as specified
 in [RFC 9535](https://tools.ietf.org/html/rfc9535) section 3.1.1.
 
-When defining a name selector via the AST, the provided string is accepted as is and is not processed further. If for
+When defining a name selector via the ADT, the provided string is accepted as is and is not processed further. If for
 some reason processing of escapes is required on a `String` in code, the API is exposed via the `StringEscapes` object.
 
 ```
 scala> StringEscapes.processEscapes(s"\\\"") // Literal '\"'
 val res0: Either[InvalidStringEncoding, ValueAt[String]] = Right(ValueAt(",0,\"))
 
-scala> JsonPathParser.parse("$['\\\"']") // Parse a JSONPath from a string, handling escapes
+scala> JsonPathParser.default.parse("$['\\\"']") // Parse a JSONPath from a string, handling escapes
 val res1: ParseResult[JsonPath] = Parsed($['"'])
 
 scala> JsonPath.Attribute("\t") // Raw tab character passed to an Attribute, is not processed.
@@ -85,8 +94,6 @@ val res2: JsonPath.Attribute = '\t' // <-- toString escapes it.
 
 scala> JsonPath.Attribute("\\t") // Raw string of `\t` is not processed.
 val res3: JsonPath.Attribute = '\\t' // <-- Reverse solidus is escaped
-
-scala> 
 ```
 
 ### Literals
@@ -130,37 +137,126 @@ scala> JsonBeanEvaluator.evaluate(jsonPath"""$$..*""", json)
 val res3: List[JsonBean] = List(["deadbeef", true, 42] , "deadbeef" , true , 42)
 ```
 
+Singular queries may also be evaluated explicitly via `JsonPathEvaluator.singular`, which returns `Option[Json]`
+instead.
+
 ## Expressions
 
-Expressions have their own AST which can be used to describe expressions in either JSONPath scripts or filter.
-Expressions are evaluated against a JsonPath context and return a result in the same JSON type as the path is run
-against.
+Expressions have their own AST which can be used to describe expressions in either JSONPath scripts or filters.
+Expressions are evaluated against a JsonPath context and return a result based on their expression type. Expressions are
+well typed according to [RFC 9535](https://tools.ietf.org/html/rfc9535) section 2.4.3, both at parse time and via AST
+declaration.
 
-### Values
+Functions must be both pure and safe to evaluate, as evaluating a JSON path is guaranteed to be error free. All error
+handling is when parsing a JSON path, and thus parsing fails if an expression is malformed.
 
-- **JsonString**: `JsonString("foobar")`
-- **JsonBoolean**: `JsonBoolean(false)`
-- **JsonNumber**: `JsonNumber(42)`
-- **JsonPathValue**: `JsonPathValue(JsonPath.$ / "foobar")`
-- **JsonNull**: `JsonNull`
+```
+scala> jsonPath"$$[?value(@.foo)]"
+com.quincyjo.jsonpath.parser.models.ParseError: Failed to parse JsonPath at index 4 in '$[?value(@.foo)]': Filter requires a logical expression but was: value(@['foo'])
 
-### Operators
+scala> $ ?/ Value(JsonPathValue(`@` / "foo"))
+                 ^
+       error: type mismatch;
+        found   : com.quincyjo.jsonpath.extensions.Value
+        required: com.quincyjo.jsonpath.Expression.LogicalType
 
-The following operators are supported. These operators are implemented according to Javascript evaluation rules.
+scala> jsonPath"$$[?match(@.name)]"
+com.quincyjo.jsonpath.parser.models.ParseError: Failed to parse JsonPath at index 15 in '$[?match(@.name)]': function 'match' expects 2 arguments, but got 1
 
-- Not
-- Equal
-- NotEqual
-- GreaterThan
-- GreaterThanOrEqualTo
-- LessThan
-- LessThanOrEqualTo
-- Plus
-- Minus
-- Multiply
-- Divide
-- Or
-- And
+scala> jsonPath"$$[?match(@..*, 'deadbeef')]"
+com.quincyjo.jsonpath.parser.models.ParseError: Failed to parse JsonPath at index 3 in '$[?match(@..*, 'deadbeef')]': function 'match' invalid argument '@..*': NodesType can only be coerced to ValueType when from a singular query.
+
+scala> $ ?/ Match(JsonPathNodes(`@` */ Wildcard), LiteralString("deadbeef"))
+                               ^
+       error: type mismatch;
+        found   : com.quincyjo.jsonpath.Expression.JsonPathNodes
+        required: com.quincyjo.jsonpath.Expression.ValueType
+```
+
+### Types
+
+All expressions have a declared type which is one of the following.
+
+- `ValueType`: A JSON atomic literal value. And evaluates to a single JSON value or nothing, which is represented as
+  `Option[Json]` with the `Json` type being determined at evaluation. May be coerced from a singular query.
+- `LogicalType`: Either a logical true or false, which is distinct from JSON booleans. May be coerced from any
+  `NodesType` as an existence check.
+- `NodesType`: Any JSON path, which evaluates to the matching nodes.
+
+Expressions used in a filter selector must be of type `LogicalType`, and function extensions must have a declared
+type and their parameters are type-checked during parsing.
+
+## Function Extensions
+
+There is an open trait `FunctionExtension` for defining functions extensions. Any `FunctionExtension` may be used when
+defining a `JsonPath`, and may be parsed by mixing in a `WithExtension` for the function extension to a parser.
+
+### Default Function Extensions
+
+The default function extensions are enabled in the default `JsonPathParser`, `JsonPathParser.default`. A mix-in to add
+these extensions to any `JsonPathParser` is provided via the `StandardExtensions` trait.
+
+The following extensions are provided by default:
+
+- `Count(NodesType): ValueType`: Counts the number of nodes matched by a given `NodesType`.
+- `Length(ValueType): ValueType`: Returns the length of a given `ValueType` if it is a string, array, or object. Nothing
+  is returned if the
+  operand is not one of the aforementioned types.
+- `Value(NodesType): ValueType`: Converts a `NodesType` to a `ValueType`.
+- `Match(ValueType, ValueType): LogicalType`: Determines if the first parameter as a string matches the second parameter
+  as a regex. If the first parameter is not a string or the second parameter is not a valid regex, then the result is
+  false.
+- `Search(ValueType, ValueType): LogicalType`: Similar to `Match`, but returns true if the first parameter contains a
+  substring which matches the regex.
+
+### Adding Function Extensions
+
+First, define the new function extension. This can immediately be used when defining JSON paths programmatically.
+
+```scala
+final case class StringOrNothing(value: ValueType)
+  extends FunctionExtension[ValueType]
+    with ValueType {
+
+  override val name: String = "stringOrNothing"
+
+  override val args: List[Expression] = List(value)
+
+  override def apply[Json: JsonSupport](
+                                         evaluator: JsonPathEvaluator[Json],
+                                         root: Json,
+                                         current: Json
+                                       ): Option[Json] =
+    value(evaluator, root, current).asString.map(
+      implicitly[JsonSupport[Json]].string
+    )
+}
+
+object StringOrNothing {
+
+  val extension: Extension[NodesType, StringOrNothing] =
+    Extension("stringOrNothing")(StringOrNothing.apply)
+
+  trait StringOrNothingExtension extends WithExtension {
+    self: JsonPathParser =>
+
+    addExtension(StringOrNothing.extension)
+  }
+}
+
+```
+
+Then mix it in to a custom parser to be able to parse it.
+
+```scala
+case object MyJsonPathParser
+  extends JsonPathParser
+    with StandardExtensions
+    with StringOrNothingExtension
+
+```
+
+### Example
 
 ```
 scala> JsonPath.$ / Filter(LessThan(JsonPathValue(JsonPath.`@` / "price"), JsonNumber(10)))
@@ -171,8 +267,8 @@ scala> val json = JsonBean.arr(Seq.tabulate(6) { n =>
      | }: _*)
 val json: JsonBean = [ { "keep": true }, { "keep": false }, { "keep": true }, { "keep": false }, { "keep": true }, { "keep": false } ]
 
-scala> val jsonPath = JsonPathParser.parse("$[?(@.keep)]").get
-val jsonPath: com.quincyjo.jsonpath.JsonPath = $[?(@.keep)]
+scala> val jsonPath = JsonPathParser.default.parse("$[?(@.keep == true)]").get
+val jsonPath: com.quincyjo.jsonpath.JsonPath = $[?(@.keep == true)]
 
 scala> JsonBeanEvaluator.evaluate(jsonPath, json)
 val res1: List[JsonBean] = List({ "keep": true }, { "keep": true }, { "keep": true })
@@ -266,51 +362,3 @@ List({
   "quantity" : 4
 })
 ```
-
-## Variance from Core Library
-
-There are a few small variances from the behavior of the core Javascript library in some edge cases.
-These variances in behavior are intentional, as they remove ambiguity and are more precise.
-
-### Quoted Strings
-
-In the core library, quotes around strings, namely in attribute selection, are only respected at either end of a bracket
-selector (`[<selector>]`). Furthermore, these quotations do not have to be closed or even match. If the opening
-branch (`[`) of a selector is followed immediately by either a single quote (`'`) or double quote (`"`), the quote is
-dropped. And similarly for a quote immediately preceding a closing bracket (`]`) of a selector.
-
-For example:
-
-```
-Core Library:
-["foobar"] -> .foobar
-[foobar"] -> .foobar
-["foobar] -> .foobar
-["foobar'] -> .foobar
-
-[""foobar"'] -> ["foobar"]
-
-This Library:
-["foobar"] -> .foobar
-['foobar'] -> .foobar
-[foobar"] -> invalid, parse fails
-["foobar] -> invalid, parse fails
-["foobar'] -> invalid, parse fails
-
-["\"foobar\""] or ['"foobar"'] -> ["\"foobar\""] as in an object with an attribute '"foobar"' 
-```
-
-Serialization also respects quotes, and will escape quotes that are nested in the string. As the library always
-serializaed strings in double quotes, only double quotes within a selector will be escaped.
-
-```
-scala > JsonPath.Property("\"Proper Noun\"")
-val res0: com.quincyjo.jsonpath.JsonPath.Property = ["\"Proper Noun\""]
-```
-
-### Union String Quotes
-
-As quotes are only respected (or rather ignored) if immediately following a selector opening bracket (`[`]) or a
-selector closing bracket (`]`), individual attributes of a union selector or not quoted. In this library, each
-individual
-selector within the union has its own quotations and escaps handled individually.

@@ -17,12 +17,14 @@
 package com.quincyjo.jsonpath.parser
 
 import cats.implicits._
-import com.quincyjo.jsonpath.{Expression, JsonPath}
 import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.JsonPath._
+import com.quincyjo.jsonpath.extensions.{Extension, StandardExtensions}
 import com.quincyjo.jsonpath.parser.models.JsonPathParseContext.JsonPathToken
 import com.quincyjo.jsonpath.parser.models._
+import com.quincyjo.jsonpath.{Expression, JsonPath}
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.mutable
 
@@ -40,7 +42,7 @@ import scala.collection.mutable
   * val res0: ParseResult[ValueAt[JsonPath]] = Parsed(ValueAt($.foo,0,$.foo ))
   * }}}
   */
-object JsonPathParser {
+trait JsonPathParser {
 
   private type Builder = mutable.Builder[JsonPathSegment, List[JsonPathSegment]]
 
@@ -63,6 +65,13 @@ object JsonPathParser {
       ValueAt(path, 0, context.nextIndex.fold(input)(input.take))
     }
 
+  protected val extensions = new AtomicReference[
+    List[Extension[?, ?]]
+  ](List.empty)
+
+  private lazy val expressionParser: ExpressionParser =
+    ExpressionParser(extensions.get)
+
   private def parse(
       input: String,
       failThrough: Boolean
@@ -82,7 +91,7 @@ object JsonPathParser {
     }
 
     for {
-      x <- parseRoot(JsonPathParseContext(input))
+      x <- parseRoot(JsonPathParseContext(input, expressionParser))
       (root, newContext) = x
       builder = List.newBuilder[JsonPathSegment]
       finalContext <- go(newContext, builder)
@@ -312,7 +321,7 @@ object JsonPathParser {
   ): ParseResult[(JsonPathParseContext, ScriptSelector)] =
     context.currentTokenOrEndOfInput
       .flatMap {
-        case JsonPathToken.StartExpression => // TODO: This will be removed.
+        case JsonPathToken.StartExpression => // TODO: Only filters are defined in the RFC
           context.valueAsExpression.map(_.value).flatMap {
             case logical: Expression.ValueType =>
               Parsed(Script(logical))
@@ -344,8 +353,12 @@ object JsonPathParser {
             JsonPathToken.StartExpression,
             JsonPathToken.StartFilterExpression
           )
-      }
-      .map(context.nextToken() -> _)
+      } match {
+      case Parsed(value) => Parsed(context.nextToken() -> value)
+      case ParseError(message, index, _, cause) =>
+        ParseError(message, context.index + index, context.input, cause)
+    }
+  // .map(context.nextToken() -> _)
 
   private def parseUnion(
       first: ComposableSelector,
@@ -478,4 +491,9 @@ object JsonPathParser {
           )
       }
   }
+}
+
+object JsonPathParser {
+
+  case object default extends JsonPathParser with StandardExtensions
 }

@@ -19,6 +19,7 @@ package com.quincyjo.jsonpath.parser
 import com.quincyjo.jsonpath.Expression._
 import com.quincyjo.jsonpath.JsonPath
 import com.quincyjo.jsonpath.JsonPath._
+import com.quincyjo.jsonpath.extensions.{Count, Length, Match, Search, Value}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -59,7 +60,7 @@ class JsonPathParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathParser.parse(input).value should be(expected)
+      JsonPathParser.default.parse(input).value should be(expected)
     }
   }
 
@@ -74,7 +75,7 @@ class JsonPathParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathParser.parse(input).value should be(expected)
+      JsonPathParser.default.parse(input).value should be(expected)
     }
   }
 
@@ -86,7 +87,7 @@ class JsonPathParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathParser.parse(input).value should be(expected)
+      JsonPathParser.default.parse(input).value should be(expected)
     }
   }
 
@@ -107,7 +108,7 @@ class JsonPathParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathParser.parse(input).value should be(expected)
+      JsonPathParser.default.parse(input).value should be(expected)
     }
   }
 
@@ -137,7 +138,7 @@ class JsonPathParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathParser.parse(input).value should be(expected)
+      JsonPathParser.default.parse(input).value should be(expected)
     }
   }
 
@@ -152,7 +153,7 @@ class JsonPathParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      JsonPathParser.parse(input).value should be(expected)
+      JsonPathParser.default.parse(input).value should be(expected)
     }
   }
 
@@ -167,7 +168,7 @@ class JsonPathParserSpec
     )
 
     forAll(cases) { (input, jsonPath, raw) =>
-      val result = JsonPathParser.take(input).value
+      val result = JsonPathParser.default.take(input).value
       result.value should be(jsonPath)
       result.raw should be(raw)
     }
@@ -190,7 +191,66 @@ class JsonPathParserSpec
     )
 
     forAll(cases) { case (input, expected) =>
-      JsonPathParser.parse(s"$$['$input']").value should be($ / expected)
+      JsonPathParser.default.parse(s"$$['$input']").value should be(
+        $ / expected
+      )
     }
+  }
+
+  it should "parse extensions" in {
+    val cases = Table(
+      "input" -> "expected",
+      s"$$[?(length(@.foo) > 3)]" -> $ ?/ GreaterThan(
+        Length(JsonPathValue(`@` / "foo")),
+        LiteralNumber(3)
+      ),
+      s"$$[?value(@) > 3]" -> $ ?/ GreaterThan(
+        Value(JsonPathValue(`@`)),
+        LiteralNumber(3)
+      ),
+      s"$$[?count(@['items'].*) > 15]" -> $ ?/ GreaterThan(
+        Count(JsonPathNodes(`@` / "items" / Wildcard)),
+        LiteralNumber(15)
+      ),
+      s"$$[?match(@.name, '.*foo.*')]" -> $ ?/ Match(
+        JsonPathValue(`@` / "name"),
+        LiteralString(".*foo.*")
+      ),
+      s"$$[?search(@.name, 'Jane')]" -> $ ?/ Search(
+        JsonPathValue(`@` / "name"),
+        LiteralString("Jane")
+      )
+    )
+
+    forAll(cases) { (input, expected) =>
+      JsonPathParser.default.parse(input).value should be(expected)
+    }
+  }
+
+  it should "parse nested functions" in {
+    JsonPathParser.default
+      .parse(s"$$[?(length(value(@.foo)) > 3)]")
+      .value should be(
+      $ ?/ GreaterThan(
+        Length(
+          Value(JsonPathValue(`@` / "foo"))
+        ),
+        LiteralNumber(3)
+      )
+    )
+  }
+
+  it should "fail on unrecognized function extensions" in {
+    val failure = JsonPathParser.default.parse(s"$$[?foobar(@.foo) > 3]").failed
+    failure.index should be(3)
+    failure.message should include("foobar")
+  }
+
+  it should "fail if there are too few for a function extension arguments" in {
+    val failure = JsonPathParser.default.parse(s"$$[?length() > 3]").failed
+    failure.index should be(3)
+    failure.message should (include("length") and include(
+      "expects 1 argument, but got 0"
+    ))
   }
 }

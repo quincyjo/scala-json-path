@@ -45,6 +45,20 @@ trait ParseResultValues {
             pos
           )
       }
+
+    def failed: ParseError =
+      parseResult match {
+        case Parsed(_) =>
+          throw new TestFailedException(
+            (_: StackDepthException) =>
+              Some(
+                s"The ParseResult on which failed was evoked was not a failure but a $parseResult"
+              ),
+            None,
+            pos
+          )
+        case error: ParseError => error
+      }
   }
 }
 

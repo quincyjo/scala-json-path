@@ -17,7 +17,6 @@
 package com.quincyjo.jsonpath.parser.models
 
 import cats.{Applicative, Eval, Monad, MonadError, Traverse}
-import com.quincyjo.jsonpath.parser.models.JsonPathParseContext.JsonPathToken
 
 import scala.util.control.NoStackTrace
 
@@ -230,11 +229,11 @@ final case class ParseError(
 
 object ParseError {
 
-  def invalidToken(
-      invalidToken: JsonPathToken,
+  def invalidToken[TokenType <: ParserToken](
+      invalidToken: TokenType,
       i: Int,
       input: String,
-      validTokens: JsonPathToken*
+      validTokens: TokenType*
   ): ParseError =
     new ParseError(
       expectedMessage(validTokens).fold(invalidTokenMessage(invalidToken, i)) {
@@ -245,11 +244,11 @@ object ParseError {
       input = input
     )
 
-  private def invalidTokenMessage(invalidToken: JsonPathToken, i: Int): String =
+  private def invalidTokenMessage(invalidToken: ParserToken, i: Int): String =
     s"Invalid token $invalidToken at index $i"
 
-  private def expectedMessage(
-      validTokens: Iterable[JsonPathToken]
+  private def expectedMessage[TokenType <: ParserToken](
+      validTokens: Iterable[ParserToken]
   ): Option[String] = {
     validTokens.headOption.map { head =>
       if (validTokens.size == 1) s"expected $head"

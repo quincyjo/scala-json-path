@@ -16,18 +16,14 @@
 
 package com.quincyjo.jsonpath
 
+import cats.data.Validated
 import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
 import com.quincyjo.jsonpath.parser.util.StringEscapes
 
 sealed trait Expression {
 
-  /*
-  def apply[Json: JsonSupport](
-      evaluator: JsonPathEvaluator[Json],
-      root: Json,
-      current: Json
-  ): Json
-   */
+  def as[T <: Expression: Expression.Coercible]: Validated[String, T] =
+    Expression.coerceTo[T](this)
 }
 
 object Expression {
@@ -41,11 +37,22 @@ object Expression {
     ): T
   }
 
-  sealed trait ExpressionType
+  final case class Coercible[Type](
+      coerce: Expression => Validated[String, Type]
+  ) extends (Expression => Validated[String, Type]) {
+
+    def apply(expression: Expression): Validated[String, Type] =
+      coerce(expression)
+  }
+
+  def coerceTo[Type <: Expression: Coercible](
+      expression: Expression
+  ): Validated[String, Type] =
+    implicitly[Coercible[Type]].coerce(expression)
 
   // JSON atomic literal or Nothing
   // Can be coerced from a singular query.
-  trait ValueType extends ExpressionType with EvaluatesTo[Option[?]] {
+  trait ValueType extends Expression with EvaluatesTo[Option[?]] {
 
     def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
@@ -56,7 +63,23 @@ object Expression {
 
   object ValueType {
 
-    // TODO: Temp workaround for value comparison
+    implicit val coerceToValueType: Expression.Coercible[ValueType] =
+      Expression.Coercible[ValueType](coerce)
+
+    def coerce(expression: Expression): Validated[String, ValueType] =
+      expression match {
+        case valueType: ValueType => Validated.Valid(valueType)
+        case jsonPathValue: JsonPathValue =>
+          Validated.Valid(ValueTypeFromNodesType(jsonPathValue))
+        case _: NodesType =>
+          Validated.invalid(
+            "NodesType can only be coerced to ValueType when from a singular query."
+          )
+        case _: LogicalType =>
+          Validated.invalid("LogicalType cannot be coerced to ValueType.")
+      }
+
+    // TODO: Are wrapping case classes the best way to represent this?
     private final case class ValueTypeFromNodesType(
         jsonPathValue: JsonPathValue
     ) extends ValueType {
@@ -79,11 +102,24 @@ object Expression {
 
   // Logical true or false, distinct from JSON true or false
   // Can be coerced from a NodesType via size of at least 1
-  trait LogicalType extends ExpressionType with EvaluatesTo[Boolean]
+  trait LogicalType extends Expression with EvaluatesTo[Boolean]
 
   object LogicalType {
 
-    // TODO: Temp workaround for value comparison
+    implicit val coerceToValueType: Expression.Coercible[LogicalType] =
+      Expression.Coercible[LogicalType](coerce)
+
+    def coerce(expression: Expression): Validated[String, LogicalType] =
+      expression match {
+        case logicalType: LogicalType =>
+          Validated.Valid(logicalType)
+        case nodesType: NodesType =>
+          Validated.valid(LogicalTypeFromNodesType(nodesType))
+        case _: ValueType =>
+          Validated.invalid("ValueType cannot be coerced to LogicalType.")
+      }
+
+    // TODO: Are wrapping case classes the best way to represent this?
     private final case class LogicalTypeFromNodesType(nodesType: NodesType)
         extends LogicalType {
       override def apply[Json: JsonSupport](
@@ -102,7 +138,7 @@ object Expression {
   }
 
   // JSONPath results as inputs, eg value(@['foobar'])
-  trait NodesType extends ExpressionType with EvaluatesTo[List[?]] {
+  trait NodesType extends Expression with EvaluatesTo[List[?]] {
 
     def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
@@ -111,7 +147,24 @@ object Expression {
     ): List[Json]
   }
 
-  sealed trait UnaryOperator[ParamType <: ExpressionType] extends Expression {
+  object NodesType {
+
+    implicit val coerceToValueType: Expression.Coercible[NodesType] =
+      Expression.Coercible[NodesType](coerce)
+
+    def coerce(expression: Expression): Validated[String, NodesType] =
+      expression match {
+        case nodesType: NodesType =>
+          Validated.valid(nodesType)
+        case _: LogicalType =>
+          Validated.invalid("LogicalType cannot be coerced to LogicalType.")
+        case _: ValueType =>
+          Validated.invalid("ValueType cannot be coerced to LogicalType.")
+      }
+  }
+
+  private[jsonpath] sealed trait UnaryOperator[ParamType <: Expression] {
+    self: Expression =>
 
     def symbol: String
 
@@ -124,10 +177,11 @@ object Expression {
       }
   }
 
-  sealed trait BinaryOperator[
-      +LeftType <: ExpressionType,
-      +RightType <: ExpressionType
-  ] extends Expression {
+  private[jsonpath] sealed trait BinaryOperator[
+      +LeftType <: Expression,
+      +RightType <: Expression
+  ] {
+    self: Expression =>
 
     def symbol: String
 
@@ -165,7 +219,7 @@ object Expression {
           leftResult
             .flatMap(_.asArray)
             .zip(rightResult.flatMap(_.asArray))
-            // TODO: Deep value comparison
+            // TODO: Deep value comparison and add objects per RFC
             .map { case (l, r) => l.size compareTo r.size }
         )
         .orElse(
@@ -183,9 +237,6 @@ object Expression {
   }
 
   sealed trait IncludesEqualityCheck extends Comparator
-
-  // Open trait for extension functions.
-  trait Extension
 
   sealed trait Literal extends Expression with ValueType {
 
@@ -231,6 +282,7 @@ object Expression {
     override def toString: String = value.toString
   }
 
+  // TODO: Improve the API for JsonPath arguments
   final case class JsonPathValue(path: JsonPath.SingularQuery)
       extends Expression
       with NodesType {
@@ -247,7 +299,7 @@ object Expression {
       path.toString
   }
 
-  final case class JsonPathNodes(path: JsonPath.Query)
+  final case class JsonPathNodes(path: JsonPath)
       extends Expression
       with NodesType {
 
@@ -426,8 +478,9 @@ object Expression {
         root: Json,
         current: Json
     ): Option[Json] = {
-      left(evaluator, root, current).zip(right(evaluator, root, current)).map {
-        case (leftResult, rightResult) =>
+      left(evaluator, root, current)
+        .zip(right(evaluator, root, current))
+        .map { case (leftResult, rightResult) =>
           if (
             (leftResult.isNumber || leftResult.isNull) &&
             (rightResult.isNumber || rightResult.isNull)
@@ -440,7 +493,7 @@ object Expression {
             implicitly[JsonSupport[Json]].string(
               leftResult.coerceToString concat rightResult.coerceToString
             )
-      }
+        }
     }
   }
 
@@ -482,4 +535,5 @@ object Expression {
     ): Option[Json] =
       arithmetic(evaluator, root, current)(_ * _)
   }
+
 }
