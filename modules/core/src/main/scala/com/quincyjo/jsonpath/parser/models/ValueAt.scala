@@ -16,4 +16,7 @@
 
 package com.quincyjo.jsonpath.parser.models
 
-final case class ValueAt[+T](value: T, index: Int, raw: String)
+final case class ValueAt[+T](value: T, index: Int, raw: String) {
+
+  def map[T1](f: T => T1): ValueAt[T1] = ValueAt(f(value), index, raw)
+}

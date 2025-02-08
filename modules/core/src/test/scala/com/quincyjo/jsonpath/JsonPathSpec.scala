@@ -167,7 +167,7 @@ class JsonPathSpec
   }
 
   "Script" should "encode with parentheses" in {
-    val expression = GreaterThan(
+    val expression = Plus(
       JsonPathValue(`@` / "foobar"),
       LiteralNumber(3)
     )

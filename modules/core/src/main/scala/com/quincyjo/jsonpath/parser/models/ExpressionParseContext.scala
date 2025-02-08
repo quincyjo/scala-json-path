@@ -88,11 +88,12 @@ private[parser] final case class ExpressionParseContext private (
 
   def valueAsBoolean: ParseResult[ValueAt[Boolean]] =
     valueAs[Boolean] { case ValueBoolean =>
-      if (input.startsWith("true")) Parsed(ValueAt(true, 0, "true"))
-      else if (input.startsWith("false")) Parsed(ValueAt(false, 0, "false"))
+      val substr = input.substring(index)
+      if (substr.startsWith("true")) Parsed(ValueAt(true, 0, "true"))
+      else if (substr.startsWith("false")) Parsed(ValueAt(false, 0, "false"))
       else
         ParseError(
-          s"Expected boolean value but was '${input.substring(index).takeWhile(_.isLetter)}'",
+          s"Expected boolean value but was '${substr.takeWhile(_.isLetter)}'",
           index,
           input
         )

@@ -205,7 +205,7 @@ final case class ParseError(
     input: String,
     cause: Option[Throwable] = None
 ) extends Throwable(
-      s"Failed to parse JsonPath due to '$message' at index $index in '$input'",
+      s"Failed to parse JsonPath at index $index in '$input': $message",
       cause.orNull
     )
     with ParseResult[Nothing]

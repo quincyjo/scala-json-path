@@ -17,7 +17,7 @@
 package com.quincyjo.jsonpath.parser
 
 import cats.implicits._
-import com.quincyjo.jsonpath.Expression
+import com.quincyjo.jsonpath.{Expression, JsonPath}
 import com.quincyjo.jsonpath.Expression._
 import com.quincyjo.jsonpath.parser.models.ExpressionParseContext.ExpressionToken
 import com.quincyjo.jsonpath.parser.models._
@@ -32,13 +32,13 @@ object ExpressionParser {
     @tailrec
     def go(
         context: ExpressionParseContext,
-        stack: mutable.Stack[Expression],
-        pending: mutable.Stack[ExpressionToken.OperatorToken]
+        stack: mutable.Stack[ValueAt[Expression]],
+        pending: mutable.Stack[ValueAt[ExpressionToken.OperatorToken]]
     ): ParseResult[ExpressionParseContext] = {
       context.currentTokenOrEndOfInput
         .flatMap {
           case token: ExpressionToken.BinaryToken =>
-            pending.push(token)
+            pending.push(ValueAt(token, context.index, token.symbol))
             parseExpression(context.nextToken(), stack, pending)
           case _ =>
             parseExpression(context, stack, pending)
@@ -49,14 +49,14 @@ object ExpressionParser {
       }
     }
 
-    val stack = mutable.Stack.empty[Expression]
-    val pending = mutable.Stack.empty[ExpressionToken.OperatorToken]
+    val stack = mutable.Stack.empty[ValueAt[Expression]]
+    val pending = mutable.Stack.empty[ValueAt[ExpressionToken.OperatorToken]]
     val context =
       go(ExpressionParseContext(string).nextToken(), stack, pending)
 
     context.flatMap { context =>
       stack.removeHeadOption() match {
-        case Some(expression) if stack.isEmpty => Parsed(expression)
+        case Some(expression) if stack.isEmpty => Parsed(expression.value)
         case None =>
           ParseError("Unexpected end of input.", context.index, string)
         case _ =>
@@ -71,8 +71,8 @@ object ExpressionParser {
 
   private def parseExpression(
       context: ExpressionParseContext,
-      stack: mutable.Stack[Expression],
-      pending: mutable.Stack[ExpressionToken.OperatorToken]
+      stack: mutable.Stack[ValueAt[Expression]],
+      pending: mutable.Stack[ValueAt[ExpressionToken.OperatorToken]]
   ): ParseResult[ExpressionParseContext] = {
     context.currentTokenOrEndOfInput
       .flatMap {
@@ -85,26 +85,30 @@ object ExpressionParser {
         case _: ParserToken.ValueToken =>
           for {
             value <- parseValue(context)
-            context <- resolvePending(value, context, stack, pending)
+            context <- resolvePending(context, value, stack, pending)
           } yield context
         case ExpressionToken.CloseParenthesis =>
           pending
             .removeHeadOption()
-            .map {
-              case ExpressionToken.OpenParenthesis =>
-                resolvePending(
-                  stack.removeHeadOption().getOrElse(LiteralNull),
-                  context,
-                  stack,
-                  pending
-                )
-                Parsed(context)
-              case trailingToken =>
-                ParseError(
-                  s"Trailing token: $trailingToken",
-                  context.index,
-                  context.input
-                )
+            .map { foo =>
+              foo.value match {
+                case ExpressionToken.OpenParenthesis =>
+                  resolvePending(
+                    context,
+                    stack
+                      .removeHeadOption()
+                      .getOrElse(ValueAt(LiteralNull, 0, "")),
+                    stack,
+                    pending
+                  )
+                  Parsed(context)
+                case trailingToken =>
+                  ParseError(
+                    s"Trailing token: $trailingToken",
+                    context.index,
+                    context.input
+                  )
+              }
             }
             .getOrElse(
               ParseError(
@@ -114,86 +118,212 @@ object ExpressionParser {
               )
             )
         case token: ExpressionToken.OperatorToken =>
-          pending.push(token)
+          pending.push(ValueAt(token, context.index, token.symbol))
           parseExpression(context.nextToken(), stack, pending)
       }
   }
 
   @tailrec
   private def resolvePending(
-      value: Expression,
       context: ExpressionParseContext,
-      stack: mutable.Stack[Expression],
-      pending: mutable.Stack[ExpressionToken.OperatorToken]
+      value: ValueAt[Expression],
+      stack: mutable.Stack[ValueAt[Expression]],
+      pending: mutable.Stack[ValueAt[ExpressionToken.OperatorToken]]
   ): ParseResult[ExpressionParseContext] =
     pending.headOption
-      .map {
-        case ExpressionToken.OpenParenthesis =>
-          ExpressionToken.OpenParenthesis
-        case _ => pending.pop()
+      .map { head =>
+        if (head.value == ExpressionToken.OpenParenthesis)
+          head
+        else pending.pop()
       }
-      .fold[ParseResult[Expression]](Parsed(value)) {
-        case ExpressionToken.OpenParenthesis =>
-          Parsed(value)
-        case ExpressionToken.Not =>
-          Parsed(Not(value))
-        case token: ExpressionToken.BinaryToken =>
-          stack
-            .removeHeadOption()
-            .map { left =>
-              Parsed(makeBinaryOperator(token, left, value))
+      .fold[ParseResult[ValueAt[Expression]]](Parsed(value)) { pending =>
+        pending.value match {
+          case ExpressionToken.OpenParenthesis =>
+            Parsed(value)
+          case ExpressionToken.Not =>
+            value.value match {
+              case logical: LogicalType =>
+                Parsed(
+                  ValueAt(
+                    Not(logical),
+                    pending.index,
+                    pending.raw.concat(value.raw)
+                  )
+                )
+              case other =>
+                ParseError(
+                  s"! operator requires a logical value but was '$other'",
+                  context.index,
+                  context.input
+                )
             }
-            .getOrElse(
-              ParseError(
-                s"Unexpected token: $token",
-                context.index,
-                context.input
+          case token: ExpressionToken.BinaryToken =>
+            stack
+              .removeHeadOption()
+              .map { left =>
+                makeBinaryOperator(
+                  context,
+                  pending.copy(value = token),
+                  left,
+                  value
+                )
+                  .map(ValueAt(_, 0, "")) // TODO:
+              }
+              .getOrElse(
+                ParseError(
+                  s"Unexpected token: $token",
+                  context.index,
+                  context.input
+                )
               )
-            )
+        }
       } match {
       case error: ParseError => error
       case Parsed(expression) =>
-        if (pending.headOption.forall(_ == ExpressionToken.OpenParenthesis)) {
+        if (
+          pending.headOption.forall(_.value == ExpressionToken.OpenParenthesis)
+        ) {
           stack.push(expression)
           Parsed(context)
         } else {
-          resolvePending(expression, context, stack, pending)
+          resolvePending(context, expression, stack, pending)
         }
     }
 
   private def makeBinaryOperator(
-      token: ExpressionToken.BinaryToken,
-      left: Expression,
-      right: Expression
-  ): BinaryOperator = token match {
-    case ExpressionToken.And      => And(left, right)
-    case ExpressionToken.Or       => Or(left, right)
-    case ExpressionToken.Equal    => Equal(left, right)
-    case ExpressionToken.NotEqual => NotEqual(left, right)
-    case ExpressionToken.LessThan => LessThan(left, right)
-    case ExpressionToken.LessThanOrEqualTo =>
-      LessThanOrEqualTo(left, right)
-    case ExpressionToken.GreaterThan =>
-      GreaterThan(left, right)
-    case ExpressionToken.GreaterThanOrEqualTo =>
-      GreaterThanOrEqualTo(left, right)
-    case ExpressionToken.Plus     => Plus(left, right)
-    case ExpressionToken.Minus    => Minus(left, right)
-    case ExpressionToken.Multiply => Multiply(left, right)
-    case ExpressionToken.Divide   => Divide(left, right)
+      context: ExpressionParseContext,
+      token: ValueAt[ExpressionToken.BinaryToken],
+      left: ValueAt[Expression],
+      right: ValueAt[Expression]
+  ): ParseResult[BinaryOperator[ExpressionType, ExpressionType]] =
+    token.value match {
+      case ExpressionToken.Plus | ExpressionToken.Minus |
+          ExpressionToken.Multiply | ExpressionToken.Divide =>
+        makeValueOperator(context, token, left, right)
+      case _ => makeLogicalOperator(context, token, left, right)
+    }
+
+  private def makeValueOperator(
+      context: ExpressionParseContext,
+      token: ValueAt[ExpressionToken.BinaryToken],
+      left: ValueAt[Expression],
+      right: ValueAt[Expression]
+  ): ParseResult[BinaryOperator[ValueType, ValueType] & ValueType] =
+    Option(token.value)
+      .collect[(ValueType, ValueType) => BinaryOperator[
+        ValueType,
+        ValueType
+      ] & ValueType] {
+        case ExpressionToken.Plus     => Plus.apply
+        case ExpressionToken.Minus    => Minus.apply
+        case ExpressionToken.Multiply => Multiply.apply
+        case ExpressionToken.Divide   => Divide.apply
+      }
+      .map { cons =>
+        (enforceValueType(context, left), enforceValueType(context, right))
+          .mapN(cons)
+      }
+      .getOrElse(ParseError("Unknown operator", 0, ""))
+
+  private def makeLogicalOperator(
+      context: ExpressionParseContext,
+      token: ValueAt[ExpressionToken.BinaryToken],
+      left: ValueAt[Expression],
+      right: ValueAt[Expression]
+  ): ParseResult[
+    BinaryOperator[ExpressionType, ExpressionType] & LogicalType
+  ] = {
+    Option(token.value)
+      .collect[(ValueType, ValueType) => BinaryOperator[
+        ExpressionType,
+        ExpressionType
+      ] & LogicalType] {
+        case ExpressionToken.Equal    => Equal.apply
+        case ExpressionToken.NotEqual => NotEqual.apply
+        case ExpressionToken.LessThan => LessThan.apply
+        case ExpressionToken.LessThanOrEqualTo =>
+          LessThanOrEqualTo.apply
+        case ExpressionToken.GreaterThan =>
+          GreaterThan.apply
+        case ExpressionToken.GreaterThanOrEqualTo =>
+          GreaterThanOrEqualTo.apply
+      }
+      .map { cons =>
+        (enforceValueType(context, left), enforceValueType(context, right))
+          .mapN(cons)
+      } orElse
+      Option(token.value)
+        .collect[(LogicalType, LogicalType) => BinaryOperator[
+          ExpressionType,
+          ExpressionType
+        ] & LogicalType] {
+          case ExpressionToken.And => And.apply
+          case ExpressionToken.Or  => Or.apply
+        }
+        .map { cons =>
+          (
+            enforceLogicalType(context, left),
+            enforceLogicalType(context, right)
+          ).mapN(cons)
+        } getOrElse ParseError(
+        "Unknown operator",
+        token.index,
+        context.input
+      )
   }
 
-  private def parseValue(context: ExpressionParseContext): ParseResult[Value] =
+  private def enforceValueType(
+      context: ExpressionParseContext,
+      expression: ValueAt[Expression]
+  ): ParseResult[ValueType] =
+    expression.value match {
+      case value: ValueType   => Parsed(value)
+      case foo: JsonPathValue => Parsed(foo)
+      case other =>
+        ParseError(
+          s"Required value type but found $other",
+          expression.index,
+          context.input
+        )
+    }
+
+  private def enforceLogicalType(
+      context: ExpressionParseContext,
+      expression: ValueAt[Expression]
+  ): ParseResult[LogicalType] =
+    expression.value match {
+      case value: LogicalType => Parsed(value)
+      case foo: JsonPathValue => Parsed(foo)
+      case foo: JsonPathNodes => Parsed(foo)
+      case other =>
+        ParseError(
+          s"Required logical type but found $other",
+          expression.index,
+          context.input
+        )
+    }
+
+  private def parseValue(
+      context: ExpressionParseContext
+  ): ParseResult[ValueAt[Expression]] =
     context.currentTokenOrEndOfInput
       .flatMap {
         case ExpressionToken.ValueString =>
-          context.valueAsString.map(string => LiteralString(string.value))
+          context.valueAsString.map(_.map(string => LiteralString(string)))
         case ExpressionToken.ValueBoolean =>
-          context.valueAsBoolean.map(boolean => LiteralBoolean(boolean.value))
+          context.valueAsBoolean.map(
+            _.map(boolean => LiteralBoolean(boolean))
+          )
         case ExpressionToken.ValueNumber =>
-          context.valueAsNumber.map(number => LiteralNumber(number.value))
+          context.valueAsNumber.map(
+            _.map(number => LiteralNumber(number))
+          )
         case ExpressionToken.Root | ExpressionToken.Current =>
-          context.valueAsJsonPath.map(jsonPath => JsonPathValue(jsonPath.value))
+          context.valueAsJsonPath.map(_.map {
+            case singularQuery: JsonPath.SingularQuery =>
+              JsonPathValue(singularQuery)
+            case query: JsonPath.Query => JsonPathNodes(query)
+          })
         case otherToken =>
           ParseError(
             s"Unexpected token: $otherToken",

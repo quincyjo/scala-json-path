@@ -21,86 +21,31 @@ import com.quincyjo.jsonpath.parser.util.StringEscapes
 
 sealed trait Expression {
 
+  /*
   def apply[Json: JsonSupport](
       evaluator: JsonPathEvaluator[Json],
       root: Json,
       current: Json
   ): Json
+   */
 }
 
 object Expression {
 
-  sealed trait UnaryOperator extends Expression {
+  sealed trait EvaluatesTo[T] {
 
-    def symbol: String
-
-    def expression: Expression
-
-    override def toString: String =
-      expression match {
-        case binary: BinaryOperator => s"$symbol($binary)"
-        case expression             => s"$symbol$expression"
-      }
-  }
-
-  sealed trait BinaryOperator extends Expression {
-
-    def symbol: String
-
-    def left: Expression
-
-    def right: Expression
-
-    override def toString: String =
-      s"$left $symbol ${right match {
-        case value: Value => value.toString
-        case other        => s"(${other.toString})"
-      }}"
-  }
-
-  // Literals, singular queries, functions of ValueType
-  trait Comparable
-
-  // Extends LogicalType
-  sealed trait Comparator extends BinaryOperator {
-
-    protected def compare[Json: JsonSupport](
+    def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    )(f: (Int, Int) => Boolean): Json = {
-      val leftResult = left(evaluator, root, current)
-      val rightResult = right(evaluator, root, current)
-      implicitly[JsonSupport[Json]].boolean(
-        leftResult.asString
-          .zip(rightResult.asString)
-          .map { case (l, r) => l compareTo r }
-          .orElse(
-            leftResult.asArray
-              .zip(rightResult.asArray)
-              .map { case (l, r) => l.size compareTo r.size }
-          )
-          .orElse(
-            leftResult.coerceToNumber
-              .zip(rightResult.coerceToNumber)
-              .map { case (l, r) => l compareTo r }
-          )
-          .fold(false)(f(_, 0))
-      )
-    }
+    ): T
   }
 
-  // This is effectively ValueType
-  sealed trait Value extends Expression
-
-  // Open trait for extension functions.
-  trait Extension
-
-  sealed trait ExtensionType
+  sealed trait ExpressionType
 
   // JSON atomic literal or Nothing
   // Can be coerced from a singular query.
-  trait ValueType extends ExtensionType {
+  trait ValueType extends ExpressionType with EvaluatesTo[Option[?]] {
 
     def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
@@ -109,19 +54,55 @@ object Expression {
     ): Option[Json]
   }
 
+  object ValueType {
+
+    // TODO: Temp workaround for value comparison
+    private final case class ValueTypeFromNodesType(
+        jsonPathValue: JsonPathValue
+    ) extends ValueType {
+
+      override def apply[Json: JsonSupport](
+          evaluator: JsonPathEvaluator[Json],
+          root: Json,
+          current: Json
+      ): Option[Json] =
+        jsonPathValue(evaluator, root, current).headOption
+
+      override def toString: String =
+        jsonPathValue.toString
+    }
+
+    implicit def jsonPathValueToValueType(
+        jsonPathValue: JsonPathValue
+    ): ValueType = ValueTypeFromNodesType(jsonPathValue)
+  }
+
   // Logical true or false, distinct from JSON true or false
   // Can be coerced from a NodesType via size of at least 1
-  trait LogicalType extends ExtensionType {
+  trait LogicalType extends ExpressionType with EvaluatesTo[Boolean]
 
-    def apply[Json: JsonSupport](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Boolean
+  object LogicalType {
+
+    // TODO: Temp workaround for value comparison
+    private final case class LogicalTypeFromNodesType(nodesType: NodesType)
+        extends LogicalType {
+      override def apply[Json: JsonSupport](
+          evaluator: JsonPathEvaluator[Json],
+          root: Json,
+          current: Json
+      ): Boolean =
+        nodesType(evaluator, root, current).nonEmpty
+
+      override def toString: String =
+        nodesType.toString
+    }
+
+    implicit def nodesTypeToLogicalType(nodesType: NodesType): LogicalType =
+      LogicalTypeFromNodesType(nodesType)
   }
 
   // JSONPath results as inputs, eg value(@['foobar'])
-  trait NodesType extends ExtensionType {
+  trait NodesType extends ExpressionType with EvaluatesTo[List[?]] {
 
     def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
@@ -130,18 +111,94 @@ object Expression {
     ): List[Json]
   }
 
-  sealed trait Literal extends Value {
+  sealed trait UnaryOperator[ParamType <: ExpressionType] extends Expression {
 
-    def asJson[Json: JsonSupport]: Json
+    def symbol: String
+
+    def expression: ParamType
+
+    override def toString: String =
+      expression match {
+        case binary: BinaryOperator[_, _] => s"$symbol($binary)"
+        case expression                   => s"$symbol$expression"
+      }
   }
 
-  case object LiteralNull extends Literal {
+  sealed trait BinaryOperator[
+      +LeftType <: ExpressionType,
+      +RightType <: ExpressionType
+  ] extends Expression {
+
+    def symbol: String
+
+    def left: LeftType
+
+    def right: RightType
+
+    override def toString: String =
+      s"$left $symbol ${right match {
+        case other: BinaryOperator[_, _] => s"(${other.toString})"
+        case value                       => value.toString
+      }}"
+  }
+
+  // Literals, singular queries, functions of ValueType
+  trait Comparable
+
+  // Extends LogicalType
+  sealed trait Comparator
+      extends BinaryOperator[ValueType, ValueType]
+      with LogicalType {
+
+    protected def compare[Json: JsonSupport](
+        evaluator: JsonPathEvaluator[Json],
+        root: Json,
+        current: Json
+    )(f: (Int, Int) => Boolean): Boolean = {
+      val leftResult = left(evaluator, root, current)
+      val rightResult = right(evaluator, root, current)
+      leftResult
+        .flatMap(_.asString)
+        .zip(rightResult.flatMap(_.asString))
+        .map { case (l, r) => l compareTo r }
+        .orElse(
+          leftResult
+            .flatMap(_.asArray)
+            .zip(rightResult.flatMap(_.asArray))
+            // TODO: Deep value comparison
+            .map { case (l, r) => l.size compareTo r.size }
+        )
+        .orElse(
+          leftResult
+            .flatMap(_.coerceToNumber)
+            .zip(rightResult.flatMap(_.coerceToNumber))
+            .map { case (l, r) => l compareTo r }
+        )
+        .fold(this match {
+          case _: IncludesEqualityCheck =>
+            leftResult.isEmpty && rightResult.isEmpty
+          case _ => false
+        })(f(_, 0))
+    }
+  }
+
+  sealed trait IncludesEqualityCheck extends Comparator
+
+  // Open trait for extension functions.
+  trait Extension
+
+  sealed trait Literal extends Expression with ValueType {
+
+    def asJson[Json: JsonSupport]: Json
 
     override def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json = asJson[Json]
+    ): Option[Json] = Some(asJson[Json])
+  }
+
+  case object LiteralNull extends Literal {
 
     override def asJson[Json: JsonSupport]: Json =
       implicitly[JsonSupport[Json]].Null
@@ -150,12 +207,6 @@ object Expression {
   }
 
   final case class LiteralString(value: String) extends Literal {
-
-    override def apply[Json: JsonSupport](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Json = asJson[Json]
 
     override def asJson[Json: JsonSupport]: Json =
       implicitly[JsonSupport[Json]].string(value)
@@ -166,12 +217,6 @@ object Expression {
 
   final case class LiteralNumber(value: BigDecimal) extends Literal {
 
-    override def apply[Json: JsonSupport](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Json = asJson[Json]
-
     def asJson[Json: JsonSupport]: Json =
       implicitly[JsonSupport[Json]].number(value)
 
@@ -180,36 +225,47 @@ object Expression {
 
   final case class LiteralBoolean(value: Boolean) extends Literal {
 
-    override def apply[Json: JsonSupport](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Json = asJson[Json]
-
     def asJson[Json: JsonSupport]: Json =
       implicitly[JsonSupport[Json]].boolean(value)
 
     override def toString: String = value.toString
   }
 
-  // Extends NodesType, always coercible to LogicalType, and sometimes ValueType
-  final case class JsonPathValue(path: JsonPath) extends Value {
+  final case class JsonPathValue(path: JsonPath.SingularQuery)
+      extends Expression
+      with NodesType {
 
     override def apply[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json = // TODO: This should return Nothing on empty matches
+    ): List[Json] =
       evaluator
         .evaluate(path, root, Some(current))
-        .headOption
-        .getOrElse(implicitly[JsonSupport[Json]].Null)
 
     override def toString: String =
       path.toString
   }
 
-  final case class Not(expression: Expression) extends UnaryOperator {
+  final case class JsonPathNodes(path: JsonPath.Query)
+      extends Expression
+      with NodesType {
+
+    override def apply[Json: JsonSupport](
+        evaluator: JsonPathEvaluator[Json],
+        root: Json,
+        current: Json
+    ): List[Json] =
+      evaluator
+        .evaluate(path, root, Some(current))
+
+    override def toString: String =
+      path.toString
+  }
+
+  final case class Not(expression: LogicalType)
+      extends UnaryOperator[LogicalType]
+      with LogicalType {
 
     override def symbol: String = "!"
 
@@ -217,14 +273,13 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
-      implicitly[JsonSupport[Json]].boolean(
-        !expression(evaluator, root, current).coerceToBoolean
-      )
+    ): Boolean =
+      !expression(evaluator, root, current)
   }
 
-  final case class Equal(left: Expression, right: Expression)
-      extends BinaryOperator {
+  final case class Equal(left: ValueType, right: ValueType)
+      extends Comparator
+      with IncludesEqualityCheck {
 
     override def symbol: String = "=="
 
@@ -232,21 +287,17 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
-      implicitly[JsonSupport[Json]].boolean(
-        implicitly[JsonSupport[Json]]
-          .convertTypes(
-            left(evaluator, root, current),
-            right(evaluator, root, current)
-          )
-          .fold(false) { case (l, r) =>
-            l == r
-          }
-      )
+    ): Boolean =
+      left(evaluator, root, current) ->
+        right(evaluator, root, current) match {
+        case None -> None       => true
+        case Some(l) -> Some(r) => l == r
+        case _                  => false
+      }
   }
 
-  final case class NotEqual(left: Expression, right: Expression)
-      extends BinaryOperator {
+  final case class NotEqual(left: ValueType, right: ValueType)
+      extends Comparator {
 
     override def symbol: String = "!="
 
@@ -254,20 +305,16 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
-      implicitly[JsonSupport[Json]].boolean(
-        implicitly[JsonSupport[Json]]
-          .convertTypes(
-            left(evaluator, root, current),
-            right(evaluator, root, current)
-          )
-          .fold(true) { case (l, r) =>
-            l != r
-          }
-      )
+    ): Boolean =
+      left(evaluator, root, current) ->
+        right(evaluator, root, current) match {
+        case None -> None       => false
+        case Some(l) -> Some(r) => l != r
+        case _                  => true
+      }
   }
 
-  final case class GreaterThan(left: Expression, right: Expression)
+  final case class GreaterThan(left: ValueType, right: ValueType)
       extends Comparator {
 
     override val symbol: String = ">"
@@ -276,12 +323,13 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
+    ): Boolean =
       compare(evaluator, root, current)(_ > _)
   }
 
-  final case class GreaterThanOrEqualTo(left: Expression, right: Expression)
-      extends Comparator {
+  final case class GreaterThanOrEqualTo(left: ValueType, right: ValueType)
+      extends Comparator
+      with IncludesEqualityCheck {
 
     override val symbol: String = ">="
 
@@ -289,11 +337,11 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
+    ): Boolean =
       compare(evaluator, root, current)(_ >= _)
   }
 
-  final case class LessThan(left: Expression, right: Expression)
+  final case class LessThan(left: ValueType, right: ValueType)
       extends Comparator {
 
     override val symbol: String = "<"
@@ -302,12 +350,13 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
+    ): Boolean =
       compare(evaluator, root, current)(_ < _)
   }
 
-  final case class LessThanOrEqualTo(left: Expression, right: Expression)
-      extends Comparator {
+  final case class LessThanOrEqualTo(left: ValueType, right: ValueType)
+      extends Comparator
+      with IncludesEqualityCheck {
 
     override val symbol: String = "<="
 
@@ -315,12 +364,13 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
+    ): Boolean =
       compare(evaluator, root, current)(_ <= _)
   }
 
-  final case class And(left: Expression, right: Expression)
-      extends BinaryOperator {
+  final case class And(left: LogicalType, right: LogicalType)
+      extends BinaryOperator[LogicalType, LogicalType]
+      with LogicalType {
 
     override def symbol: String = "&&"
 
@@ -328,15 +378,14 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
-      implicitly[JsonSupport[Json]].boolean(
-        left(evaluator, root, current).coerceToBoolean &&
-          right(evaluator, root, current).coerceToBoolean
-      )
+    ): Boolean =
+      left(evaluator, root, current) &&
+        right(evaluator, root, current)
   }
 
-  final case class Or(left: Expression, right: Expression)
-      extends BinaryOperator {
+  final case class Or(left: LogicalType, right: LogicalType)
+      extends BinaryOperator[LogicalType, LogicalType]
+      with LogicalType {
 
     override def symbol: String = "||"
 
@@ -344,31 +393,31 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
-      implicitly[JsonSupport[Json]].boolean(
-        left(evaluator, root, current).coerceToBoolean ||
-          right(evaluator, root, current).coerceToBoolean
-      )
+    ): Boolean =
+      left(evaluator, root, current) ||
+        right(evaluator, root, current)
   }
 
-  sealed trait ArithmeticOperator extends BinaryOperator {
+  sealed trait ArithmeticOperator
+      extends BinaryOperator[ValueType, ValueType]
+      with ValueType {
 
     protected def arithmetic[Json: JsonSupport](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    )(f: (BigDecimal, BigDecimal) => BigDecimal): Json = {
-      left(evaluator, root, current).coerceToNumber
-        .zip(right(evaluator, root, current).coerceToNumber)
+    )(f: (BigDecimal, BigDecimal) => BigDecimal): Option[Json] =
+      left(evaluator, root, current)
+        .flatMap(_.coerceToNumber)
+        .zip(right(evaluator, root, current).flatMap(_.coerceToNumber))
         .map { case (left, right) =>
           implicitly[JsonSupport[Json]].number(f(left, right))
         }
-        .getOrElse(implicitly[JsonSupport[Json]].Null)
-    }
   }
 
-  final case class Plus(left: Expression, right: Expression)
-      extends BinaryOperator {
+  final case class Plus(left: ValueType, right: ValueType)
+      extends BinaryOperator[ValueType, ValueType]
+      with ValueType {
 
     override def symbol: String = "+"
 
@@ -376,25 +425,26 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json = {
-      val leftResult = left(evaluator, root, current)
-      val rightResult = right(evaluator, root, current)
-      if (
-        (leftResult.isNumber || leftResult.isNull) &&
-        (rightResult.isNumber || rightResult.isNull)
-      )
-        implicitly[JsonSupport[Json]].number(
-          leftResult.coerceToNumber.getOrElse(BigDecimal(0)) +
-            rightResult.coerceToNumber.getOrElse(BigDecimal(0))
-        )
-      else
-        implicitly[JsonSupport[Json]].string(
-          leftResult.coerceToString concat rightResult.coerceToString
-        )
+    ): Option[Json] = {
+      left(evaluator, root, current).zip(right(evaluator, root, current)).map {
+        case (leftResult, rightResult) =>
+          if (
+            (leftResult.isNumber || leftResult.isNull) &&
+            (rightResult.isNumber || rightResult.isNull)
+          )
+            implicitly[JsonSupport[Json]].number(
+              leftResult.coerceToNumber.getOrElse(BigDecimal(0)) +
+                rightResult.coerceToNumber.getOrElse(BigDecimal(0))
+            )
+          else
+            implicitly[JsonSupport[Json]].string(
+              leftResult.coerceToString concat rightResult.coerceToString
+            )
+      }
     }
   }
 
-  final case class Minus(left: Expression, right: Expression)
+  final case class Minus(left: ValueType, right: ValueType)
       extends ArithmeticOperator {
 
     override def symbol: String = "-"
@@ -403,11 +453,11 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
+    ): Option[Json] =
       arithmetic(evaluator, root, current)(_ - _)
   }
 
-  final case class Divide(left: Expression, right: Expression)
+  final case class Divide(left: ValueType, right: ValueType)
       extends ArithmeticOperator {
 
     override def symbol: String = "/"
@@ -416,11 +466,11 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
+    ): Option[Json] =
       arithmetic(evaluator, root, current)(_ / _)
   }
 
-  final case class Multiply(left: Expression, right: Expression)
+  final case class Multiply(left: ValueType, right: ValueType)
       extends ArithmeticOperator {
 
     override def symbol: String = "*"
@@ -429,7 +479,7 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): Json =
+    ): Option[Json] =
       arithmetic(evaluator, root, current)(_ * _)
   }
 }

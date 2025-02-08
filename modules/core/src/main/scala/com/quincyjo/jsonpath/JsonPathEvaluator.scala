@@ -49,7 +49,7 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     * @return
     *   A singular JSON matching the given path or None.
     */
-  final def singular(path: JsonPath, json: Json): Option[Json] =
+  final def singular(path: JsonPath.SingularQuery, json: Json): Option[Json] =
     evaluate(path, json) match {
       case single :: Nil => Some(single)
       case _             => None
@@ -166,8 +166,8 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
   ): Iterable[Json] =
     json.arrayOrObject(
       Iterable.empty,
-      _.filter(j => filter.expression(this, root, j).coerceToBoolean),
-      _.values.filter(j => filter.expression(this, root, j).coerceToBoolean)
+      _.filter(j => filter.expression(this, root, j)),
+      _.values.filter(j => filter.expression(this, root, j))
     )
 
   final private[jsonpath] def script(
@@ -177,16 +177,18 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
   ): Iterable[Json] =
     script
       .expression(this, root, json)
-      .fold(
-        Iterable.empty,
-        _ => Iterable.empty,
-        i =>
-          Option
-            .when(i.isValidInt)(i.toInt)
-            .flatMap(i => json.asArray.flatMap(_.lift(i))),
-        s => json.asObject.flatMap(_.get(s)),
-        _ => Iterable.empty,
-        _ => Iterable.empty
+      .fold[Iterable[Json]](Iterable.empty)(
+        _.fold(
+          Iterable.empty,
+          _ => Iterable.empty,
+          i =>
+            Option
+              .when(i.isValidInt)(i.toInt)
+              .flatMap(i => json.asArray.flatMap(_.lift(i))),
+          s => json.asObject.flatMap(_.get(s)),
+          _ => Iterable.empty,
+          _ => Iterable.empty
+        )
       )
 
   final private[jsonpath] def descend(json: Json): List[Json] = {

@@ -17,7 +17,7 @@
 package com.quincyjo.jsonpath.parser
 
 import cats.implicits._
-import com.quincyjo.jsonpath.JsonPath
+import com.quincyjo.jsonpath.{Expression, JsonPath}
 import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.JsonPath._
 import com.quincyjo.jsonpath.parser.models.JsonPathParseContext.JsonPathToken
@@ -98,7 +98,11 @@ object JsonPathParser {
         case JsonPathToken.Current => Current
       }
       .foldF[(JsonPathRoot, JsonPathParseContext)](
-        ParseError("Expected '$' or '@'", context.index, context.input)
+        ParseError(
+          "A JSON Path must start with either '$' or '@'",
+          context.index,
+          context.input
+        )
       ) { root =>
         Parsed(root -> context.nextToken())
       }
@@ -308,10 +312,30 @@ object JsonPathParser {
   ): ParseResult[(JsonPathParseContext, ScriptSelector)] =
     context.currentTokenOrEndOfInput
       .flatMap {
-        case JsonPathToken.StartExpression =>
-          context.valueAsExpression.map(v => Script(v.value))
+        case JsonPathToken.StartExpression => // TODO: This will be removed.
+          context.valueAsExpression.map(_.value).flatMap {
+            case logical: Expression.ValueType =>
+              Parsed(Script(logical))
+            case other =>
+              ParseError(
+                s"Scripts requires a value expression but was: $other",
+                context.index,
+                context.input
+              )
+          }
         case JsonPathToken.StartFilterExpression =>
-          context.valueAsExpression.map(v => Filter(v.value))
+          context.valueAsExpression.map(_.value).flatMap {
+            case logical: Expression.LogicalType =>
+              Parsed(Filter(logical))
+            case logical: Expression.NodesType =>
+              Parsed(Filter(logical))
+            case other =>
+              ParseError(
+                s"Filter requires a logical expression but was: $other",
+                context.index,
+                context.input
+              )
+          }
         case invalidToken =>
           ParseError.invalidToken(
             invalidToken,
@@ -324,8 +348,8 @@ object JsonPathParser {
       .map(context.nextToken() -> _)
 
   private def parseUnion(
-                          first: ComposableSelector,
-                          context: JsonPathParseContext
+      first: ComposableSelector,
+      context: JsonPathParseContext
   ): ParseResult[(JsonPathParseContext, Union)] = {
 
     @tailrec

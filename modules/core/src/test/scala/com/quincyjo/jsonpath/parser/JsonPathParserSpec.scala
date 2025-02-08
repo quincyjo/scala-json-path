@@ -47,16 +47,15 @@ class JsonPathParserSpec
       "$[1:2:3]" -> $ / Slice(1, 2, 3),
       "$.*.deadbeef" -> $ / Wildcard / "deadbeef",
       "$.store.book[*].author" -> $ / "store" / "book" / Wildcard / "author",
-      "$..author" -> $ / RecursiveDescent(Attribute("author")),
-      "$..['author']" -> $ / RecursiveDescent(Attribute("author")),
+      "$..author" -> $ */ Attribute("author"),
+      "$..['author']" -> $ */ Attribute("author"),
       "$.store.*" -> $ / "store" / Wildcard,
-      "$.store..price" -> $ / "store" / RecursiveDescent(Attribute("price")),
-      "$..book[2]" -> $ / RecursiveDescent(Attribute("book")) / 2,
-      "$..book[-1:]" -> $ / RecursiveDescent(Attribute("book")) / Slice
-        .takeRight(1),
-      "$..book[0,1]" -> $ / RecursiveDescent(Attribute("book")) / Union(0, 1),
-      "$..book[:2]" -> $ / RecursiveDescent(Attribute("book")) / Slice.take(2),
-      "$..*" -> $ / RecursiveDescent(Wildcard)
+      "$.store..price" -> $ / "store" */ Attribute("price"),
+      "$..book[2]" -> $ */ Attribute("book") / 2,
+      "$..book[-1:]" -> $ */ Attribute("book") / Slice.takeRight(1),
+      "$..book[0,1]" -> $ */ Attribute("book") / Union(0, 1),
+      "$..book[:2]" -> $ */ Attribute("book") / Slice.take(2),
+      "$..*" -> $ */ Wildcard
     )
 
     forAll(cases) { (input, expected) =>
@@ -94,13 +93,12 @@ class JsonPathParserSpec
   it should "parse expressions according to the configured expression parser" in {
     val cases = Table(
       "input" -> "expected",
-      "$[(@.foobar>3)]" -> $ / Script(
-        GreaterThan(JsonPathValue(`@` / "foobar"), LiteralNumber(3))
-      ),
-      "$[?(!!@.length >= 5 && @[5].isValid)]" -> $ / Filter(
+      "$[?(@.foobar>3)]" -> $ ?/
+        GreaterThan(JsonPathValue(`@` / "foobar"), LiteralNumber(3)),
+      "$[?(@.length >= 5 && @[5].isValid)]" -> $ / Filter(
         And(
           GreaterThanOrEqualTo(
-            Not(Not(JsonPathValue(`@` / "length"))),
+            JsonPathValue(`@` / "length"),
             LiteralNumber(5)
           ),
           JsonPathValue(`@` / 5 / "isValid")
@@ -116,8 +114,9 @@ class JsonPathParserSpec
   it should "handle filter expressions without parentheses" in {
     val cases = Table(
       "input" -> "expected",
-      "$[?@.foobar>3]" -> $ / Filter(
-        GreaterThan(JsonPathValue(`@` / "foobar"), LiteralNumber(3))
+      "$[?@.foobar>3]" -> $ ?/ GreaterThan(
+        JsonPathValue(`@` / "foobar"),
+        LiteralNumber(3)
       ),
       "$[?@.foobar>3, 'foobar']" -> $ / Union(
         Filter(
@@ -126,10 +125,10 @@ class JsonPathParserSpec
         Attribute("foobar")
       ),
       "@[5].isValid" -> `@` / 5 / "isValid",
-      "$[?!!@.length >= 5 && @[5].isValid]" -> $ / Filter(
+      "$[?@.length >= 5 && @[5].isValid]" -> $ / Filter(
         And(
           GreaterThanOrEqualTo(
-            Not(Not(JsonPathValue(`@` / "length"))),
+            JsonPathValue(`@` / "length"),
             LiteralNumber(5)
           ),
           JsonPathValue(`@` / 5 / "isValid")

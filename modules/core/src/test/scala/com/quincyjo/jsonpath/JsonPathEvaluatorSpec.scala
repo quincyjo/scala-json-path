@@ -17,7 +17,7 @@
 package com.quincyjo.jsonpath
 
 import com.quincyjo.jsonpath.JsonBean._
-import com.quincyjo.jsonpath.JsonPath.{RecursiveDescent, Slice, Union, Wildcard}
+import com.quincyjo.jsonpath.JsonPath.{Slice, Union, Wildcard}
 import org.scalatest.LoneElement
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -69,7 +69,7 @@ class JsonPathEvaluatorSpec
         JsonBean(mobilePhoneNumber),
         JsonBean(homePhoneNumber)
       ),
-      JsonPath.$ / RecursiveDescent(Wildcard) -> List(
+      JsonPath.$ */ Wildcard -> List(
         JsonBean(firstName),
         JsonBean(lastName),
         address,

@@ -69,7 +69,7 @@ trait JsonPathEvaluatorSpecLike
           jsonSupport.string(mobilePhoneNumber),
           jsonSupport.string(homePhoneNumber)
         ),
-        JsonPath.$ / RecursiveDescent(Wildcard) -> List(
+        JsonPath.$ */ Wildcard -> List(
           jsonSupport.string(firstName),
           jsonSupport.string(lastName),
           address,
