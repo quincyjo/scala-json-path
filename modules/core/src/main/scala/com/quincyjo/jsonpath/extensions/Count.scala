@@ -16,9 +16,10 @@
 
 package com.quincyjo.jsonpath.extensions
 
+import com.quincyjo.braid.Braid
 import com.quincyjo.jsonpath.Expression.{NodesType, ValueType}
 import com.quincyjo.jsonpath.parser.{JsonPathParser, WithExtension}
-import com.quincyjo.jsonpath.{Expression, JsonPathEvaluator, JsonSupport}
+import com.quincyjo.jsonpath.{Expression, JsonPathEvaluator}
 
 /** Function that returns the number of nodes that are matched by a given query.
   * @param nodes
@@ -32,12 +33,12 @@ final case class Count(nodes: NodesType)
 
   override val args: List[Expression] = List(nodes)
 
-  override def apply[Json: JsonSupport](
+  override def apply[Json: Braid](
       evaluator: JsonPathEvaluator[Json],
       root: Json,
       current: Json
   ): Option[Json] = Some(
-    implicitly[JsonSupport[Json]].number(
+    implicitly[Braid[Json]].fromInt(
       nodes(evaluator, root, current).size
     )
   )

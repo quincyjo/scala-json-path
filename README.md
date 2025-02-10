@@ -27,8 +27,10 @@ To get started, you can add play-json as a dependency in your project:
 
 See [GitHub releases](https://github.com/quincyjo/scala-json-path/releases) for the correct version.
 
-Play JSON supports Scala 2.13 and Scala 3.3+. Choosing the right JAR is automatically managed in sbt. Currently, circe
-does not compile to Scala 3, and so that module is limited to Scala 2.13.
+Scala Json Path interfaces with the underlying JSON library generically via [Braid](https://github.com/quincyjo/braid).
+A `JsonPathEvaluator` can be defined for any `Json` type that has an implicit `Braid` in scope for it.
+
+There are also several pre-defined `JsonPathEvaluator` implementations for common JSON libraries as listed before.
 
 * Modules
   ```

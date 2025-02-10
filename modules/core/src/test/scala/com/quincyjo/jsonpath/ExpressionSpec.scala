@@ -16,8 +16,9 @@
 
 package com.quincyjo.jsonpath
 
+import com.quincyjo.braid.operations.implicits._
+import com.quincyjo.jsonpath.JsonBean.jsonBeanBraid
 import com.quincyjo.jsonpath.Expression._
-import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -82,25 +83,19 @@ class ExpressionSpec
 
   "Not" should behave like unarySerialization(Not.apply)("!")
 
-  // TODO: Update for RFC behaviour
-  it should "be equivalent to JS falsey" ignore {
+  it should "invert a logical types" in {
     val cases = Table(
       "json" -> "expected",
-      JsonBean.boolean(true) -> false,
-      JsonBean.boolean(false) -> true,
-      JsonBean.number(0) -> true,
-      JsonBean.number(42) -> false,
-      JsonBean.number(-1) -> false,
-      JsonBean.string("") -> true,
-      JsonBean.string("foo") -> false,
-      JsonBean.obj() -> false,
-      JsonBean.obj("foo" -> "bar") -> false,
-      JsonBean.arr() -> false,
-      JsonBean.arr(5) -> false
+      JsonBean.obj("foobar" -> 42) -> false,
+      JsonBean.obj("baz" -> 42) -> true
     )
 
     forAll(cases) { case (json, expected) =>
-      Not(JsonPathValue(JsonPath.$))(evaluator, json, json) should be(
+      Not(JsonPathValue(JsonPath.$ / "foobar"))(
+        evaluator,
+        json,
+        json
+      ) should be(
         expected
       )
     }
@@ -118,26 +113,6 @@ class ExpressionSpec
       (LiteralBoolean(true), LiteralBoolean(false), false),
       (LiteralString("foobar"), LiteralString("foobar"), true),
       (LiteralString("foobar"), LiteralString("deadbeef"), false)
-    )
-
-    forAll(cases) { case (left, right, expected) =>
-      Equal(left, right)(evaluator, JsonBean.Null, JsonBean.Null) should be(
-        expected
-      )
-    }
-  }
-
-  // TODO: Update for RFC behaviour
-  it should "apply type conversion" ignore {
-    val cases = Table(
-      ("left", "right", "expected"),
-      (LiteralNumber(42), LiteralNumber(5), false),
-      (LiteralNumber(42), LiteralNumber(42), true),
-      (LiteralBoolean(true), LiteralNumber(0), false),
-      (LiteralBoolean(false), LiteralNumber(0), true),
-      (LiteralNull, LiteralString(""), false),
-      (LiteralNull, LiteralNull, true),
-      (LiteralString("5"), LiteralNumber(5), true)
     )
 
     forAll(cases) { case (left, right, expected) =>

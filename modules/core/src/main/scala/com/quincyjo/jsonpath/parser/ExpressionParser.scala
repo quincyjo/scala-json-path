@@ -200,7 +200,8 @@ final case class ExpressionParser(
               token match {
                 case ExpressionToken.CloseParenthesis =>
                   Parsed(next -> builder.result())
-                case ExpressionToken.Comma => go(next.nextToken(), builder)
+                case ExpressionToken.Comma =>
+                  go(next.nextToken(), builder)
                 case invalid =>
                   ParseError.invalidToken(
                     invalid,

@@ -17,7 +17,9 @@
 package com.quincyjo.jsonpath
 
 import cats.data.Validated
-import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
+import com.quincyjo.braid.Braid
+import com.quincyjo.braid.implicits._
+import com.quincyjo.braid.operations.implicits.toJsonOperationOps
 import com.quincyjo.jsonpath.parser.util.StringEscapes
 
 sealed trait Expression {
@@ -30,7 +32,7 @@ object Expression {
 
   sealed trait EvaluatesTo[T] {
 
-    def apply[Json: JsonSupport](
+    def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -54,7 +56,7 @@ object Expression {
   // Can be coerced from a singular query.
   trait ValueType extends Expression with EvaluatesTo[Option[?]] {
 
-    def apply[Json: JsonSupport](
+    def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -84,7 +86,7 @@ object Expression {
         jsonPathValue: JsonPathValue
     ) extends ValueType {
 
-      override def apply[Json: JsonSupport](
+      override def apply[Json: Braid](
           evaluator: JsonPathEvaluator[Json],
           root: Json,
           current: Json
@@ -122,7 +124,7 @@ object Expression {
     // TODO: Are wrapping case classes the best way to represent this?
     private final case class LogicalTypeFromNodesType(nodesType: NodesType)
         extends LogicalType {
-      override def apply[Json: JsonSupport](
+      override def apply[Json: Braid](
           evaluator: JsonPathEvaluator[Json],
           root: Json,
           current: Json
@@ -140,7 +142,7 @@ object Expression {
   // JSONPath results as inputs, eg value(@['foobar'])
   trait NodesType extends Expression with EvaluatesTo[List[?]] {
 
-    def apply[Json: JsonSupport](
+    def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -204,7 +206,7 @@ object Expression {
       extends BinaryOperator[ValueType, ValueType]
       with LogicalType {
 
-    protected def compare[Json: JsonSupport](
+    protected def compare[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -246,9 +248,9 @@ object Expression {
 
   sealed trait Literal extends Expression with ValueType {
 
-    def asJson[Json: JsonSupport]: Json
+    def asJson[Json: Braid]: Json
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -257,16 +259,16 @@ object Expression {
 
   case object LiteralNull extends Literal {
 
-    override def asJson[Json: JsonSupport]: Json =
-      implicitly[JsonSupport[Json]].Null
+    override def asJson[Json: Braid]: Json =
+      implicitly[Braid[Json]].Null
 
     override def toString: String = "null"
   }
 
   final case class LiteralString(value: String) extends Literal {
 
-    override def asJson[Json: JsonSupport]: Json =
-      implicitly[JsonSupport[Json]].string(value)
+    override def asJson[Json: Braid]: Json =
+      implicitly[Braid[Json]].fromString(value)
 
     override def toString: String =
       s"""\"${StringEscapes.escapeDoubleQuotes(value)}\""""
@@ -274,16 +276,16 @@ object Expression {
 
   final case class LiteralNumber(value: BigDecimal) extends Literal {
 
-    def asJson[Json: JsonSupport]: Json =
-      implicitly[JsonSupport[Json]].number(value)
+    def asJson[Json: Braid]: Json =
+      implicitly[Braid[Json]].fromBigDecimal(value)
 
     override def toString: String = value.toString
   }
 
   final case class LiteralBoolean(value: Boolean) extends Literal {
 
-    def asJson[Json: JsonSupport]: Json =
-      implicitly[JsonSupport[Json]].boolean(value)
+    def asJson[Json: Braid]: Json =
+      implicitly[Braid[Json]].fromBoolean(value)
 
     override def toString: String = value.toString
   }
@@ -293,7 +295,7 @@ object Expression {
       extends Expression
       with NodesType {
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -309,7 +311,7 @@ object Expression {
       extends Expression
       with NodesType {
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -327,7 +329,7 @@ object Expression {
 
     override def symbol: String = "!"
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -341,7 +343,7 @@ object Expression {
 
     override def symbol: String = "=="
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -358,7 +360,7 @@ object Expression {
 
     override def symbol: String = "!="
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -374,7 +376,7 @@ object Expression {
 
     override val symbol: String = ">"
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -388,7 +390,7 @@ object Expression {
 
     override val symbol: String = ">="
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -401,7 +403,7 @@ object Expression {
 
     override val symbol: String = "<"
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -415,7 +417,7 @@ object Expression {
 
     override val symbol: String = "<="
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -429,7 +431,7 @@ object Expression {
 
     override def symbol: String = "&&"
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -444,7 +446,7 @@ object Expression {
 
     override def symbol: String = "||"
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -464,7 +466,7 @@ object Expression {
       extends BinaryOperator[ValueType, ValueType]
       with ValueType {
 
-    protected def arithmetic[Json: JsonSupport](
+    protected def arithmetic[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -473,7 +475,7 @@ object Expression {
         .flatMap(_.coerceToNumber)
         .zip(right(evaluator, root, current).flatMap(_.coerceToNumber))
         .map { case (left, right) =>
-          implicitly[JsonSupport[Json]].number(f(left, right))
+          implicitly[Braid[Json]].fromBigDecimal(f(left, right))
         }
   }
 
@@ -483,7 +485,7 @@ object Expression {
 
     override def symbol: String = "+"
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -495,12 +497,12 @@ object Expression {
             (leftResult.isNumber || leftResult.isNull) &&
             (rightResult.isNumber || rightResult.isNull)
           )
-            implicitly[JsonSupport[Json]].number(
+            implicitly[Braid[Json]].fromBigDecimal(
               leftResult.coerceToNumber.getOrElse(BigDecimal(0)) +
                 rightResult.coerceToNumber.getOrElse(BigDecimal(0))
             )
           else
-            implicitly[JsonSupport[Json]].string(
+            implicitly[Braid[Json]].fromString(
               leftResult.coerceToString concat rightResult.coerceToString
             )
         }
@@ -512,7 +514,7 @@ object Expression {
 
     override def symbol: String = "-"
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -525,7 +527,7 @@ object Expression {
 
     override def symbol: String = "/"
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
@@ -538,7 +540,7 @@ object Expression {
 
     override def symbol: String = "*"
 
-    override def apply[Json: JsonSupport](
+    override def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json

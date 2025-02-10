@@ -17,6 +17,12 @@ val circeCore = "io.circe" %% "circe-core" % circeVersion
 val playJsonVersion = "3.0.1"
 val playJson = "org.playframework" %% "play-json" % playJsonVersion
 
+val braidVersion = "0.1.1"
+val braid = "com.quincyjo" %% "braid" % braidVersion
+val braidOperations = "com.quincyjo" %% "braid-json-operations" % braidVersion
+val braidCirce = "com.quincyjo" %% "braid-circe" % braidVersion
+val braidPlay = "com.quincyjo" %% "braid-play" % braidVersion
+
 // skip / publish := true
 ThisBuild / tlBaseVersion := "0.2"
 ThisBuild / version := "0.2.0"
@@ -62,7 +68,9 @@ val commonSettings = Seq(
     scalameta % Test,
     scalaTest % Test,
     scalaTestFlatSpec % Test,
-    catsCore
+    catsCore,
+    braid,
+    braidOperations
   ),
   scalacOptions ++= (if (!tlIsScala3.value)
                        Seq(
@@ -90,7 +98,7 @@ lazy val circe = project
     name := "Scala Jsonpath Circe",
     moduleName := "scala-json-path-circe",
     tlVersionIntroduced := Map("3" -> "0.2.0"),
-    libraryDependencies ++= Seq(circeCore)
+    libraryDependencies ++= Seq(circeCore, braidCirce)
   )
 
 lazy val play = project
@@ -100,7 +108,7 @@ lazy val play = project
     name := "Scala Jsonpath Play",
     moduleName := "scala-json-path-play",
     commonSettings,
-    libraryDependencies += playJson
+    libraryDependencies ++= Seq(playJson, braidPlay)
   )
 
 lazy val testBehaviours = project

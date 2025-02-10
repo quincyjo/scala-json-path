@@ -16,10 +16,11 @@
 
 package com.quincyjo.jsonpath.extensions
 
+import com.quincyjo.braid.Braid
+import com.quincyjo.braid.implicits._
 import com.quincyjo.jsonpath.Expression.ValueType
-import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
 import com.quincyjo.jsonpath.parser.{JsonPathParser, WithExtension}
-import com.quincyjo.jsonpath.{Expression, JsonPathEvaluator, JsonSupport}
+import com.quincyjo.jsonpath.{Expression, JsonPathEvaluator}
 
 /** Function that returns the length of the given value. If the value is a
   * string, then the length of the string is returned. If the value is an array
@@ -37,7 +38,7 @@ final case class Length(value: ValueType)
 
   override val args: List[Expression] = List(value)
 
-  override def apply[Json: JsonSupport](
+  override def apply[Json: Braid](
       evaluator: JsonPathEvaluator[Json],
       root: Json,
       current: Json
@@ -49,8 +50,7 @@ final case class Length(value: ValueType)
           arr => Some(arr.size),
           obj => Some(obj.size)
         )
-        .map(BigDecimal(_))
-        .map(implicitly[JsonSupport[Json]].number)
+        .map(implicitly[Braid[Json]].fromInt)
     }
 }
 

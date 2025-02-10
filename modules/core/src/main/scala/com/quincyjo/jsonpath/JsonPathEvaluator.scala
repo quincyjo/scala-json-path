@@ -16,15 +16,15 @@
 
 package com.quincyjo.jsonpath
 
-import com.quincyjo.jsonpath
+import com.quincyjo.braid.Braid
+import com.quincyjo.braid.implicits._
 import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.JsonPath._
-import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
 
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-abstract class JsonPathEvaluator[Json: JsonSupport] {
+abstract class JsonPathEvaluator[Json: Braid] {
 
   // TODO: Model out a Node and return a list of those instead.
   /** Apply this JsonPath to a JSON, returning a list of JSON values matching
@@ -119,7 +119,7 @@ abstract class JsonPathEvaluator[Json: JsonSupport] {
     json.asObject.flatMap(_.get(attribute)) orElse
       json.asArray.collect {
         case arr if attribute == "length" =>
-          implicitly[jsonpath.JsonSupport[Json]].number(arr.size)
+          implicitly[Braid[Json]].fromInt(arr.size)
       }
 
   final private[jsonpath] def index(json: Json, index: Int): Iterable[Json] =

@@ -16,6 +16,8 @@
 
 package com.quincyjo.jsonpath
 
+import com.quincyjo.braid.Braid
+
 sealed trait JsonBean
 
 object JsonBean {
@@ -83,16 +85,19 @@ object JsonBean {
     override def toString: String = "null"
   }
 
-  implicit final val jsonBeanSupport: JsonSupport[JsonBean] =
-    new JsonSupport[JsonBean] {
+  implicit final val jsonBeanBraid: Braid[JsonBean] =
+    new Braid[JsonBean] {
 
-      override def string(string: String): JsonBean =
+      override def fromString(string: String): JsonBean =
         JString(string)
 
-      override def number(bigDecimal: BigDecimal): JsonBean =
+      override def fromBigDecimal(bigDecimal: BigDecimal): JsonBean =
         JNumber(bigDecimal)
 
-      override def boolean(boolean: Boolean): JsonBean =
+      override def fromInt(int: Int): JsonBean =
+        JNumber(int)
+
+      override def fromBoolean(boolean: Boolean): JsonBean =
         JBoolean(boolean)
 
       override def arr(json: JsonBean*): JsonBean =
@@ -187,6 +192,39 @@ object JsonBean {
           case JString(value)      => jsonString(value)
           case JNull               => ifNull
         }
+
+      override def fromBigInt(bigInt: BigInt): JsonBean =
+        JNumber(BigDecimal(bigInt))
+
+      override def fromLong(long: Long): JsonBean =
+        JNumber(BigDecimal(long))
+
+      override def fromFloat(float: Float): Option[JsonBean] =
+        Some(JNumber(BigDecimal(float.toDouble)))
+
+      override def fromDouble(double: Double): Option[JsonBean] =
+        Some(JNumber(BigDecimal(double)))
+
+      override def mapObject(json: JsonBean)(
+          f: Map[String, JsonBean] => Map[String, JsonBean]
+      ): JsonBean =
+        asObject(json).map(f).map(fromFields).getOrElse(json)
+
+      override def mapArray(json: JsonBean)(
+          f: Vector[JsonBean] => Vector[JsonBean]
+      ): JsonBean =
+        asArray(json).map(f).map(fromValues).getOrElse(json)
+
+      override def mapString(json: JsonBean)(f: String => String): JsonBean =
+        asString(json).map(f).map(string).getOrElse(json)
+
+      override def mapBoolean(json: JsonBean)(f: Boolean => Boolean): JsonBean =
+        asBoolean(json).map(f).map(boolean).getOrElse(json)
+
+      override def mapNumber(json: JsonBean)(
+          f: BigDecimal => BigDecimal
+      ): JsonBean =
+        asNumber(json).map(f).map(fromBigDecimal).getOrElse(json)
     }
 
   case object JsonBeanEvaluator extends JsonPathEvaluator[JsonBean]

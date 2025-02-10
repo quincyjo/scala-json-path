@@ -16,8 +16,8 @@
 
 package com.quincyjo.jsonpath.play
 
+import com.quincyjo.braid.play.implicits.playSupport
 import com.quincyjo.jsonpath.JsonPathEvaluator
-import com.quincyjo.jsonpath.play.implicits.playSupport
 import play.api.libs.json.JsValue
 
 object PlayEvaluator extends JsonPathEvaluator[JsValue]

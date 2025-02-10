@@ -16,11 +16,12 @@
 
 package com.quincyjo.jsonpath.extensions
 
+import com.quincyjo.braid.Braid
+import com.quincyjo.braid.implicits._
 import com.quincyjo.jsonpath.Expression.{LogicalType, ValueType}
-import com.quincyjo.jsonpath.JsonSupport.Implicits.JsonSupportOps
 import com.quincyjo.jsonpath.extensions.FunctionExtension.FunctionExtension2
 import com.quincyjo.jsonpath.parser.{JsonPathParser, WithExtension}
-import com.quincyjo.jsonpath.{Expression, JsonPathEvaluator, JsonSupport}
+import com.quincyjo.jsonpath.{Expression, JsonPathEvaluator}
 
 import scala.util.Try
 import scala.util.matching.Regex
@@ -40,7 +41,7 @@ final case class Match(target: ValueType, regex: ValueType)
 
   override val args: List[Expression] = List(target, regex)
 
-  override def apply[Json: JsonSupport](
+  override def apply[Json: Braid](
       evaluator: JsonPathEvaluator[Json],
       root: Json,
       current: Json

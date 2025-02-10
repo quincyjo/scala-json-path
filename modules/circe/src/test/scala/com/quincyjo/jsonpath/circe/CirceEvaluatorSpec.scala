@@ -17,8 +17,9 @@
 package com.quincyjo.jsonpath.circe
 
 import com.quincyjo.jsonpath.JsonPathEvaluatorSpecLike
+import com.quincyjo.braid.circe.implicits.circeBraid
 
 class CirceEvaluatorSpec extends JsonPathEvaluatorSpecLike {
 
-  it should behave like basicEvaluations(CirceEvaluator)(CirceSupport)
+  it should behave like basicEvaluations(CirceEvaluator)
 }

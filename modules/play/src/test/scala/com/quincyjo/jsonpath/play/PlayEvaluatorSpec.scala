@@ -17,8 +17,9 @@
 package com.quincyjo.jsonpath.play
 
 import com.quincyjo.jsonpath.JsonPathEvaluatorSpecLike
+import com.quincyjo.braid.play.implicits.playSupport
 
 class PlayEvaluatorSpec extends JsonPathEvaluatorSpecLike {
 
-  it should behave like basicEvaluations(PlayEvaluator)(PlaySupport)
+  it should behave like basicEvaluations(PlayEvaluator)
 }

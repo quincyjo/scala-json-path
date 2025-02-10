@@ -16,9 +16,10 @@
 
 package com.quincyjo.jsonpath.extensions
 
+import com.quincyjo.braid.Braid
 import com.quincyjo.jsonpath.Expression.{NodesType, ValueType}
 import com.quincyjo.jsonpath.parser.{JsonPathParser, WithExtension}
-import com.quincyjo.jsonpath.{Expression, JsonPathEvaluator, JsonSupport}
+import com.quincyjo.jsonpath.{Expression, JsonPathEvaluator}
 
 /** Converts a set of nodes to a single JSON value. If a single node is found,
   * then that node is returned. If no nodes are found, then nothing is returned.
@@ -36,7 +37,7 @@ final case class Value(nodes: NodesType)
 
   override val args: List[Expression] = List(nodes)
 
-  override def apply[Json: JsonSupport](
+  override def apply[Json: Braid](
       evaluator: JsonPathEvaluator[Json],
       root: Json,
       current: Json

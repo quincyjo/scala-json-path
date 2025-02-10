@@ -16,6 +16,7 @@
 
 package com.quincyjo.jsonpath
 
+import com.quincyjo.braid.Braid
 import com.quincyjo.jsonpath.JsonPath.Wildcard
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -28,7 +29,7 @@ trait JsonPathEvaluatorSpecLike
 
   def basicEvaluations[Json](
       evaluator: JsonPathEvaluator[Json]
-  )(implicit jsonSupport: JsonSupport[Json]): Unit = {
+  )(implicit braid: Braid[Json]): Unit = {
     val firstName = "Jane"
     val lastName = "Doe"
     val streetAddress = "123 Sesame St"
@@ -38,51 +39,51 @@ trait JsonPathEvaluatorSpecLike
     val mobilePhoneNumber = "555-111-2222"
     val homePhoneType = "home"
     val homePhoneNumber = "555-333-4444"
-    val address = jsonSupport.obj(
-      "streetAddress" -> jsonSupport.string(streetAddress),
-      "city" -> jsonSupport.string(city),
-      "country" -> jsonSupport.string(country)
+    val address = braid.obj(
+      "streetAddress" -> braid.fromString(streetAddress),
+      "city" -> braid.fromString(city),
+      "country" -> braid.fromString(country)
     )
-    val mobilePhone = jsonSupport.obj(
-      "type" -> jsonSupport.string(mobilePhoneType),
-      "number" -> jsonSupport.string(mobilePhoneNumber)
+    val mobilePhone = braid.obj(
+      "type" -> braid.fromString(mobilePhoneType),
+      "number" -> braid.fromString(mobilePhoneNumber)
     )
-    val homePhone = jsonSupport.obj(
-      "type" -> jsonSupport.string(homePhoneType),
-      "number" -> jsonSupport.string(homePhoneNumber)
+    val homePhone = braid.obj(
+      "type" -> braid.fromString(homePhoneType),
+      "number" -> braid.fromString(homePhoneNumber)
     )
-    val phoneNumbers = jsonSupport.arr(mobilePhone, homePhone)
-    val json = jsonSupport.obj(
-      "firstName" -> jsonSupport.string(firstName),
-      "lastName" -> jsonSupport.string(lastName),
+    val phoneNumbers = braid.arr(mobilePhone, homePhone)
+    val json = braid.obj(
+      "firstName" -> braid.fromString(firstName),
+      "lastName" -> braid.fromString(lastName),
       "address" -> address,
       "phoneNumbers" -> phoneNumbers
     )
 
-    "evaluate" should "foo" in {
+    "evaluate" should "return a list of the matching values" in {
       val cases = Table[JsonPath, List[Json]](
         "jsonPath" -> "expected",
-        JsonPath.$ / "firstName" -> List(jsonSupport.string(firstName)),
-        JsonPath.$ / "lastName" -> List(jsonSupport.string(lastName)),
+        JsonPath.$ / "firstName" -> List(braid.fromString(firstName)),
+        JsonPath.$ / "lastName" -> List(braid.fromString(lastName)),
         JsonPath.$ / "address" -> List(address),
         JsonPath.$ / "phoneNumbers" / Wildcard / "number" -> List(
-          jsonSupport.string(mobilePhoneNumber),
-          jsonSupport.string(homePhoneNumber)
+          braid.fromString(mobilePhoneNumber),
+          braid.fromString(homePhoneNumber)
         ),
         JsonPath.$ */ Wildcard -> List(
-          jsonSupport.string(firstName),
-          jsonSupport.string(lastName),
+          braid.fromString(firstName),
+          braid.fromString(lastName),
           address,
           phoneNumbers,
-          jsonSupport.string(streetAddress),
-          jsonSupport.string(city),
-          jsonSupport.string(country),
+          braid.fromString(streetAddress),
+          braid.fromString(city),
+          braid.fromString(country),
           mobilePhone,
           homePhone,
-          jsonSupport.string(mobilePhoneType),
-          jsonSupport.string(mobilePhoneNumber),
-          jsonSupport.string(homePhoneType),
-          jsonSupport.string(homePhoneNumber)
+          braid.fromString(mobilePhoneType),
+          braid.fromString(mobilePhoneNumber),
+          braid.fromString(homePhoneType),
+          braid.fromString(homePhoneNumber)
         )
       )
 
@@ -96,23 +97,23 @@ trait JsonPathEvaluatorSpecLike
 
     it should "handle basic expressions" in {
 
-      val apple = jsonSupport.obj(
-        "label" -> jsonSupport.string("Apple"),
-        "price" -> jsonSupport.number(2),
-        "quantity" -> jsonSupport.number(15)
+      val apple = braid.obj(
+        "label" -> braid.fromString("Apple"),
+        "price" -> braid.fromInt(2),
+        "quantity" -> braid.fromInt(15)
       )
-      val banana = jsonSupport.obj(
-        "label" -> jsonSupport.string("Banana"),
-        "price" -> jsonSupport.number(1),
-        "quantity" -> jsonSupport.number(23)
+      val banana = braid.obj(
+        "label" -> braid.fromString("Banana"),
+        "price" -> braid.fromInt(1),
+        "quantity" -> braid.fromInt(23)
       )
-      val dinnerSet = jsonSupport.obj(
-        "label" -> jsonSupport.string("Dinner Set"),
-        "price" -> jsonSupport.number(30),
-        "quantity" -> jsonSupport.number(2)
+      val dinnerSet = braid.obj(
+        "label" -> braid.fromString("Dinner Set"),
+        "price" -> braid.fromInt(30),
+        "quantity" -> braid.fromInt(2)
       )
-      val json = jsonSupport.obj(
-        "products" -> jsonSupport.arr(
+      val json = braid.obj(
+        "products" -> braid.arr(
           apple,
           banana,
           dinnerSet
