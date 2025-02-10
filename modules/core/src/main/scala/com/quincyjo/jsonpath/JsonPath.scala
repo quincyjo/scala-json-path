@@ -20,7 +20,6 @@ import cats.implicits.toTraverseOps
 import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.JsonPath.SingularSelector.SingularSelectorWrapper
 import com.quincyjo.jsonpath.JsonPath._
-import com.quincyjo.jsonpath.JsonPath.{Query, SingularQuery}
 import com.quincyjo.jsonpath.parser.util.StringEscapes
 // import scala.annotation.{tailrec, targetName}
 
@@ -627,12 +626,6 @@ object JsonPath {
 
     override def toString: String =
       s"'${StringEscapes.escapeSingleQuotes(value)}'"
-  }
-
-  object Attribute {
-
-    // TODO: Remove in favour of extension function.
-    final val length = Attribute("length")
   }
 
   /** Selects the given index from a JSON array.

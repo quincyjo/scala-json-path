@@ -290,6 +290,7 @@ object Expression {
     override def toString: String = value.toString
   }
 
+  // TODO: Expression magnets?
   // TODO: Improve the API for JsonPath arguments
   final case class JsonPathValue(path: JsonPath.SingularQuery)
       extends Expression

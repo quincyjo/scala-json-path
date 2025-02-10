@@ -119,63 +119,62 @@ sealed trait ParseResult[+T] {
 
 object ParseResult {
 
-  implicit val monad: Monad[ParseResult] = new Monad[ParseResult]
-    with Traverse[ParseResult]
-    with MonadError[ParseResult, ParseError] {
+  implicit val monad: Monad[ParseResult] =
+    new MonadError[ParseResult, ParseError] with Traverse[ParseResult] {
 
-    override def pure[A](x: A): ParseResult[A] =
-      Parsed(x)
+      override def pure[A](x: A): ParseResult[A] =
+        Parsed(x)
 
-    override def flatMap[A, B](
-        fa: ParseResult[A]
-    )(f: A => ParseResult[B]): ParseResult[B] =
-      fa match {
-        case Parsed(value)     => f(value)
-        case error: ParseError => error
+      override def flatMap[A, B](
+          fa: ParseResult[A]
+      )(f: A => ParseResult[B]): ParseResult[B] =
+        fa match {
+          case Parsed(value)     => f(value)
+          case error: ParseError => error
+        }
+
+      @annotation.tailrec
+      override def tailRecM[A, B](
+          a: A
+      )(f: A => ParseResult[Either[A, B]]): ParseResult[B] = f(a) match {
+        case failure: ParseError => failure
+        case Parsed(Right(b))    => Parsed(b)
+        case Parsed(Left(a))     => tailRecM(a)(f)
       }
 
-    @annotation.tailrec
-    override def tailRecM[A, B](
-        a: A
-    )(f: A => ParseResult[Either[A, B]]): ParseResult[B] = f(a) match {
-      case failure: ParseError => failure
-      case Parsed(Right(b))    => Parsed(b)
-      case Parsed(Left(a))     => tailRecM(a)(f)
+      override def traverse[G[_]: Applicative, A, B](
+          fa: ParseResult[A]
+      )(f: A => G[B]): G[ParseResult[B]] =
+        fa match {
+          case Parsed(a) =>
+            Applicative[G].map(f(a))(pure)
+          case error: ParseError =>
+            Applicative[G].pure(error)
+        }
+
+      override def foldLeft[A, B](fa: ParseResult[A], b: B)(f: (B, A) => B): B =
+        fa match {
+          case Parsed(a)     => f(b, a)
+          case _: ParseError => b
+        }
+
+      override def foldRight[A, B](fa: ParseResult[A], lb: Eval[B])(
+          f: (A, Eval[B]) => Eval[B]
+      ): Eval[B] =
+        fa match {
+          case Parsed(value) => f(value, lb)
+          case _: ParseError => lb
+        }
+
+      override def raiseError[A](e: ParseError): ParseResult[A] = e
+
+      override def handleErrorWith[A](fa: ParseResult[A])(
+          f: ParseError => ParseResult[A]
+      ): ParseResult[A] = fa match {
+        case parsed: Parsed[_] => parsed.asInstanceOf[Parsed[A]]
+        case error: ParseError => f(error)
+      }
     }
-
-    override def traverse[G[_]: Applicative, A, B](
-        fa: ParseResult[A]
-    )(f: A => G[B]): G[ParseResult[B]] =
-      fa match {
-        case Parsed(a) =>
-          Applicative[G].map(f(a))(pure)
-        case error: ParseError =>
-          Applicative[G].pure(error)
-      }
-
-    override def foldLeft[A, B](fa: ParseResult[A], b: B)(f: (B, A) => B): B =
-      fa match {
-        case Parsed(a)     => f(b, a)
-        case _: ParseError => b
-      }
-
-    override def foldRight[A, B](fa: ParseResult[A], lb: Eval[B])(
-        f: (A, Eval[B]) => Eval[B]
-    ): Eval[B] =
-      fa match {
-        case Parsed(value) => f(value, lb)
-        case _: ParseError => lb
-      }
-
-    override def raiseError[A](e: ParseError): ParseResult[A] = e
-
-    override def handleErrorWith[A](fa: ParseResult[A])(
-        f: ParseError => ParseResult[A]
-    ): ParseResult[A] = fa match {
-      case parsed: Parsed[_] => parsed.asInstanceOf[Parsed[A]]
-      case error: ParseError => f(error)
-    }
-  }
 }
 
 final case class Parsed[T](value: T) extends ParseResult[T] {

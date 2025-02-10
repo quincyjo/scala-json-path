@@ -46,11 +46,11 @@ final case class Value(nodes: NodesType)
 
 object Value {
 
-  val parser: Extension[NodesType, Value] =
+  val extension: Extension[NodesType, Value] =
     Extension("value")(Value.apply)
 
   trait ValueExtension extends WithExtension { self: JsonPathParser =>
 
-    addExtension(Value.parser)
+    addExtension(Value.extension)
   }
 }

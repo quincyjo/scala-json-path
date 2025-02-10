@@ -18,6 +18,7 @@ package com.quincyjo.jsonpath.parser
 
 import com.quincyjo.jsonpath.Expression._
 import com.quincyjo.jsonpath.JsonPath
+import com.quincyjo.jsonpath.extensions._
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -29,6 +30,17 @@ class ExpressionParserSpec
     with Matchers
     with ParseResultValues
     with TableDrivenPropertyChecks {
+
+  private val expressionParser = ExpressionParser(
+    extensions = List(
+      Count.extension,
+      Length.extension,
+      Match.extension,
+      Search.extension,
+      Value.extension
+    ),
+    JsonPathParser.default
+  )
 
   "parse" should "handle basic expressions" in {
     val cases = Table(
@@ -49,7 +61,7 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.default.parse(input).value should be(expected)
+      expressionParser.parse(input).value should be(expected)
     }
   }
 
@@ -69,7 +81,7 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.default.parse(input).value should be(expected)
+      expressionParser.parse(input).value should be(expected)
     }
   }
 
@@ -100,7 +112,7 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.default.parse(input).value should be(expected)
+      expressionParser.parse(input).value should be(expected)
     }
   }
 
@@ -114,7 +126,7 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.default.parse(input).value should be(expected)
+      expressionParser.parse(input).value should be(expected)
     }
   }
 
@@ -135,7 +147,7 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.default.parse(input).value should be(expected)
+      expressionParser.parse(input).value should be(expected)
     }
   }
 
@@ -151,7 +163,7 @@ class ExpressionParserSpec
     )
 
     forAll(cases) { (input, expected) =>
-      ExpressionParser.default.parse(input).value should be(expected)
+      expressionParser.parse(input).value should be(expected)
     }
   }
 
@@ -169,5 +181,27 @@ class ExpressionParserSpec
     forAll(cases) { (expression, expected) =>
       expression.toString should be(expected)
     }
+  }
+
+  it should "parse nested functions" in {
+    val raw = s"length(value(@.foo)) > 3"
+
+    expressionParser.parse(raw).value should be(
+      GreaterThan(
+        Length(Value(JsonPathValue(JsonPath.`@` / "foo"))),
+        LiteralNumber(3)
+      )
+    )
+  }
+
+  it should "parse expressions as function arguments" in {
+    val raw = s"""length(\"foo\" + \"bar\") > 3"""
+
+    expressionParser.parse(raw).value should be(
+      GreaterThan(
+        Length(Plus(LiteralString("foo"), LiteralString("bar"))),
+        LiteralNumber(3)
+      )
+    )
   }
 }

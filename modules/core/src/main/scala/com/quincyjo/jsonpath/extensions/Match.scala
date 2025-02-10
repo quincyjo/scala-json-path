@@ -58,11 +58,11 @@ final case class Match(target: ValueType, regex: ValueType)
 
 object Match {
 
-  val parser: Extension[(ValueType, ValueType), Match] =
+  val extension: Extension[(ValueType, ValueType), Match] =
     Extension("match") { args => Match(args._1, args._2) }
 
   trait MatchExtension extends WithExtension { self: JsonPathParser =>
 
-    addExtension(Match.parser)
+    addExtension(Match.extension)
   }
 }

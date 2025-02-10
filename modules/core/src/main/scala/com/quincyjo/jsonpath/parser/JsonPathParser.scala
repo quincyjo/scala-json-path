@@ -70,7 +70,7 @@ trait JsonPathParser {
   ](List.empty)
 
   private lazy val expressionParser: ExpressionParser =
-    ExpressionParser(extensions.get)
+    ExpressionParser(extensions.get, this)
 
   private def parse(
       input: String,

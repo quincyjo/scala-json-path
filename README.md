@@ -66,7 +66,8 @@ val res3: com.quincyjo.jsonpath.JsonPath.Query = $[?(count(@) > 10)]
 ### Parsing
 
 Parsing is provided via `JsonPathReader`, which reads `JsonPath`s from strings. A direct API is also provided via
-the `parser` package object. Parse results are exposed via the sum of `Parsed[T]` and `ParseError`.
+the `parser` package object. Parse results are exposed via the sum of `Parsed[T]` and `ParseError`. This library is
+built on top of Cats, and `ParseResult` is both a `MonadError` and `Traverse`able.
 
 ```
 scala> import com.quincyjo.jsonpath

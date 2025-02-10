@@ -56,11 +56,11 @@ final case class Length(value: ValueType)
 
 object Length {
 
-  val parser: Extension[ValueType, Length] =
+  val extension: Extension[ValueType, Length] =
     Extension("length")(Length.apply)
 
   trait LengthExtension extends WithExtension { self: JsonPathParser =>
 
-    addExtension(Length.parser)
+    addExtension(Length.extension)
   }
 }

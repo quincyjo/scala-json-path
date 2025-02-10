@@ -30,7 +30,8 @@ import scala.util.chaining.scalaUtilChainingOps
 private[parser] final case class ExpressionParseContext private (
     input: String,
     index: Int,
-    currentTokenResult: OptionT[ParseResult, ExpressionToken]
+    currentTokenResult: OptionT[ParseResult, ExpressionToken],
+    jsonPathParser: JsonPathParser
 ) extends ParseContext[ExpressionToken] {
 
   def nextToken(): ExpressionParseContext = {
@@ -38,7 +39,8 @@ private[parser] final case class ExpressionParseContext private (
     ExpressionParseContext(
       input,
       newIndex.getOrElse(index),
-      OptionT.liftF(newIndex.flatMap(tokenAt))
+      OptionT.liftF(newIndex.flatMap(tokenAt)),
+      jsonPathParser
     )
   }
 
@@ -74,24 +76,23 @@ private[parser] final case class ExpressionParseContext private (
         case '\'' | '"'     => ValueString
         case c if c.isDigit => ValueNumber
       }
-      .orElseF {
-        input
-          .lift(i)
-          .collect {
-            case c if c.isLower =>
+      .orElse {
+        OptionT.fromOption[ParseResult] {
+          input
+            .lift(i)
+            .filter(_.isLower)
+            .flatMap { _ =>
               val substr = input.substring(i)
-              if (substr.startsWith("true") || substr.startsWith("false"))
-                Parsed(ValueBoolean)
+              val raw = substr.takeWhile(c => c.isLetterOrDigit || c == '_')
+              if (raw == "true" || raw == "false")
+                Some(ValueBoolean)
               else {
-                val functionName = substr.takeWhile { c =>
-                  c.isLower || c.isDigit || c == '_'
+                Option.when(substr.lift(raw.length).contains('(')) {
+                  FunctionExtension
                 }
-                if (substr.lift(functionName.length).contains('(')) {
-                  Parsed(FunctionExtension)
-                } else ParseError(s"", i, input)
               }
-          }
-          .sequence
+            }
+        }
       }
       .getOrElseF(
         ParseError(s"Unexpected character '${input(i)}'", i, input)
@@ -153,7 +154,7 @@ private[parser] final case class ExpressionParseContext private (
 
   def valueAsJsonPath: ParseResult[ValueAt[JsonPath]] =
     valueAs[JsonPath] { case ExpressionToken.Root | ExpressionToken.Current =>
-      JsonPathParser.default
+      jsonPathParser
         .take(input.substring(index))
         .map {
           _.copy(
@@ -165,11 +166,15 @@ private[parser] final case class ExpressionParseContext private (
 
 object ExpressionParseContext {
 
-  def apply(string: String): ExpressionParseContext =
+  def apply(
+      string: String,
+      jsonPathParser: JsonPathParser
+  ): ExpressionParseContext =
     new ExpressionParseContext(
       string,
       0,
-      OptionT.none[ParseResult, ExpressionToken]
+      OptionT.none[ParseResult, ExpressionToken],
+      jsonPathParser
     )
 
   sealed trait ExpressionToken extends ParserToken

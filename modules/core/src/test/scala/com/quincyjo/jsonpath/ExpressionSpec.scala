@@ -253,8 +253,6 @@ class ExpressionSpec
   )(symbol: String): Unit = {
 
     it should "serialize with the correct symbol" in {
-      // TODO: Figure out better api here
-      // val expression = JsonPathNodes(JsonPath.$)
       val expression = JsonPathValue(JsonPath.$)
       constructor(expression).toString should be(s"$symbol$expression")
     }
@@ -333,7 +331,6 @@ class ExpressionSpec
       }
     }
 
-    // TODO: false if not the same type and false if either is not a string or number
     it should "be false if either right is NaN" in {
       val cases = Table[JsonBean, JsonBean](
         ("left", "right"),

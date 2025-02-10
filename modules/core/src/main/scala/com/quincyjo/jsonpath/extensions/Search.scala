@@ -59,11 +59,11 @@ final case class Search(target: ValueType, regex: ValueType)
 
 object Search {
 
-  val parser: Extension[(ValueType, ValueType), Search] =
+  val extension: Extension[(ValueType, ValueType), Search] =
     Extension("search") { args => Search(args._1, args._2) }
 
   trait SearchExtension extends WithExtension { self: JsonPathParser =>
 
-    addExtension(Search.parser)
+    addExtension(Search.extension)
   }
 }

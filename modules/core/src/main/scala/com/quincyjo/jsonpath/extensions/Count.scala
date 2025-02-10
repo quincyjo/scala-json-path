@@ -46,11 +46,11 @@ final case class Count(nodes: NodesType)
 
 object Count {
 
-  val parser: Extension[NodesType, Count] =
+  val extension: Extension[NodesType, Count] =
     Extension("count")(Count.apply)
 
   trait CountExtension extends WithExtension { self: JsonPathParser =>
 
-    addExtension(Count.parser)
+    addExtension(Count.extension)
   }
 }

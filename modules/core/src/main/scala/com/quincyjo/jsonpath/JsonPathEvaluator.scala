@@ -26,7 +26,6 @@ import scala.collection.mutable
 
 abstract class JsonPathEvaluator[Json: Braid] {
 
-  // TODO: Model out a Node and return a list of those instead.
   /** Apply this JsonPath to a JSON, returning a list of JSON values matching
     * this path within the given JSON.
     * @param path
@@ -75,7 +74,7 @@ abstract class JsonPathEvaluator[Json: Braid] {
       path: JsonPath,
       root: Json,
       current: Option[Json]
-  ): List[Node[Json]] = {
+  ): List[Node[Json]] =
     path.segments.foldLeft(
       path.root match {
         case Root =>
@@ -88,7 +87,6 @@ abstract class JsonPathEvaluator[Json: Braid] {
     ) { case (values, segment) =>
       values.flatMap(step(root, _, segment))
     }
-  }
 
   final private[jsonpath] def step(
       root: Json,

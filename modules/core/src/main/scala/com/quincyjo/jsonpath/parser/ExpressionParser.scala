@@ -19,8 +19,8 @@ package com.quincyjo.jsonpath.parser
 import cats.data.ValidatedNel
 import cats.implicits._
 import com.quincyjo.jsonpath.Expression._
-import com.quincyjo.jsonpath.extensions.{Extension, FunctionExtension}
 import com.quincyjo.jsonpath.extensions.Extension.InvalidArgs
+import com.quincyjo.jsonpath.extensions.{Extension, FunctionExtension}
 import com.quincyjo.jsonpath.parser.models.ExpressionParseContext.ExpressionToken
 import com.quincyjo.jsonpath.parser.models._
 import com.quincyjo.jsonpath.{Expression, JsonPath}
@@ -29,56 +29,87 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 
 final case class ExpressionParser(
-    extensions: List[Extension[?, ?]] = List.empty
+    extensions: List[Extension[?, ?]] = List.empty,
+    jsonPathParser: JsonPathParser
 ) {
 
   def parse(string: String): ParseResult[Expression] = {
 
-    @tailrec
-    def go(
-        context: ExpressionParseContext,
-        stack: mutable.Stack[ValueAt[Expression]],
-        pending: mutable.Stack[ValueAt[ExpressionToken.OperatorToken]]
-    ): ParseResult[ExpressionParseContext] = {
-      context.currentTokenOrEndOfInput
-        .flatMap {
-          case token: ExpressionToken.BinaryToken =>
-            pending.push(ValueAt(token, context.index, token.symbol))
-            parseExpression(context.nextToken(), stack, pending)
-          case _ =>
-            parseExpression(context, stack, pending)
-        } match {
-        case error: ParseError                   => error
-        case Parsed(context) if !context.hasNext => Parsed(context)
-        case Parsed(context)                     => go(context.nextToken(), stack, pending)
-      }
-    }
-
     val stack = mutable.Stack.empty[ValueAt[Expression]]
     val pending = mutable.Stack.empty[ValueAt[ExpressionToken.OperatorToken]]
-    val context =
-      go(ExpressionParseContext(string).nextToken(), stack, pending)
 
-    context.flatMap { context =>
-      stack.removeHeadOption() match {
-        case Some(expression) if stack.isEmpty => Parsed(expression.value)
-        case None =>
-          ParseError("Unexpected end of input.", context.index, string)
-        case _ =>
-          ParseError(
-            s"Unresolved operator '${pending.headOption}'",
-            context.index,
-            string
-          )
+    parseExpressionComplete(
+      ExpressionParseContext(string, jsonPathParser).nextToken(),
+      stack,
+      pending
+    )
+      .flatMap { context =>
+        stack.removeHeadOption() match {
+          case Some(expression) if stack.isEmpty => Parsed(expression.value)
+          case _ =>
+            pending.headOption.fold(
+              ParseError("Unexpected end of input.", context.index, string)
+            ) { pending =>
+              ParseError(
+                s"Unresolved operator '$pending'",
+                context.index,
+                string
+              )
+            }
+        }
       }
+  }
+
+  /** Parses expressions continuously until a token is encountered that matches
+    * the `endOn` predicate or a failure is encountered. If the end token was
+    * encountered, the context is pointing at it. Otherwise, the context will be
+    * pointing at the next token.
+    * @param context
+    *   The current parse context.
+    * @param stack
+    *   The stack of parsed expressions.
+    * @param pending
+    *   The pending operators.
+    * @param endOn
+    *   The predicate to determine when to stop parsing.
+    * @return
+    *   The final context. If the end token was encountered, the context is
+    *   pointing at it. Otherwise, the context will be pointing at the next
+    *   token.
+    */
+  @tailrec
+  private def parseExpressionComplete(
+      context: ExpressionParseContext,
+      stack: mutable.Stack[ValueAt[Expression]],
+      pending: mutable.Stack[ValueAt[ExpressionToken.OperatorToken]],
+      endOn: ExpressionToken => Boolean = _ => false
+  ): ParseResult[ExpressionParseContext] = {
+    context.currentTokenOrEndOfInput
+      .flatMap {
+        case token if endOn(token) =>
+          Parsed(context)
+        case token: ExpressionToken.BinaryToken =>
+          pending.push(ValueAt(token, context.index, token.symbol))
+          parseExpression(context.nextToken(), stack, pending)
+        case _ =>
+          parseExpression(context, stack, pending)
+      } match {
+      case error: ParseError => error
+      case Parsed(context)
+          if context.currentTokenResult.isEmpty.getOrElse(true) ||
+            context.currentTokenResult.exists(endOn).getOrElse(false) =>
+        Parsed(context)
+      case Parsed(context) =>
+        parseExpressionComplete(context, stack, pending, endOn)
     }
   }
 
+  // TODO: tailrec
   private def parseExpression(
       context: ExpressionParseContext,
       stack: mutable.Stack[ValueAt[Expression]],
       pending: mutable.Stack[ValueAt[ExpressionToken.OperatorToken]]
-  ): ParseResult[ExpressionParseContext] = {
+  ): ParseResult[ExpressionParseContext] =
     context.currentTokenOrEndOfInput
       .flatMap {
         case _: ParserToken.ValueToken =>
@@ -91,8 +122,8 @@ final case class ExpressionParser(
         case ExpressionToken.CloseParenthesis =>
           pending
             .removeHeadOption()
-            .map { foo =>
-              foo.value match {
+            .map { pendingOperator =>
+              pendingOperator.value match {
                 case ExpressionToken.OpenParenthesis =>
                   resolvePending(
                     context,
@@ -102,7 +133,6 @@ final case class ExpressionParser(
                     stack,
                     pending
                   )
-                  Parsed(context)
                 case trailingToken =>
                   ParseError(
                     s"Trailing token: $trailingToken",
@@ -128,7 +158,6 @@ final case class ExpressionParser(
             context.input
           )
       }
-  }
 
   private def parseFunctionExtension(
       context: ExpressionParseContext,
@@ -174,9 +203,13 @@ final case class ExpressionParser(
       )
       _ = stack
         .push(
-          ValueAt(func, context.index, functionName.value)
+          ValueAt(
+            func,
+            functionName.index,
+            context.input.substring(functionName.index, context.index + 1)
+          )
         )
-    } yield context
+    } yield context.nextToken()
 
   private def parseFunctionExtensionParameters(
       context: ExpressionParseContext,
@@ -189,24 +222,30 @@ final case class ExpressionParser(
         context: ExpressionParseContext,
         builder: mutable.Builder[ValueAt[Expression], List[ValueAt[Expression]]]
     ): ParseResult[(ExpressionParseContext, List[ValueAt[Expression]])] = {
-      parseExpression(context, stack, pending) match {
+      parseExpressionComplete(
+        context,
+        stack,
+        pending,
+        token => {
+          token == ExpressionToken.CloseParenthesis || token == ExpressionToken.Comma
+        }
+      ) match {
         case error: ParseError => error
         case Parsed(context) =>
-          val next = context.nextToken()
-          next.currentTokenOrEndOfInput match {
+          context.currentTokenOrEndOfInput match {
             case error: ParseError => error
             case Parsed(token) =>
               builder.addOne(stack.pop())
               token match {
                 case ExpressionToken.CloseParenthesis =>
-                  Parsed(next -> builder.result())
+                  Parsed(context -> builder.result())
                 case ExpressionToken.Comma =>
-                  go(next.nextToken(), builder)
+                  go(context.nextToken(), builder)
                 case invalid =>
                   ParseError.invalidToken(
                     invalid,
-                    next.index,
-                    next.input,
+                    context.index,
+                    context.input,
                     ExpressionToken.CloseParenthesis,
                     ExpressionToken.Comma
                   )
@@ -287,7 +326,14 @@ final case class ExpressionParser(
                   left,
                   value
                 )
-                  .map(ValueAt(_, context.index, context.input))
+                  .map(
+                    ValueAt(
+                      _,
+                      left.index,
+                      context.input
+                        .substring(left.index, value.index + value.raw.length)
+                    )
+                  )
               }
               .getOrElse(
                 ParseError(
@@ -309,7 +355,7 @@ final case class ExpressionParser(
             case other =>
               stack.push(other)
           }
-          Parsed(context)
+          Parsed(context.nextToken())
         } else {
           resolvePending(context, expression, stack, pending)
         }
@@ -456,10 +502,4 @@ final case class ExpressionParser(
           context.input
         )
     }
-
-}
-
-object ExpressionParser {
-
-  final val default = new ExpressionParser()
 }
