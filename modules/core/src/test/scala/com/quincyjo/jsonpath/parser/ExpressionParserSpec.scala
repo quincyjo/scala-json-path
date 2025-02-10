@@ -138,4 +138,36 @@ class ExpressionParserSpec
       ExpressionParser.default.parse(input).value should be(expected)
     }
   }
+
+  it should "bind conjunctions more tightly than disjunctions" in {
+    val value = JsonPathValue(JsonPath.`@`)
+
+    val cases = Table(
+      "input" -> "expected",
+      "@ || @ && @" -> Or(value, And(value, value)),
+      "@ && @ || @" -> Or(And(value, value), value),
+      "@ && @ || @ && @" -> Or(And(value, value), And(value, value)),
+      "@ || @ && @ || @" -> Or(Or(value, And(value, value)), value)
+    )
+
+    forAll(cases) { (input, expected) =>
+      ExpressionParser.default.parse(input).value should be(expected)
+    }
+  }
+
+  it should "serialize with respect to priority" in {
+    val value = JsonPathValue(JsonPath.`@`)
+
+    val cases = Table(
+      "expression" -> "expected",
+      Or(value, And(value, value)) -> "@ || @ && @",
+      Or(And(value, value), value) -> "@ && @ || @",
+      Or(And(value, value), And(value, value)) -> "@ && @ || @ && @",
+      Or(Or(value, And(value, value)), value) -> "@ || @ && @ || @"
+    )
+
+    forAll(cases) { (expression, expected) =>
+      expression.toString should be(expected)
+    }
+  }
 }

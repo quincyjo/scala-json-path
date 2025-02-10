@@ -353,7 +353,8 @@ object Expression {
   }
 
   final case class NotEqual(left: ValueType, right: ValueType)
-      extends Comparator {
+      extends Comparator
+      with IncludesEqualityCheck {
 
     override def symbol: String = "!="
 
@@ -362,12 +363,10 @@ object Expression {
         root: Json,
         current: Json
     ): Boolean =
-      left(evaluator, root, current) ->
-        right(evaluator, root, current) match {
-        case None -> None       => false
-        case Some(l) -> Some(r) => l != r
-        case _                  => true
-      }
+      !equalityCheck(
+        left(evaluator, root, current),
+        right(evaluator, root, current)
+      )
   }
 
   final case class GreaterThan(left: ValueType, right: ValueType)
@@ -452,6 +451,13 @@ object Expression {
     ): Boolean =
       left(evaluator, root, current) ||
         right(evaluator, root, current)
+
+    override def toString: String =
+      s"$left $symbol ${right match {
+        case and: And                    => and.toString
+        case other: BinaryOperator[_, _] => s"(${other.toString})"
+        case value                       => value.toString
+      }}"
   }
 
   sealed trait ArithmeticOperator

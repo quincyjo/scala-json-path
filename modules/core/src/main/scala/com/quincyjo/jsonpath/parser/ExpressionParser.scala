@@ -302,7 +302,12 @@ final case class ExpressionParser(
         if (
           pending.headOption.forall(_.value == ExpressionToken.OpenParenthesis)
         ) {
-          stack.push(expression)
+          expression match {
+            case ValueAt(And(Or(l1, l2), right), index, raw) =>
+              stack.push(ValueAt(Or(l1, And(l2, right)), index, raw))
+            case other =>
+              stack.push(other)
+          }
           Parsed(context)
         } else {
           resolvePending(context, expression, stack, pending)
