@@ -18,7 +18,7 @@ package com.quincyjo.jsonpath
 
 import com.quincyjo.jsonpath.JsonBean._
 import com.quincyjo.jsonpath.JsonPath.{Slice, Union, Wildcard}
-import org.scalatest.LoneElement
+import org.scalatest.{LoneElement, OptionValues}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -27,6 +27,7 @@ class JsonPathEvaluatorSpec
     extends AnyFlatSpecLike
     with Matchers
     with LoneElement
+    with OptionValues
     with TableDrivenPropertyChecks {
 
   "evaluate" should "select according to the path" in {
@@ -87,10 +88,15 @@ class JsonPathEvaluatorSpec
     )
 
     forAll(cases) { case (jsonPath, expected) =>
-      JsonBeanEvaluator.evaluate(
-        jsonPath,
-        json
-      ) should contain theSameElementsAs expected
+      val results =
+        JsonBeanEvaluator.evaluate(
+          jsonPath,
+          json
+        )
+      results.map(_.value) should contain theSameElementsAs expected
+      results.foreach { case Node(location, value) =>
+        JsonBeanEvaluator.singular(location, json).value.value should be(value)
+      }
     }
   }
 
@@ -114,11 +120,14 @@ class JsonPathEvaluatorSpec
     )
 
     forAll(cases) { case (jsonPath, expected) =>
-      JsonBeanEvaluator.evaluate(
-        jsonPath,
-        root,
-        Some(json)
-      ) should contain theSameElementsAs expected
+      val results = JsonBeanEvaluator.evaluate(jsonPath, root, Some(json))
+      results.map(_.value) should contain theSameElementsAs expected
+      results.foreach { case Node(location, value) =>
+        JsonBeanEvaluator
+          .singular(location.toAbsolutePath, json)
+          .value
+          .value should be(value)
+      }
     }
   }
 
@@ -135,7 +144,11 @@ class JsonPathEvaluatorSpec
     )
 
     forAll(cases) { case (json, expected) =>
-      JsonBeanEvaluator.descend(json).loneElement should be(expected)
+      val result = JsonBeanEvaluator
+        .descend(Node(JsonPath.$, json))
+        .loneElement
+      result.value should be(expected)
+      result.location should be(JsonPath.$)
     }
   }
 
@@ -147,7 +160,11 @@ class JsonPathEvaluatorSpec
     )
     val jarray = JArray(values)
 
-    JsonBeanEvaluator.descend(jarray).loneElement should be(jarray)
+    val result = JsonBeanEvaluator
+      .descend(Node(JsonPath.$, jarray))
+      .loneElement
+    result.value should be(jarray)
+    result.location should be(JsonPath.$)
   }
 
   it should "not expose atomic values in objects" in {
@@ -160,7 +177,11 @@ class JsonPathEvaluatorSpec
       s"key$index" -> value
     }.toMap)
 
-    JsonBeanEvaluator.descend(jobject).loneElement should be(jobject)
+    val result = JsonBeanEvaluator
+      .descend(Node(JsonPath.$, jobject))
+      .loneElement
+    result.value should be(jobject)
+    result.location should be(JsonPath.$)
   }
 
   it should "recursively expand arrays and objects" in {
@@ -173,8 +194,16 @@ class JsonPathEvaluatorSpec
 
     val json = outerArray
 
-    JsonBeanEvaluator.descend(json) should contain theSameElementsAs
-      Seq(innerArray, innerObject, outerArray)
+    val results = JsonBeanEvaluator
+      .descend(Node(JsonPath.$, json))
+    results.map(_.value) should contain theSameElementsAs Seq(
+      innerArray,
+      innerObject,
+      outerArray
+    )
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, json).value.value should be(value)
+    }
   }
 
   "attribute" should "select an object's attribute by right" in {
@@ -183,18 +212,21 @@ class JsonPathEvaluatorSpec
     val givenJson = JsonBean.obj(
       givenAttributeName -> givenAttributeValue
     )
-    JsonBeanEvaluator
-      .attribute(givenJson, givenAttributeName)
-      .loneElement should be(
-      givenAttributeValue
-    )
+    val result = JsonBeanEvaluator
+      .attribute(Node(JsonPath.$, givenJson), givenAttributeName)
+      .value
+    result.value should be(givenAttributeValue)
+    result.location should be(JsonPath.$ / givenAttributeName)
   }
 
   it should "return none if the given attribute does not exist" in {
     val givenAttributeName = "testAttributeName"
     val givenJson = JsonBean.obj()
 
-    JsonBeanEvaluator.attribute(givenJson, givenAttributeName) should be(empty)
+    JsonBeanEvaluator.attribute(
+      Node(JsonPath.$, givenJson),
+      givenAttributeName
+    ) should be(empty)
   }
 
   it should "return none if the given json is not an object" in {
@@ -208,21 +240,11 @@ class JsonPathEvaluatorSpec
     )
 
     forAll(cases) { givenJson =>
-      JsonBeanEvaluator.attribute(givenJson, givenAttributeName) should be(
-        empty
-      )
+      JsonBeanEvaluator.attribute(
+        Node(JsonPath.$, givenJson),
+        givenAttributeName
+      ) should be(empty)
     }
-  }
-
-  it should "return the length of an array" in {
-    val length = 5
-    val givenJson = JsonBean.fromValues(
-      Seq.tabulate(length)(JsonBean.number)
-    )
-
-    JsonBeanEvaluator.attribute(givenJson, "length").loneElement should be(
-      JsonBean.number(length)
-    )
   }
 
   "index" should "select an array's right" in {
@@ -231,16 +253,21 @@ class JsonPathEvaluatorSpec
     val givenJson = JsonBean.arr(
       givenIndexValue
     )
-    JsonBeanEvaluator.index(givenJson, givenIndex).loneElement should be(
-      givenIndexValue
-    )
+
+    val result = JsonBeanEvaluator
+      .index(Node(JsonPath.$, givenJson), givenIndex)
+      .value
+    result.value should be(givenIndexValue)
+    result.location should be(JsonPath.$ / givenIndex)
   }
 
   it should "return none if the given right does not exist" in {
     val givenIndex = 0
     val givenJson = JsonBean.arr()
 
-    JsonBeanEvaluator.index(givenJson, givenIndex) should be(empty)
+    JsonBeanEvaluator.index(Node(JsonPath.$, givenJson), givenIndex) should be(
+      empty
+    )
   }
 
   it should "return none if the given json is not an array" in {
@@ -254,7 +281,10 @@ class JsonPathEvaluatorSpec
     )
 
     forAll(cases) { givenJson =>
-      JsonBeanEvaluator.index(givenJson, givenIndex) should be(empty)
+      JsonBeanEvaluator.index(
+        Node(JsonPath.$, givenJson),
+        givenIndex
+      ) should be(empty)
     }
   }
 
@@ -267,7 +297,7 @@ class JsonPathEvaluatorSpec
     )
 
     forAll(cases) { json =>
-      JsonBeanEvaluator.wildcard(json) should be(empty)
+      JsonBeanEvaluator.wildcard(Node(JsonPath.$, json)) should be(empty)
     }
   }
 
@@ -281,7 +311,11 @@ class JsonPathEvaluatorSpec
     )
     val json = JsonBean.fromValues(values)
 
-    JsonBeanEvaluator.wildcard(json) should contain theSameElementsAs values
+    val results = JsonBeanEvaluator.wildcard(Node(JsonPath.$, json))
+    results.map(_.value) should contain theSameElementsAs values
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, json).value.value should be(value)
+    }
   }
 
   it should "return the attribute values of an object" in {
@@ -297,7 +331,11 @@ class JsonPathEvaluatorSpec
         index.toString -> value
     })
 
-    JsonBeanEvaluator.wildcard(json) should contain theSameElementsAs values
+    val results = JsonBeanEvaluator.wildcard(Node(JsonPath.$, json))
+    results.map(_.value) should contain theSameElementsAs values
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, json).value.value should be(value)
+    }
   }
 
   "Union" should "select indices from arrays" in {
@@ -307,13 +345,20 @@ class JsonPathEvaluatorSpec
     val targetIndices = Seq(0, 2, 4)
     val union = Union(targetIndices.head, targetIndices(1), targetIndices(2))
 
-    JsonBeanEvaluator.union(
-      givenJson,
-      givenJson,
-      union
-    ) should contain theSameElementsAs targetIndices.map(
+    val results = JsonBeanEvaluator
+      .union(
+        givenJson,
+        Node(JsonPath.$, givenJson),
+        union
+      )
+    results.map(_.value) should contain theSameElementsAs targetIndices.map(
       JsonBean.number
     )
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, givenJson).value.value should be(
+        value
+      )
+    }
   }
 
   it should "select target attributes from objects" in {
@@ -329,11 +374,19 @@ class JsonPathEvaluatorSpec
     val union =
       Union(targetAttributes.head, targetAttributes(1), targetAttributes(2))
 
-    JsonBeanEvaluator.union(
+    val results = JsonBeanEvaluator.union(
       givenJson,
-      givenJson,
+      Node(JsonPath.$, givenJson),
       union
-    ) should contain theSameElementsAs targetAttributes.map(raw)
+    )
+    results.map(_.value) should contain theSameElementsAs targetAttributes.map(
+      raw
+    )
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, givenJson).value.value should be(
+        value
+      )
+    }
   }
 
   "Slice" should "drop elements from an array" in {
@@ -341,10 +394,16 @@ class JsonPathEvaluatorSpec
     val elements = Seq.tabulate(numberOfElements)(JsonBean.number)
     val givenJson = JsonBean.fromValues(elements)
 
-    JsonBeanEvaluator.slice(
-      givenJson,
+    val results = JsonBeanEvaluator.slice(
+      Node(JsonPath.$, givenJson),
       Slice.drop(2)
-    ) should contain theSameElementsAs elements.drop(2)
+    )
+    results.map(_.value) should contain theSameElementsAs elements.drop(2)
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, givenJson).value.value should be(
+        value
+      )
+    }
   }
 
   it should "reflect the array with a start of 0" in {
@@ -352,10 +411,16 @@ class JsonPathEvaluatorSpec
     val elements = Seq.tabulate(numberOfElements)(JsonBean.number)
     val givenJson = JsonBean.fromValues(elements)
 
-    JsonBeanEvaluator.slice(
-      givenJson,
+    val results = JsonBeanEvaluator.slice(
+      Node(JsonPath.$, givenJson),
       Slice.start(0)
-    ) should contain theSameElementsAs elements
+    )
+    results.map(_.value) should contain theSameElementsAs elements
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, givenJson).value.value should be(
+        value
+      )
+    }
   }
 
   it should "take elements from an array" in {
@@ -363,10 +428,16 @@ class JsonPathEvaluatorSpec
     val elements = Seq.tabulate(numberOfElements)(JsonBean.number)
     val givenJson = JsonBean.fromValues(elements)
 
-    JsonBeanEvaluator.slice(
-      givenJson,
+    val results = JsonBeanEvaluator.slice(
+      Node(JsonPath.$, givenJson),
       Slice.take(2)
-    ) should contain theSameElementsAs elements.take(2)
+    )
+    results.map(_.value) should contain theSameElementsAs elements.take(2)
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, givenJson).value.value should be(
+        value
+      )
+    }
   }
 
   it should "take right with a negative start" in {
@@ -374,10 +445,16 @@ class JsonPathEvaluatorSpec
     val elements = Seq.tabulate(numberOfElements)(JsonBean.number)
     val givenJson = JsonBean.fromValues(elements)
 
-    JsonBeanEvaluator.slice(
-      givenJson,
+    val results = JsonBeanEvaluator.slice(
+      Node(JsonPath.$, givenJson),
       Slice.start(-2)
-    ) should contain theSameElementsAs elements.takeRight(2)
+    )
+    results.map(_.value) should contain theSameElementsAs elements.takeRight(2)
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, givenJson).value.value should be(
+        value
+      )
+    }
   }
 
   it should "drop right with a negative end" in {
@@ -385,11 +462,17 @@ class JsonPathEvaluatorSpec
     val elements = Seq.tabulate(numberOfElements)(JsonBean.number)
     val givenJson = JsonBean.fromValues(elements)
 
-    JsonBeanEvaluator.slice(
-      givenJson,
+    val results = JsonBeanEvaluator.slice(
+      Node(JsonPath.$, givenJson),
       Slice.end(-2)
-    ) should contain theSameElementsAs elements
+    )
+    results.map(_.value) should contain theSameElementsAs elements
       .dropRight(2)
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, givenJson).value.value should be(
+        value
+      )
+    }
   }
 
   it should "take a sub array with start and end" in {
@@ -397,10 +480,16 @@ class JsonPathEvaluatorSpec
     val elements = Seq.tabulate(numberOfElements)(JsonBean.number)
     val givenJson = JsonBean.fromValues(elements)
 
-    JsonBeanEvaluator.slice(
-      givenJson,
+    val results = JsonBeanEvaluator.slice(
+      Node(JsonPath.$, givenJson),
       Slice(2, 4)
-    ) should contain theSameElementsAs elements.slice(2, 4)
+    )
+    results.map(_.value) should contain theSameElementsAs elements.slice(2, 4)
+    results.foreach { case Node(location, value) =>
+      JsonBeanEvaluator.singular(location, givenJson).value.value should be(
+        value
+      )
+    }
   }
 
   it should "take every Nth element via step" in {
@@ -418,10 +507,16 @@ class JsonPathEvaluatorSpec
     )
 
     forAll(cases) { case (step, expected) =>
-      JsonBeanEvaluator.slice(
-        givenJson,
+      val results = JsonBeanEvaluator.slice(
+        Node(JsonPath.$, givenJson),
         Slice.everyN(step)
-      ) should contain theSameElementsAs expected
+      )
+      results.map(_.value) should contain theSameElementsAs expected
+      results.foreach { case Node(location, value) =>
+        JsonBeanEvaluator.singular(location, givenJson).value.value should be(
+          value
+        )
+      }
     }
   }
 }

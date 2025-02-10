@@ -391,6 +391,20 @@ object JsonPath {
 
     override def parent: SingularQuery =
       copy(segments = segments.dropRight(1))
+
+    override def toAbsolutePath: SingularQuery =
+      if (isAbsolute) this
+      else withRoot(Root)
+
+    /** Returns this path as a relative path, ie with no [[root]] of
+      * [[JsonPath.JsonPathRoot.Current]].
+      *
+      * @return
+      *   This path as a relative path.
+      */
+    override def toRelativePath: SingularQuery =
+      if (isRelative) this
+      else withRoot(Current)
   }
 
   object SingularQuery {

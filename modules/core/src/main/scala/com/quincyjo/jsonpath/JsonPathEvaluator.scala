@@ -36,7 +36,7 @@ abstract class JsonPathEvaluator[Json: Braid] {
     * @return
     *   A list of all matching JSONs within the given JSON.
     */
-  final def evaluate(path: JsonPath, json: Json): List[Json] =
+  final def evaluate(path: JsonPath, json: Json): List[Node[Json]] =
     evaluate(path, json, None)
 
   /** Evaluates the given [[JsonPath]] against the given JSON as a singular
@@ -49,7 +49,10 @@ abstract class JsonPathEvaluator[Json: Braid] {
     * @return
     *   A singular JSON matching the given path or None.
     */
-  final def singular(path: JsonPath.SingularQuery, json: Json): Option[Json] =
+  final def singular(
+      path: JsonPath.SingularQuery,
+      json: Json
+  ): Option[Node[Json]] =
     evaluate(path, json) match {
       case single :: Nil => Some(single)
       case _             => None
@@ -72,76 +75,112 @@ abstract class JsonPathEvaluator[Json: Braid] {
       path: JsonPath,
       root: Json,
       current: Option[Json]
-  ): List[Json] = {
+  ): List[Node[Json]] = {
     path.segments.foldLeft(
       path.root match {
-        case Root    => List(root)
-        case Current => current.toList
+        case Root =>
+          List(Node(JsonPath.$, root))
+        case Current =>
+          current.map { value =>
+            Node(JsonPath.`@`, value)
+          }.toList
       }
-    ) { case (values, node) =>
-      values.flatMap(step(root, _, node))
+    ) { case (values, segment) =>
+      values.flatMap(step(root, _, segment))
     }
   }
 
   final private[jsonpath] def step(
       root: Json,
-      json: Json,
-      node: JsonPathSegment
-  ): Iterable[Json] =
-    node match {
+      json: Node[Json],
+      segment: JsonPathSegment
+  ): Iterable[Node[Json]] =
+    segment match {
       case RecursiveDescent(selector) =>
         descend(json).flatMap(select(root, _, selector))
       case Child(selector) =>
-        select(root, json, selector)
+        singleSelect(json, selector)
       case Children(selector) =>
-        select(root, json, selector)
+        multiSelect(root, json, selector)
     }
 
   final private[jsonpath] def select(
       root: Json,
-      json: Json,
+      json: Node[Json],
       selector: Selector
-  ): Iterable[Json] =
+  ): Iterable[Node[Json]] =
+    selector match {
+      case selector: SingularSelector => singleSelect(json, selector)
+      case selector: MultiSelector    => multiSelect(root, json, selector)
+    }
+
+  final private[jsonpath] def singleSelect(
+      json: Node[Json],
+      selector: SingularSelector
+  ): Iterable[Node[Json]] =
     selector match {
       case attribute: Attribute => this.attribute(json, attribute.value)
       case index: Index         => this.index(json, index.value)
-      case union: Union         => this.union(root, json, union)
-      case slice: Slice         => this.slice(json, slice)
-      case filter: Filter       => this.filter(root, json, filter)
-      case Wildcard             => this.wildcard(json)
     }
 
+  final private[jsonpath] def multiSelect(
+      root: Json,
+      json: Node[Json],
+      selector: MultiSelector
+  ): Iterable[Node[Json]] = {
+    selector match {
+      case union: Union   => this.union(root, json, union)
+      case slice: Slice   => this.slice(json, slice)
+      case filter: Filter => this.filter(root, json, filter)
+      case Wildcard       => this.wildcard(json)
+    }
+  }
+
   final private[jsonpath] def attribute(
-      json: Json,
+      json: Node[Json],
       attribute: String
-  ): Iterable[Json] =
-    json.asObject.flatMap(_.get(attribute)) orElse
-      json.asArray.collect {
-        case arr if attribute == "length" =>
-          implicitly[Braid[Json]].fromInt(arr.size)
+  ): Option[Node[Json]] =
+    json.value.asObject.flatMap(_.get(attribute)).map { value =>
+      Node(json.location / attribute, value)
+    }
+
+  final private[jsonpath] def index(
+      json: Node[Json],
+      index: Int
+  ): Option[Node[Json]] =
+    json.value.asArray.flatMap(_.lift(index)).map { value =>
+      Node(json.location / index, value)
+    }
+
+  final private[jsonpath] def wildcard(json: Node[Json]): Iterable[Node[Json]] =
+    json.value.arrayOrObject(
+      Iterable.empty,
+      _.zipWithIndex.map { case (value, index) =>
+        Node(json.location / index, value)
+      },
+      _.map { case (attribute, value) =>
+        Node(json.location / attribute, value)
       }
-
-  final private[jsonpath] def index(json: Json, index: Int): Iterable[Json] =
-    json.asArray.flatMap(_.lift(index))
-
-  final private[jsonpath] def wildcard(json: Json): Iterable[Json] =
-    json.arrayOrObject(Iterable.empty, identity, _.values)
+    )
 
   final private[jsonpath] def union(
       root: Json,
-      json: Json,
+      json: Node[Json],
       union: Union
-  ): Iterable[Json] = {
-    val builder = Iterable.newBuilder[Json]
-    select(root, json, union.head).foreach(builder.addOne)
-    select(root, json, union.second).foreach(builder.addOne)
+  ): Iterable[Node[Json]] = {
+    val builder = Iterable.newBuilder[Node[Json]]
+    builder.addAll(select(root, json, union.head))
+    builder.addAll(select(root, json, union.second))
     for (selector <- union.tail)
       yield select(root, json, selector).foreach(builder.addOne)
     builder.result()
   }
 
-  final private[jsonpath] def slice(json: Json, slice: Slice): Iterable[Json] =
-    json.asArray.fold(Iterable.empty[Json]) { arr =>
+  final private[jsonpath] def slice(
+      json: Node[Json],
+      slice: Slice
+  ): Iterable[Node[Json]] =
+    json.value.asArray.fold(Iterable.empty[Node[Json]]) { arr =>
       val roundedStart = slice.start.fold(0) { start =>
         if (start < 0) arr.size + start else start
       }
@@ -149,51 +188,65 @@ abstract class JsonPathEvaluator[Json: Braid] {
         if (end < 0) arr.size + end else end
       }
       slice.step
-        .fold[Iterable[Json]](arr.slice(roundedStart, roundedEnd)) { step =>
-          arr
+        .fold[Iterable[(Json, Int)]](
+          arr.zipWithIndex.slice(roundedStart, roundedEnd)
+        ) { step =>
+          arr.zipWithIndex
             .slice(roundedStart, roundedEnd)
             .grouped(step)
             .flatMap(_.headOption)
             .to(Iterable)
         }
+        .map { case (value, index) => Node(json.location / index, value) }
     }
 
   final private[jsonpath] def filter(
       root: Json,
-      json: Json,
+      json: Node[Json],
       filter: Filter
-  ): Iterable[Json] =
-    json.arrayOrObject(
+  ): Iterable[Node[Json]] =
+    json.value.arrayOrObject(
       Iterable.empty,
-      _.filter(j => filter.expression(this, root, j)),
-      _.values.filter(j => filter.expression(this, root, j))
+      _.zipWithIndex
+        .filter { case (j, _) => filter.expression(this, root, j) }
+        .map { case (j, index) =>
+          Node(json.location / index, j)
+        },
+      _.filter { case (_, j) => filter.expression(this, root, j) }.map {
+        case (attribute, j) =>
+          Node(json.location / attribute, j)
+      }
     )
 
-  final private[jsonpath] def descend(json: Json): List[Json] = {
+  final private[jsonpath] def descend(json: Node[Json]): List[Node[Json]] = {
 
     @tailrec
     def go(
-        builder: mutable.Builder[Json, List[Json]],
-        stack: mutable.Stack[Json]
-    ): mutable.Builder[Json, List[Json]] =
+        builder: mutable.Builder[Node[Json], List[Node[Json]]],
+        stack: mutable.Stack[Node[Json]]
+    ): mutable.Builder[Node[Json], List[Node[Json]]] =
       if (stack.isEmpty) builder
       else {
         val next = stack.pop()
         stack.pushAll(
-          next
+          next.value
             .arrayOrObject(
               Iterable.empty,
-              identity,
-              _.values
+              _.zipWithIndex.map { case (value, index) =>
+                Node(next.location / index, value)
+              },
+              _.map { case (attribute, value) =>
+                Node(next.location / attribute, value)
+              }
             )
-            .filter(_.isAssociative)
+            .filter(_.value.isAssociative)
         )
         builder.addOne(next)
         go(builder, stack)
       }
 
-    if (json.isAssociative)
-      go(List.newBuilder[Json], mutable.Stack(json)).result()
+    if (json.value.isAssociative)
+      go(List.newBuilder[Node[Json]], mutable.Stack(json)).result()
     else
       List(json)
   }

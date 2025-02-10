@@ -41,7 +41,7 @@ final case class Value(nodes: NodesType)
       evaluator: JsonPathEvaluator[Json],
       root: Json,
       current: Json
-  ): Option[Json] = nodes(evaluator, root, current).headOption
+  ): Option[Json] = nodes(evaluator, root, current).headOption.map(_.value)
 }
 
 object Value {

@@ -111,35 +111,54 @@ val res0: com.quincyjo.jsonpath.JsonPath = @[1:2:3].foobar
 
 ### Evaluation
 
-Evaluation of a `JsonPath` is performed by a `JsonPathEvaluator`, which is implemented generically via the `JsonSupport`
-API. Once a `JsonSupport` has been defined for your JSON library of choice, an evaluator may be defined simply as so:
+Evaluation of a `JsonPath` is performed by a `JsonPathEvaluator`, which is implemented generically via Braid. Once a
+[Braid](https://github.com/quincyjo/braid) is in scope for your JSON library of choice, an evaluator may be defined
+as below:
 
 ```
-import JsonBean.JsonBeanSupport // Implicit instance of JsonSupport[JsonBean]
+import JsonBean.jsonBeanBraid // Implicit instance of Braid[JsonBean]
 
 final case object JsonBeanEvaluator extends JsonPathEvaluator[JsonBean]
 ```
 
-Evaluation returns a `List` of the matching attributes to the path in the given JSON.
+Evaluation returns a `List` of the matching nodes of the path in the given JSON. A node is defined as the tuple its
+location via a singular query (a JSON path that points to at most one node) and the value at that location.
 
 ```
-scala> val json = JsonBean.obj("foobar" -> JsonBean.arr(JsonBean.string("deadbeef"), JsonBean.True, JsonBean.number(42)))
-val json: JsonBean = { "foobar": ["deadbeef" , true , 42 ] }
+scala> val json = Json.obj("foobar" -> Json.arr(Json.fromString("deadbeef"), Json.Tr ue, Json.fromInt(42)))
+val json: io.circe.Json =
+{
+  "foobar" : [
+    "deadbeef",
+    true,
+    42
+  ]
+}
 
-scala> JsonBeanEvaluator.evaluate(jsonPath"""$$.foobar""", json)
-val res0: List[JsonBean] = List(["deadbeef", true, 42])
+scala> CirceEvaluator.evaluate(jsonPath"$$.foobar", json)
+val res0: List[com.quincyjo.jsonpath.Node[io.circe.Json]] =
+List(Node($['foobar'],[
+  "deadbeef",
+  true,
+  42
+]))
 
-scala> JsonBeanEvaluator.evaluate(jsonPath"""$$["foobar"].*""", json)
-val res1: List[JsonBean] = List("deadbeef", true, 42)
+scala> CirceEvaluator.evaluate(jsonPath"$$.foobar.*", json)
+val res1: List[com.quincyjo.jsonpath.Node[io.circe.Json]] = List(Node($['foobar'][0],"deadbeef"), Node($['foobar'][1],true), Node($['foobar'][2],42))
 
-scala> JsonBeanEvaluator.evaluate(jsonPath"""$$.foobar[-1:]""", json)
-val res2: List[JsonBean] = List(42)
+scala> CirceEvaluator.evaluate(jsonPath"$$.foobar[-1:]", json)
+val res2: List[com.quincyjo.jsonpath.Node[io.circe.Json]] = List(Node($['foobar'][2],42))
 
-scala> JsonBeanEvaluator.evaluate(jsonPath"""$$..*""", json)
-val res3: List[JsonBean] = List(["deadbeef", true, 42] , "deadbeef" , true , 42)
+scala> CirceEvaluator.evaluate(jsonPath"$$..*", json)
+val res3: List[com.quincyjo.jsonpath.Node[io.circe.Json]] =
+List(Node($['foobar'],[
+  "deadbeef",
+  true,
+  42
+]), Node($['foobar'][0],"deadbeef"), Node($['foobar'][1],true), Node($['foobar'][2],42))
 ```
 
-Singular queries may also be evaluated explicitly via `JsonPathEvaluator.singular`, which returns `Option[Json]`
+Singular queries may also be evaluated explicitly via `JsonPathEvaluator.singular`, which returns `Option[Node[Json]]`
 instead.
 
 ## Expressions
@@ -217,17 +236,17 @@ First, define the new function extension. This can immediately be used when defi
 
 ```scala
 final case class StringOrNothing(value: ValueType)
-  extends FunctionExtension[ValueType]
-    with ValueType {
+        extends FunctionExtension[ValueType]
+                with ValueType {
 
   override val name: String = "stringOrNothing"
 
   override val args: List[Expression] = List(value)
 
   override def apply[Json: JsonSupport](
-                                         evaluator: JsonPathEvaluator[Json],
-                                         root: Json,
-                                         current: Json
+                                               evaluator: JsonPathEvaluator[Json],
+                                               root: Json,
+                                               current: Json
                                        ): Option[Json] =
     value(evaluator, root, current).asString.map(
       implicitly[JsonSupport[Json]].string
@@ -252,33 +271,15 @@ Then mix it in to a custom parser to be able to parse it.
 
 ```scala
 case object MyJsonPathParser
-  extends JsonPathParser
-    with StandardExtensions
-    with StringOrNothingExtension
+        extends JsonPathParser
+                with StandardExtensions
+                with StringOrNothingExtension
 
 ```
 
-### Example
+## Example
 
-```
-scala> JsonPath.$ / Filter(LessThan(JsonPathValue(JsonPath.`@` / "price"), JsonNumber(10)))
-val res0: com.quincyjo.jsonpath.JsonPath = $[?(@.price < 10)]
-
-scala> val json = JsonBean.arr(Seq.tabulate(6) { n =>
-     |   JsonBean.obj("keep" -> (if (n % 2 == 0) JsonBean.True else JsonBean.False))
-     | }: _*)
-val json: JsonBean = [ { "keep": true }, { "keep": false }, { "keep": true }, { "keep": false }, { "keep": true }, { "keep": false } ]
-
-scala> val jsonPath = JsonPathParser.default.parse("$[?(@.keep == true)]").get
-val jsonPath: com.quincyjo.jsonpath.JsonPath = $[?(@.keep == true)]
-
-scala> JsonBeanEvaluator.evaluate(jsonPath, json)
-val res1: List[JsonBean] = List({ "keep": true }, { "keep": true }, { "keep": true })
-```
-
-## Modules
-
-### Example with Circe Support
+The below example uses Circe JSON.
 
 ```
 scala> val json = Json.obj(
@@ -343,24 +344,24 @@ scala> val jsonPath = $ / "products" / Wildcard /
      |   Filter(
      |     LessThanOrEqualTo(
      |       JsonPathValue(`@` / "price"),
-     |       JsonNumber(10)
+     |       LiteralNumber(10)
      |     )
      |   )
 val jsonPath: com.quincyjo.jsonpath.JsonPath = $.products.*[?(@.price <= 10)]
 
 scala> CirceEvaluator.evaluate(jsonPath, json)
-val res0: List[io.circe.Json] =
-List({
+val res0: List[com.quincyjo.jsonpath.Node[io.circe.Json]] =
+List(Node($['products']['fruit'][0],{
   "label" : "Apple",
   "price" : 2,
   "quantity" : 15
-}, {
+}), Node($['products']['fruit'][1],{
   "label" : "Banana",
   "price" : 1,
   "quantity" : 23
-}, {
+}), Node($['products']['other'][1],{
   "label" : "Silverware Set",
   "price" : 10,
   "quantity" : 4
-})
+}))
 ```

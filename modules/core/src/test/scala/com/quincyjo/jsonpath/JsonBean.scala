@@ -31,11 +31,13 @@ object JsonBean {
   def arr(values: JsonValueWrapper*): JArray = JArray(
     values.map(_.value).toVector
   )
+
   def fromValues(values: Iterable[JsonBean]): JArray = JArray(values.toVector)
 
   def obj(values: (String, JsonValueWrapper)*): JObject = JObject(
     values.toMap.view.mapValues(_.value).toMap
   )
+
   def fromAttributes(values: Iterable[(String, JsonBean)]): JObject = JObject(
     values.toMap
   )

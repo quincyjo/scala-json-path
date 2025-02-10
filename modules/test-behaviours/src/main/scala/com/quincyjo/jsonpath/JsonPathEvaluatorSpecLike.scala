@@ -18,6 +18,7 @@ package com.quincyjo.jsonpath
 
 import com.quincyjo.braid.Braid
 import com.quincyjo.jsonpath.JsonPath.Wildcard
+import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -25,6 +26,7 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 trait JsonPathEvaluatorSpecLike
     extends AnyFlatSpecLike
     with Matchers
+    with OptionValues
     with TableDrivenPropertyChecks {
 
   def basicEvaluations[Json](
@@ -88,10 +90,11 @@ trait JsonPathEvaluatorSpecLike
       )
 
       forAll(cases) { case (jsonPath, expected) =>
-        evaluator.evaluate(
-          jsonPath,
-          json
-        ) should contain theSameElementsAs expected
+        val results = evaluator.evaluate(jsonPath, json)
+        results.map(_.value) should contain theSameElementsAs expected
+        results.foreach { case Node(location, value) =>
+          evaluator.singular(location, json).value.value should be(value)
+        }
       }
     }
 
@@ -127,13 +130,14 @@ trait JsonPathEvaluatorSpecLike
         )
       )
 
-      evaluator.evaluate(
-        jsonPath,
-        json
-      ) should contain theSameElementsAs Seq(
+      val results = evaluator.evaluate(jsonPath, json)
+      results.map(_.value) should contain theSameElementsAs Seq(
         apple,
         banana
       )
+      results.foreach { case Node(location, value) =>
+        evaluator.singular(location, json).value.value should be(value)
+      }
     }
   }
 }

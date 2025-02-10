@@ -91,7 +91,7 @@ object Expression {
           root: Json,
           current: Json
       ): Option[Json] =
-        jsonPathValue(evaluator, root, current).headOption
+        jsonPathValue(evaluator, root, current).headOption.map(_.value)
 
       override def toString: String =
         jsonPathValue.toString
@@ -146,7 +146,7 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): List[Json]
+    ): List[Node[Json]]
   }
 
   object NodesType {
@@ -299,7 +299,7 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): List[Json] =
+    ): List[Node[Json]] =
       evaluator
         .evaluate(path, root, Some(current))
 
@@ -315,7 +315,7 @@ object Expression {
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
-    ): List[Json] =
+    ): List[Node[Json]] =
       evaluator
         .evaluate(path, root, Some(current))
 
