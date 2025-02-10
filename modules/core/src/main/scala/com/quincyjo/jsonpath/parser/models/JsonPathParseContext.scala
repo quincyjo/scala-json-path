@@ -76,12 +76,6 @@ private[parser] final case class JsonPathParseContext private (
 
   def valueAsExpression: ParseResult[ValueAt[Expression]] =
     valueAs {
-      case JsonPathToken.StartExpression =>
-        val balanced =
-          BalancedExpressionReader(input.substring(index)).takeGroup
-        expressionParser.parse(balanced).map { expression =>
-          ValueAt(expression, index, balanced)
-        }
       case JsonPathToken.StartFilterExpression =>
         val hasParens = input.lift(index + 1).contains('(')
         val balanced =
@@ -101,7 +95,6 @@ private[parser] final case class JsonPathParseContext private (
           invalidToken,
           index,
           input,
-          JsonPathToken.StartExpression,
           JsonPathToken.StartFilterExpression
         )
     }
@@ -118,7 +111,6 @@ private[parser] final case class JsonPathParseContext private (
           Parsed(JsonPathToken.RecursiveDescent)
         else Parsed(JsonPathToken.DotSelector)
       case '?' => Parsed(JsonPathToken.StartFilterExpression)
-      case '(' => Parsed(JsonPathToken.StartExpression)
       // case ')'                                    => Parsed(JsonPathToken.EndExpression)
       case ','             => Parsed(JsonPathToken.Union)
       case ':'             => Parsed(JsonPathToken.Slice)
@@ -136,13 +128,9 @@ private[parser] final case class JsonPathParseContext private (
 
   override def value(): ParseResult[ValueAt[Any]] =
     valueAs {
-      case JsonPathToken.ValueInt =>
-        valueAsNumber
-      case JsonPathToken.ValueString =>
-        valueAsString
-      case JsonPathToken.StartExpression |
-          JsonPathToken.StartFilterExpression =>
-        valueAsExpression
+      case JsonPathToken.ValueInt              => valueAsNumber
+      case JsonPathToken.ValueString           => valueAsString
+      case JsonPathToken.StartFilterExpression => valueAsExpression
     }
 }
 
@@ -179,8 +167,6 @@ object JsonPathParseContext {
     case object Union extends SymbolToken(",")
     case object Slice extends SymbolToken(":")
     case object StartFilterExpression extends ValueToken // SymbolToken("?(")
-    case object StartExpression extends ValueToken // SymbolToken("(")
-    // final case object EndExpression extends SymbolToken(")")
 
     case object ValueString extends ValueToken
     case object ValueInt extends ValueToken

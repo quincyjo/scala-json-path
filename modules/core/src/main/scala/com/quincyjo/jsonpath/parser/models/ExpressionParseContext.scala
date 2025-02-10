@@ -73,7 +73,6 @@ private[parser] final case class ExpressionParseContext private (
         case ','            => Comma
         case '\'' | '"'     => ValueString
         case c if c.isDigit => ValueNumber
-        // case 't' | 'f'      => ValueBoolean
       }
       .orElseF {
         input

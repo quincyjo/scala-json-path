@@ -829,21 +829,10 @@ object JsonPath {
       }
   }
 
-  sealed trait ScriptSelector extends MultiSelector with ComposableSelector
-
   final case class Filter(expression: Expression.LogicalType)
-      extends ScriptSelector {
-    // TODO: This seems to also be valid with a union operator, even though RFC excludes both wildcards and filters in the single place it defined it.
+      extends MultiSelector
+      with ComposableSelector {
 
     override def toString: String = s"?($expression)"
   }
-
-  // TODO: Looks like non-filter script are not a thing in the RFC.
-  final case class Script(expression: Expression.ValueType)
-      extends ScriptSelector {
-
-    override def toString: String = s"($expression)"
-  }
-
-  // TODO: Add support for RFC extension methods
 }

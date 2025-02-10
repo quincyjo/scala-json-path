@@ -165,14 +165,4 @@ class JsonPathSpec
 
     filterExpression.toString should be(s"?($expression)")
   }
-
-  "Script" should "encode with parentheses" in {
-    val expression = Plus(
-      JsonPathValue(`@` / "foobar"),
-      LiteralNumber(3)
-    )
-    val scriptExpression = Script(expression)
-
-    scriptExpression.toString should be(s"($expression)")
-  }
 }

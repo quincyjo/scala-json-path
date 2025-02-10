@@ -298,8 +298,7 @@ trait JsonPathParser {
         Parsed(context.nextToken() -> Wildcard)
       case JsonPathToken.Slice =>
         parseSlice(context, None)
-      case JsonPathToken.StartExpression |
-          JsonPathToken.StartFilterExpression =>
+      case JsonPathToken.StartFilterExpression =>
         parseExpression(context)
       case invalidToken =>
         ParseError.invalidToken(
@@ -310,7 +309,6 @@ trait JsonPathParser {
           JsonPathToken.ValueInt,
           JsonPathToken.Wildcard,
           JsonPathToken.Slice,
-          JsonPathToken.StartExpression,
           JsonPathToken.StartFilterExpression
         )
     }
@@ -318,26 +316,15 @@ trait JsonPathParser {
 
   private def parseExpression(
       context: JsonPathParseContext
-  ): ParseResult[(JsonPathParseContext, ScriptSelector)] =
+  ): ParseResult[(JsonPathParseContext, Filter)] =
     context.currentTokenOrEndOfInput
       .flatMap {
-        case JsonPathToken.StartExpression => // TODO: Only filters are defined in the RFC
-          context.valueAsExpression.map(_.value).flatMap {
-            case logical: Expression.ValueType =>
-              Parsed(Script(logical))
-            case other =>
-              ParseError(
-                s"Scripts requires a value expression but was: $other",
-                context.index,
-                context.input
-              )
-          }
         case JsonPathToken.StartFilterExpression =>
           context.valueAsExpression.map(_.value).flatMap {
             case logical: Expression.LogicalType =>
               Parsed(Filter(logical))
-            case logical: Expression.NodesType =>
-              Parsed(Filter(logical))
+            case nodes: Expression.NodesType =>
+              Parsed(Filter(nodes))
             case other =>
               ParseError(
                 s"Filter requires a logical expression but was: $other",
@@ -350,7 +337,6 @@ trait JsonPathParser {
             invalidToken,
             context.index,
             context.input,
-            JsonPathToken.StartExpression,
             JsonPathToken.StartFilterExpression
           )
       } match {

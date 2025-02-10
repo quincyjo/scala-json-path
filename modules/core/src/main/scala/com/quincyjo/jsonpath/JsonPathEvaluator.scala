@@ -108,7 +108,6 @@ abstract class JsonPathEvaluator[Json: Braid] {
       case union: Union         => this.union(root, json, union)
       case slice: Slice         => this.slice(json, slice)
       case filter: Filter       => this.filter(root, json, filter)
-      case script: Script       => this.script(root, json, script)
       case Wildcard             => this.wildcard(json)
     }
 
@@ -169,27 +168,6 @@ abstract class JsonPathEvaluator[Json: Braid] {
       _.filter(j => filter.expression(this, root, j)),
       _.values.filter(j => filter.expression(this, root, j))
     )
-
-  final private[jsonpath] def script(
-      root: Json,
-      json: Json,
-      script: Script
-  ): Iterable[Json] =
-    script
-      .expression(this, root, json)
-      .fold[Iterable[Json]](Iterable.empty)(
-        _.fold(
-          Iterable.empty,
-          _ => Iterable.empty,
-          i =>
-            Option
-              .when(i.isValidInt)(i.toInt)
-              .flatMap(i => json.asArray.flatMap(_.lift(i))),
-          s => json.asObject.flatMap(_.get(s)),
-          _ => Iterable.empty,
-          _ => Iterable.empty
-        )
-      )
 
   final private[jsonpath] def descend(json: Json): List[Json] = {
 
