@@ -212,31 +212,37 @@ object Expression {
       val leftResult = left(evaluator, root, current)
       val rightResult = right(evaluator, root, current)
       leftResult
-        .flatMap(_.asString)
-        .zip(rightResult.flatMap(_.asString))
-        .map { case (l, r) => l compareTo r }
-        .orElse(
-          leftResult
-            .flatMap(_.asArray)
-            .zip(rightResult.flatMap(_.asArray))
-            // TODO: Deep value comparison and add objects per RFC
-            .map { case (l, r) => l.size compareTo r.size }
-        )
-        .orElse(
-          leftResult
-            .flatMap(_.coerceToNumber)
-            .zip(rightResult.flatMap(_.coerceToNumber))
+        .zip(rightResult)
+        .flatMap { case (left, right) =>
+          left.asString
+            .zip(right.asString)
             .map { case (l, r) => l compareTo r }
-        )
+            .orElse {
+              left.asNumber
+                .zip(right.asNumber)
+                .map { case (l, r) => l compareTo r }
+            }
+        }
         .fold(this match {
-          case _: IncludesEqualityCheck =>
-            leftResult.isEmpty && rightResult.isEmpty
+          case equality: IncludesEqualityCheck =>
+            equality.equalityCheck(leftResult, rightResult)
           case _ => false
         })(f(_, 0))
     }
   }
 
-  sealed trait IncludesEqualityCheck extends Comparator
+  sealed trait IncludesEqualityCheck extends Comparator {
+
+    def equalityCheck[Json](
+        left: Option[Json],
+        right: Option[Json]
+    ): Boolean =
+      left -> right match {
+        case None -> None       => true
+        case Some(l) -> Some(r) => l == r
+        case _                  => false
+      }
+  }
 
   sealed trait Literal extends Expression with ValueType {
 
@@ -340,12 +346,10 @@ object Expression {
         root: Json,
         current: Json
     ): Boolean =
-      left(evaluator, root, current) ->
-        right(evaluator, root, current) match {
-        case None -> None       => true
-        case Some(l) -> Some(r) => l == r
-        case _                  => false
-      }
+      equalityCheck(
+        left(evaluator, root, current),
+        right(evaluator, root, current)
+      )
   }
 
   final case class NotEqual(left: ValueType, right: ValueType)

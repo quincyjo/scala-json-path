@@ -159,6 +159,8 @@ class ExpressionSpec
 
   it should behave like comparator(GreaterThanOrEqualTo.apply)(_ >= _)
 
+  it should behave like equalityOperator(GreaterThanOrEqualTo.apply)
+
   "LessThan" should behave like binarySerialization(LessThan.apply)("<")
 
   it should behave like comparator(LessThan.apply)(_ < _)
@@ -170,6 +172,8 @@ class ExpressionSpec
   )
 
   it should behave like comparator(LessThanOrEqualTo.apply)(_ <= _)
+
+  it should behave like equalityOperator(LessThanOrEqualTo.apply)
 
   // "And" should behave like binarySerialization(And.apply)("&&")
 
@@ -354,25 +358,7 @@ class ExpressionSpec
       }
     }
 
-    it should "compare arrays by length" in {
-      val cases = Table(
-        ("left", "right"),
-        (JsonBean.arr(), JsonBean.arr()),
-        (JsonBean.arr(JsonBean.number(1)), JsonBean.arr()),
-        (JsonBean.arr(), JsonBean.arr(JsonBean.number(1)))
-      )
-
-      forAll(cases) { case (left, right) =>
-        constructor(JsonPathValue(JsonPath.$), JsonPathValue(JsonPath.`@`))(
-          evaluator,
-          left,
-          right
-        ) should be(
-          f(left.values.size.compareTo(right.values.size), 0)
-        )
-      }
-    }
-
+    // TODO: false if not the same type and false if either is not a string or number
     it should "be false if either right is NaN" in {
       val cases = Table[JsonBean, JsonBean](
         ("left", "right"),
@@ -389,6 +375,100 @@ class ExpressionSpec
           right
         ) should be(false)
       }
+    }
+  }
+
+  def equalityOperator[T <: IncludesEqualityCheck](
+      constructor: (ValueType, ValueType) => T
+  ): Unit = {
+
+    it should "compare atomic values" in {
+      val cases = Table(
+        ("left", "right"),
+        (LiteralNumber(42), LiteralNumber(42)),
+        (LiteralBoolean(true), LiteralBoolean(true)),
+        (LiteralString("foobar"), LiteralString("foobar"))
+      )
+
+      forAll(cases) { case (left, right) =>
+        constructor(left, right)(
+          evaluator,
+          JsonBean.Null,
+          JsonBean.Null
+        ) should be(true)
+      }
+    }
+
+    it should "compare associatives by values" in {
+      val cases = Table(
+        ("left", "right", "expected"),
+        (JsonBean.arr(), JsonBean.arr(), true),
+        (JsonBean.arr(JsonBean.number(42)), JsonBean.arr(), false),
+        (JsonBean.arr(), JsonBean.arr(JsonBean.number(42)), false),
+        (
+          JsonBean.arr(JsonBean.number(42)),
+          JsonBean.arr(JsonBean.number(42)),
+          true
+        ),
+        (JsonBean.obj("foo" -> "bar"), JsonBean.obj("foo" -> "bar"), true),
+        (JsonBean.obj(), JsonBean.obj(), true),
+        (JsonBean.obj("foo" -> "bar"), JsonBean.obj(), false),
+        (
+          JsonBean.obj("a" -> "this value"),
+          JsonBean.obj("a" -> "that value"),
+          false
+        ),
+        (
+          JsonBean.obj("a" -> "foo"),
+          JsonBean.obj("a" -> "foo", "b" -> "bar"),
+          false
+        )
+      )
+
+      forAll(cases) { case (left, right, expected) =>
+        constructor(JsonPathValue(JsonPath.$), JsonPathValue(JsonPath.`@`))(
+          evaluator,
+          left,
+          right
+        ) should be(expected)
+      }
+    }
+
+    it should "be false if they are different types" in {
+      val cases = Table[JsonBean, JsonBean](
+        ("left", "right"),
+        (JsonBean.number(42), JsonBean.string("foobar")),
+        (JsonBean.string("foobar"), JsonBean.number(42)),
+        (JsonBean.number(5), JsonBean.arr(JsonBean.True)),
+        (JsonBean.arr(JsonBean.True), JsonBean.number(5)),
+        (JsonBean.obj(), JsonBean.number(0))
+      )
+
+      forAll(cases) { case (left, right) =>
+        constructor(JsonPathValue(JsonPath.$), JsonPathValue(JsonPath.`@`))(
+          evaluator,
+          left,
+          right
+        ) should be(false)
+      }
+    }
+
+    it should "be true if both operands are Nothing" in {
+      val nothingQuery = JsonPath.$ / "foobar"
+      constructor(JsonPathValue(nothingQuery), JsonPathValue(nothingQuery))(
+        evaluator,
+        JsonBean.Null,
+        JsonBean.Null
+      ) should be(true)
+    }
+
+    it should "be false if only one operand is Nothing" in {
+      val nothingQuery = JsonPath.$ / "foobar"
+      constructor(JsonPathValue(JsonPath.$), JsonPathValue(nothingQuery))(
+        evaluator,
+        JsonBean.Null,
+        JsonBean.Null
+      ) should be(false)
     }
   }
 
