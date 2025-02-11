@@ -57,6 +57,7 @@ Global / excludeLintKeys += tlBaseVersion
 Global / initialCommands :=
   """import com.quincyjo.jsonpath._
     |import com.quincyjo.jsonpath.literal._
+    |import com.quincyjo.jsonpath.implicits._
     |import com.quincyjo.jsonpath.JsonPath._
     |import com.quincyjo.jsonpath.Expression._
     |import com.quincyjo.jsonpath.extensions._
