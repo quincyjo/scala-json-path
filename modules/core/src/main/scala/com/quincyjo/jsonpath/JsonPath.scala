@@ -16,7 +16,6 @@
 
 package com.quincyjo.jsonpath
 
-import cats.implicits.toTraverseOps
 import com.quincyjo.jsonpath.JsonPath.JsonPathRoot.{Current, Root}
 import com.quincyjo.jsonpath.JsonPath.SingularSelector.SingularSelectorWrapper
 import com.quincyjo.jsonpath.JsonPath._
@@ -45,23 +44,6 @@ sealed trait JsonPath extends Serializable {
   def isRelative: Boolean =
     root == Current
 
-  /** Returns true if this path is singular, IE; it can point to at most one
-    * element.
-    * @return
-    *   A boolean indicating if this path is singular
-    */
-  def isSingular: Boolean =
-    segments.forall(_.isSingular)
-
-  /** Appends the given [[JsonPath.JsonPathSegment]] to this path.
-    *
-    * @param that
-    *   The [[JsonPath.JsonPathSegment]] to append.
-    * @return
-    *   This path with the given node appended.
-    */
-  def appended(that: Child): JsonPath
-
   /** Appends the given [[JsonPath.JsonPathSegment]] to this path.
     *
     * @param that
@@ -78,7 +60,7 @@ sealed trait JsonPath extends Serializable {
     * @return
     *   This path with the given nodes appended.
     */
-  def appendedAll(that: Iterable[JsonPathSegment]): JsonPath = ???
+  def appendedAll(that: Iterable[JsonPathSegment]): JsonPath
 
   /** Alias for [[appendedAll]].
     *
@@ -99,27 +81,16 @@ sealed trait JsonPath extends Serializable {
     * @return
     *   This path with the given node prepended.
     */
-  def prepended(that: Child): JsonPath =
-    Query(root, segments prepended that)
+  def prepended(that: JsonPathSegment): JsonPath
 
-  /** Prepends the given [[JsonPath.JsonPathSegment]] to this path.
-    *
-    * @param that
-    *   The [[JsonPath.JsonPathSegment]] to prepend.
-    * @return
-    *   This path with the given node prepended.
-    */
-  def prepended(that: JsonPathSegment): JsonPath =
-    Query(root, segments prepended that)
-
-  /** Prepends all of the given [[JsonPath.JsonPathSegment]] s to this path.
+  /** Prepends all the given [[JsonPath.JsonPathSegment]] s to this path.
     *
     * @param that
     *   An iterable of the [[JsonPath.JsonPathSegment]] s to prepend.
     * @return
     *   This path with the given nodes prepended.
     */
-  def prependedAll(that: Iterable[JsonPathSegment]): JsonPath = ???
+  def prependedAll(that: Iterable[JsonPathSegment]): JsonPath
 
   /** DSL to append a child [[JsonPath.Selector]] to this [[JsonPath]].
     *
@@ -129,7 +100,8 @@ sealed trait JsonPath extends Serializable {
     *   This path with the given selector appended.
     */
   // @targetName("select")
-  def /(singleSelectorWrapper: SingularSelectorWrapper): JsonPath
+  def /(singleSelectorWrapper: SingularSelectorWrapper): JsonPath =
+    /(singleSelectorWrapper.value)
 
   def /(selector: Selector): JsonPath = selector match {
     case selector: SingularSelector => /(selector)
@@ -167,47 +139,41 @@ sealed trait JsonPath extends Serializable {
   def ?/(expression: Expression.LogicalType): Query =
     Query(root, segments appended Children(Filter(expression)))
 
-  /* TODO: implement
   /** Takes the first `n` nodes of this path.
-   *
-   * @param n
-   *   The number of nodes to take.
-   * @return
-   *   This path truncated to the first `n` [[JsonPath.JsonPathSegment]] s.
-   */
-  def take(n: Int): this.type =
-    copy(segments = segments.take(n))
+    *
+    * @param n
+    *   The number of nodes to take.
+    * @return
+    *   This path truncated to the first `n` [[JsonPath.JsonPathSegment]] s.
+    */
+  def take(n: Int): JsonPath
 
   /** Drops the first `n` nodes of this path.
-   *
-   * @param n
-   *   The number of nodes to drop.
-   * @return
-   *   This path with the first `n` [[JsonPath.JsonPathSegment]] s dropped.
-   */
-  def drop(n: Int): this.type =
-    copy(segments = segments.drop(n))
+    *
+    * @param n
+    *   The number of nodes to drop.
+    * @return
+    *   This path with the first `n` [[JsonPath.JsonPathSegment]] s dropped.
+    */
+  def drop(n: Int): JsonPath
 
   /** Takes the last `n` nodes of this path.
-   *
-   * @param n
-   *   The number of nodes to take.
-   * @return
-   *   This path truncated to the last `n` [[JsonPath.JsonPathSegment]] s.
-   */
-  def takeRight(n: Int): this.type =
-    copy(segments = segments.takeRight(n))
+    *
+    * @param n
+    *   The number of nodes to take.
+    * @return
+    *   This path truncated to the last `n` [[JsonPath.JsonPathSegment]] s.
+    */
+  def takeRight(n: Int): JsonPath
 
   /** Drops the last `n` nodes of this path.
-   *
-   * @param n
-   *   The number of nodes to drop.
-   * @return
-   *   This path with the last `n` [[JsonPath.JsonPathSegment]] s dropped.
-   */
-  def dropRight(n: Int): this.type =
-    copy(segments = segments.dropRight(n))
-   */
+    *
+    * @param n
+    *   The number of nodes to drop.
+    * @return
+    *   This path with the last `n` [[JsonPath.JsonPathSegment]] s dropped.
+    */
+  def dropRight(n: Int): JsonPath
 
   /** Returns true if this path is empty and false otherwise. The root node of
     * the path is not considered.
@@ -248,7 +214,7 @@ sealed trait JsonPath extends Serializable {
     * @return
     *   The parent path of this path.
     */
-  def parent: JsonPath // TODO:  This should be able to be generic, and could become singular
+  def parent: JsonPath
 
   /** Resolve the given [[JsonPath]] against this one. If the given path is not
     * relative, then then the given path is simply returned. Otherwise, the
@@ -362,7 +328,15 @@ object JsonPath {
       segments: List[Child]
   ) extends JsonPath {
 
-    override def appended(child: Child): SingularQuery =
+    /** Appends the given [[JsonPath.Child]] to this path explicitly maintaining
+      * a singular query.
+      *
+      * @param child
+      *   The [[JsonPath.JsonPathSegment]] to append.
+      * @return
+      *   This path with the given node appended.
+      */
+    def appended(child: Child): SingularQuery =
       copy(segments = segments appended child)
 
     override def appended(segment: JsonPathSegment): JsonPath =
@@ -371,7 +345,28 @@ object JsonPath {
         case segment        => Query(root, segments appended segment)
       }
 
-    override def prepended(that: Child): SingularQuery =
+    override def appendedAll(that: Iterable[JsonPathSegment]): JsonPath =
+      JsonPath(root, segments appendedAll that)
+
+    /** Appends all the given [[JsonPath.Child]] to this path, explicitly
+      * maintaining a singular query.
+      * @param that
+      *   The singular selectors to append.
+      * @return
+      *   This path with the given nodes appended.
+      */
+    def appendedAll(that: Iterable[Child]): SingularQuery =
+      copy(segments = segments appendedAll that)
+
+    /** Prepends the given [[JsonPath.Child]] to this path, explicitly
+      * maintaining a singular query.
+      *
+      * @param that
+      *   The singular selector to prepend.
+      * @return
+      *   This path with the given node prepended.
+      */
+    def prepended(that: Child): SingularQuery =
       copy(segments = segments.prepended(that))
 
     override def prepended(that: JsonPathSegment): JsonPath = that match {
@@ -379,7 +374,23 @@ object JsonPath {
       case segment      => Query(root, segments.prepended(segment))
     }
 
-    def /(singleSelectorWrapper: SingularSelectorWrapper): SingularQuery =
+    /** Prepends all the given [[JsonPath.Child]] to this path, explicitly
+      * maintaining a singular query.
+      *
+      * @param that
+      *   The singular selectors to prepend.
+      * @return
+      *   This path with the given nodes prepended.
+      */
+    def prependedAll(that: Iterable[Child]): SingularQuery =
+      copy(segments = segments prependedAll that)
+
+    override def prependedAll(that: Iterable[JsonPathSegment]): JsonPath =
+      JsonPath(root, segments prependedAll that)
+
+    override def /(
+        singleSelectorWrapper: SingularSelectorWrapper
+    ): SingularQuery =
       appended(Child(singleSelectorWrapper.value))
 
     def /(selector: SingularSelector): SingularQuery =
@@ -387,6 +398,18 @@ object JsonPath {
 
     override def withRoot(root: JsonPathRoot): SingularQuery =
       copy(root = root)
+
+    override def take(n: Int): SingularQuery =
+      copy(segments = segments.take(n))
+
+    override def drop(n: Int): SingularQuery =
+      copy(segments = segments.drop(n))
+
+    override def takeRight(n: Int): SingularQuery =
+      copy(segments = segments.takeRight(n))
+
+    override def dropRight(n: Int): SingularQuery =
+      copy(segments = segments.dropRight(n))
 
     override def parent: SingularQuery =
       copy(segments = segments.dropRight(1))
@@ -406,17 +429,6 @@ object JsonPath {
       else withRoot(Current)
   }
 
-  object SingularQuery {
-
-    def fromJsonPath(jsonPath: JsonPath): Option[SingularQuery] =
-      jsonPath.segments
-        .traverse {
-          case child: Child => Some(child)
-          case _            => None
-        }
-        .map(SingularQuery(jsonPath.root, _))
-  }
-
   /** A [[JsonPath]] that is not singular query. This cannot be built explicitly
     * but rather is shifted to when a singular query is given a segment which is
     * not itself singular.
@@ -430,26 +442,38 @@ object JsonPath {
       segments: List[JsonPathSegment]
   ) extends JsonPath {
 
-    override def appended(segment: Child): Query =
-      copy(segments = segments appended segment)
-
     override def appended(segment: JsonPathSegment): Query =
       copy(segments = segments appended segment)
 
-    def /(singleSelectorWrapper: SingularSelectorWrapper): Query =
-      appended(Child(singleSelectorWrapper.value))
+    override def prepended(that: JsonPathSegment): JsonPath =
+      copy(segments = segments prepended that)
+
+    override def appendedAll(that: Iterable[JsonPathSegment]): JsonPath =
+      copy(segments = segments appendedAll that)
+
+    override def prependedAll(that: Iterable[JsonPathSegment]): JsonPath =
+      copy(segments = segments prependedAll that)
 
     def /(selector: SingularSelector): Query =
-      copy(segments = segments appended JsonPathSegment(selector))
+      copy(segments = segments appended Child(selector))
+
+    override def take(n: Int): JsonPath =
+      JsonPath(root, segments.take(n))
+
+    override def drop(n: Int): JsonPath =
+      JsonPath(root, segments.drop(n))
+
+    override def takeRight(n: Int): JsonPath =
+      JsonPath(root, segments.takeRight(n))
+
+    override def dropRight(n: Int): JsonPath =
+      JsonPath(root, segments.dropRight(n))
+
+    override def parent: JsonPath =
+      JsonPath(root, segments.dropRight(1))
 
     override def withRoot(root: JsonPathRoot): Query =
       copy(root = root)
-
-    override def parent: JsonPath =
-      if (segments.lastOption.exists(!_.isSingular)) {
-        // If the dropped element is not singular, then it is possible this query now is.
-        JsonPath.apply(root, segments.dropRight(1))
-      } else copy(segments = segments.dropRight(1))
   }
 
   sealed trait JsonPathSegment {
