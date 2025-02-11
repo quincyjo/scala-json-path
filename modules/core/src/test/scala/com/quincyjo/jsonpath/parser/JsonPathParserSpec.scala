@@ -94,7 +94,7 @@ class JsonPathParserSpec
   it should "parse expressions according to the configured expression parser" in {
     val cases = Table(
       "input" -> "expected",
-      "$[?(@.foobar>3)]" -> $ ?/
+      "$[?(@.foobar>3)]" -> $ /?
         GreaterThan(JsonPathValue(`@` / "foobar"), LiteralNumber(3)),
       "$[?(@.length >= 5 && @[5].isValid)]" -> $ / Filter(
         And(
@@ -115,7 +115,7 @@ class JsonPathParserSpec
   it should "handle filter expressions without parentheses" in {
     val cases = Table(
       "input" -> "expected",
-      "$[?@.foobar>3]" -> $ ?/ GreaterThan(
+      "$[?@.foobar>3]" -> $ /? GreaterThan(
         JsonPathValue(`@` / "foobar"),
         LiteralNumber(3)
       ),
@@ -200,23 +200,23 @@ class JsonPathParserSpec
   it should "parse extensions" in {
     val cases = Table(
       "input" -> "expected",
-      s"$$[?(length(@.foo) > 3)]" -> $ ?/ GreaterThan(
+      s"$$[?(length(@.foo) > 3)]" -> $ /? GreaterThan(
         Length(JsonPathValue(`@` / "foo")),
         LiteralNumber(3)
       ),
-      s"$$[?value(@) > 3]" -> $ ?/ GreaterThan(
+      s"$$[?value(@) > 3]" -> $ /? GreaterThan(
         Value(JsonPathValue(`@`)),
         LiteralNumber(3)
       ),
-      s"$$[?count(@['items'].*) > 15]" -> $ ?/ GreaterThan(
+      s"$$[?count(@['items'].*) > 15]" -> $ /? GreaterThan(
         Count(JsonPathNodes(`@` / "items" / Wildcard)),
         LiteralNumber(15)
       ),
-      s"$$[?match(@.name, '.*foo.*')]" -> $ ?/ Match(
+      s"$$[?match(@.name, '.*foo.*')]" -> $ /? Match(
         JsonPathValue(`@` / "name"),
         LiteralString(".*foo.*")
       ),
-      s"$$[?search(@.name, 'Jane')]" -> $ ?/ Search(
+      s"$$[?search(@.name, 'Jane')]" -> $ /? Search(
         JsonPathValue(`@` / "name"),
         LiteralString("Jane")
       )
@@ -231,7 +231,7 @@ class JsonPathParserSpec
     JsonPathParser.default
       .parse(s"$$[?(length(value(@.foo)) > 3)]")
       .value should be(
-      $ ?/ GreaterThan(
+      $ /? GreaterThan(
         Length(
           Value(JsonPathValue(`@` / "foo"))
         ),

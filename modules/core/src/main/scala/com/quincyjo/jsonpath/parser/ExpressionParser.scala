@@ -125,14 +125,16 @@ final case class ExpressionParser(
             .map { pendingOperator =>
               pendingOperator.value match {
                 case ExpressionToken.OpenParenthesis =>
-                  resolvePending(
-                    context,
-                    stack
-                      .removeHeadOption()
-                      .getOrElse(ValueAt(LiteralNull, 0, "")),
-                    stack,
-                    pending
-                  )
+                  stack.removeHeadOption() match {
+                    case Some(expression) =>
+                      resolvePending(context, expression, stack, pending)
+                    case None =>
+                      ParseError(
+                        s"Empty parentheses. Parentheses must contain some expression.",
+                        context.index,
+                        context.input
+                      )
+                  }
                 case trailingToken =>
                   ParseError(
                     s"Trailing token: $trailingToken",

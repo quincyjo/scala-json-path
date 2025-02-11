@@ -130,13 +130,16 @@ sealed trait JsonPath extends Serializable {
   def */(selector: Selector): Query =
     Query(root, segments appended RecursiveDescent(selector))
 
+  def */(selector: SingularSelectorWrapper): Query =
+    */(selector.value)
+
   /** DSL to append a filter [[JsonPath.Selector]] to this [[JsonPath]].
     * @param expression
     *   The [[Expression]] to filter by.
     * @return
     *   This path with the given filter applied.
     */
-  def ?/(expression: Expression.LogicalType): Query =
+  def /?(expression: Expression.LogicalType): Query =
     Query(root, segments appended Children(Filter(expression)))
 
   /** Takes the first `n` nodes of this path.
@@ -263,20 +266,14 @@ sealed trait JsonPath extends Serializable {
     * @return
     *   This path as an absolute path.
     */
-  def toAbsolutePath: JsonPath =
-    if (isAbsolute) this
-    else withRoot(Root)
+  def toAbsolutePath: JsonPath
 
   /** Returns this path as a relative path, ie with no [[root]] of
     * [[JsonPath.JsonPathRoot.Current]].
     * @return
     *   This path as a relative path.
     */
-  def toRelativePath: JsonPath =
-    if (isRelative) this
-    else withRoot(Current)
-
-  def withRoot(root: JsonPathRoot): JsonPath
+  def toRelativePath: JsonPath
 
   override def toString: String =
     s"$root${segments.mkString}"
@@ -396,9 +393,6 @@ object JsonPath {
     def /(selector: SingularSelector): SingularQuery =
       appended(Child(selector))
 
-    override def withRoot(root: JsonPathRoot): SingularQuery =
-      copy(root = root)
-
     override def take(n: Int): SingularQuery =
       copy(segments = segments.take(n))
 
@@ -416,7 +410,7 @@ object JsonPath {
 
     override def toAbsolutePath: SingularQuery =
       if (isAbsolute) this
-      else withRoot(Root)
+      else copy(Root)
 
     /** Returns this path as a relative path, ie with no [[root]] of
       * [[JsonPath.JsonPathRoot.Current]].
@@ -426,7 +420,7 @@ object JsonPath {
       */
     override def toRelativePath: SingularQuery =
       if (isRelative) this
-      else withRoot(Current)
+      else copy(Current)
   }
 
   /** A [[JsonPath]] that is not singular query. This cannot be built explicitly
@@ -472,8 +466,13 @@ object JsonPath {
     override def parent: JsonPath =
       JsonPath(root, segments.dropRight(1))
 
-    override def withRoot(root: JsonPathRoot): Query =
-      copy(root = root)
+    override def toAbsolutePath: Query =
+      if (isAbsolute) this
+      else copy(Root)
+
+    override def toRelativePath: Query =
+      if (isRelative) this
+      else copy(Current)
   }
 
   sealed trait JsonPathSegment {
@@ -606,7 +605,7 @@ object JsonPath {
       override def value: SingularSelector = field
     }
 
-    implicit def toJsFieldSingularSelectorWrapper[T](field: T)(implicit
+    implicit def toSingularSelectorWrapper[T](field: T)(implicit
         w: SingularSelectorMagnet[T]
     ): SingularSelectorWrapper =
       SingularSelectorWrapperImpl(w(field))

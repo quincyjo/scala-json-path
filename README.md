@@ -58,7 +58,7 @@ val res1: com.quincyjo.jsonpath.JsonPath.Query = $[*][:3]
 scala> JsonPath.`@` */ Wildcard // <-- Recursive descent DSL
 val res2: com.quincyjo.jsonpath.JsonPath.Query = @..*
 
-cala> JsonPath.$ ?/ GreaterThan(Count(JsonPathNodes(JsonPath.`@`)), LiteralNumber(1
+cala> JsonPath.$ /? GreaterThan(Count(JsonPathNodes(JsonPath.`@`)), LiteralNumber(1
 0)) // <-- Filter DSL
 val res3: com.quincyjo.jsonpath.JsonPath.Query = $[?(count(@) > 10)]
 ```
@@ -176,7 +176,7 @@ handling is when parsing a JSON path, and thus parsing fails if an expression is
 scala> jsonPath"$$[?value(@.foo)]"
 com.quincyjo.jsonpath.parser.models.ParseError: Failed to parse JsonPath at index 4 in '$[?value(@.foo)]': Filter requires a logical expression but was: value(@['foo'])
 
-scala> $ ?/ Value(JsonPathValue(`@` / "foo"))
+scala> $ /? Value(JsonPathValue(`@` / "foo"))
                  ^
        error: type mismatch;
         found   : com.quincyjo.jsonpath.extensions.Value
@@ -188,7 +188,7 @@ com.quincyjo.jsonpath.parser.models.ParseError: Failed to parse JsonPath at inde
 scala> jsonPath"$$[?match(@..*, 'deadbeef')]"
 com.quincyjo.jsonpath.parser.models.ParseError: Failed to parse JsonPath at index 3 in '$[?match(@..*, 'deadbeef')]': function 'match' invalid argument '@..*': NodesType can only be coerced to ValueType when from a singular query.
 
-scala> $ ?/ Match(JsonPathNodes(`@` */ Wildcard), LiteralString("deadbeef"))
+scala> $ /? Match(JsonPathNodes(`@` */ Wildcard), LiteralString("deadbeef"))
                                ^
        error: type mismatch;
         found   : com.quincyjo.jsonpath.Expression.JsonPathNodes
@@ -207,6 +207,31 @@ All expressions have a declared type which is one of the following.
 
 Expressions used in a filter selector must be of type `LogicalType`, and function extensions must have a declared
 type and their parameters are type-checked during parsing.
+
+There are implicit `def`s in scope for each type to enable implicit conversions according to the above. These will apply
+automatically whenever an expression type is used as a parameter. There are also utility methods on relevant types to
+make this explicit.
+
+```
+scala> JsonPath.$ /? JsonPathNodes(JsonPath.`@` / "bar") // <-- NodesType to Logical Type
+val res0: com.quincyjo.jsonpath.JsonPath.Query = $[?(@['bar'])]
+
+scala> JsonPath.$ /? Equal(JsonPathValue(JsonPath.`@` / "name"), LiteralString("Jane Doe")) // <-- NodesType to ValueType
+val res1: com.quincyjo.jsonpath.JsonPath.Query = $[?(@['name'] == "Jane Doe")]
+
+scala> JsonPath.$ / "products" */ Wildcard /? JsonPathValue(`@` / "restrictions").exists
+val res2: com.quincyjo.jsonpath.JsonPath.Query = $['products']..*[?(@['restrictions'])]
+```
+
+Syntax implicits are available via `ExpressionsSyntax` to make writing expressions easier.
+
+```
+scala> import com.quincyjo.jsonpath.syntax.ExpressionSyntax._
+import com.quincyjo.jsonpath.syntax.ExpressionSyntax._
+
+scala> JsonPath.$ */ "products" /? (`@` / "price" < 100)
+val res0: com.quincyjo.jsonpath.JsonPath.Query = $..['products'][?(@['price'] < 100)]
+```
 
 ## Function Extensions
 
@@ -237,17 +262,17 @@ First, define the new function extension. This can immediately be used when defi
 
 ```scala
 final case class StringOrNothing(value: ValueType)
-        extends FunctionExtension[ValueType]
-                with ValueType {
+  extends FunctionExtension[ValueType]
+    with ValueType {
 
   override val name: String = "stringOrNothing"
 
   override val args: List[Expression] = List(value)
 
   override def apply[Json: JsonSupport](
-                                               evaluator: JsonPathEvaluator[Json],
-                                               root: Json,
-                                               current: Json
+                                         evaluator: JsonPathEvaluator[Json],
+                                         root: Json,
+                                         current: Json
                                        ): Option[Json] =
     value(evaluator, root, current).asString.map(
       implicitly[JsonSupport[Json]].string
@@ -272,9 +297,9 @@ Then mix it in to a custom parser to be able to parse it.
 
 ```scala
 case object MyJsonPathParser
-        extends JsonPathParser
-                with StandardExtensions
-                with StringOrNothingExtension
+  extends JsonPathParser
+    with StandardExtensions
+    with StringOrNothingExtension
 
 ```
 

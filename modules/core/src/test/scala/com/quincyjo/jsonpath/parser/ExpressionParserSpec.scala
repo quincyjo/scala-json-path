@@ -204,4 +204,12 @@ class ExpressionParserSpec
       )
     )
   }
+
+  it should "fail if a group is empty" in {
+    val raw = s"""()"""
+
+    val error = expressionParser.parse(raw).failed
+
+    error.message.toLowerCase should include("empty parentheses")
+  }
 }

@@ -20,6 +20,7 @@ import cats.data.Validated
 import com.quincyjo.braid.Braid
 import com.quincyjo.braid.implicits._
 import com.quincyjo.braid.operations.implicits.toJsonOperationOps
+import com.quincyjo.jsonpath.JsonPath.SingularQuery
 import com.quincyjo.jsonpath.parser.util.StringEscapes
 
 sealed trait Expression {
@@ -30,14 +31,9 @@ sealed trait Expression {
 
 object Expression {
 
-  sealed trait EvaluatesTo[T] {
-
-    def apply[Json: Braid](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): T
-  }
+  final val Null = LiteralNull
+  final val True = LiteralBoolean(true)
+  final val False = LiteralBoolean(false)
 
   final case class Coercible[Type](
       coerce: Expression => Validated[String, Type]
@@ -52,15 +48,49 @@ object Expression {
   ): Validated[String, Type] =
     implicitly[Coercible[Type]].coerce(expression)
 
-  // JSON atomic literal or Nothing
-  // Can be coerced from a singular query.
-  trait ValueType extends Expression with EvaluatesTo[Option[?]] {
+  trait ValueType extends Expression {
 
     def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
     ): Option[Json]
+
+    def isEqualTo(that: ValueType): Equal =
+      Equal(this, that)
+
+    def ===(that: ValueType): Equal =
+      isEqualTo(that)
+
+    def isNotEqualTo(that: ValueType): NotEqual =
+      NotEqual(this, that)
+
+    def =!=(that: ValueType): NotEqual =
+      isNotEqualTo(that)
+
+    def isGreaterThan(that: ValueType): GreaterThan =
+      GreaterThan(this, that)
+
+    def >(that: ValueType): GreaterThan =
+      isGreaterThan(that)
+
+    def isGreaterThanOrEqualTo(that: ValueType): GreaterThanOrEqualTo =
+      GreaterThanOrEqualTo(this, that)
+
+    def >=(that: ValueType): GreaterThanOrEqualTo =
+      isGreaterThanOrEqualTo(that)
+
+    def isLessThan(that: ValueType): LessThan =
+      LessThan(this, that)
+
+    def <(that: ValueType): LessThan =
+      isLessThan(that)
+
+    def isLessThanOrEqualTo(that: ValueType): LessThanOrEqualTo =
+      LessThanOrEqualTo(this, that)
+
+    def <=(that: ValueType): LessThanOrEqualTo =
+      isLessThanOrEqualTo(that)
   }
 
   object ValueType {
@@ -73,6 +103,8 @@ object Expression {
         case valueType: ValueType => Validated.Valid(valueType)
         case jsonPathValue: JsonPathValue =>
           Validated.Valid(ValueTypeFromNodesType(jsonPathValue))
+        case JsonPathNodes(query: SingularQuery) =>
+          Validated.Valid(ValueTypeFromNodesType(JsonPathValue(query)))
         case _: NodesType =>
           Validated.invalid(
             "NodesType can only be coerced to ValueType when from a singular query."
@@ -102,9 +134,23 @@ object Expression {
     ): ValueType = ValueTypeFromNodesType(jsonPathValue)
   }
 
-  // Logical true or false, distinct from JSON true or false
-  // Can be coerced from a NodesType via size of at least 1
-  trait LogicalType extends Expression with EvaluatesTo[Boolean]
+  trait LogicalType extends Expression {
+
+    def apply[Json: Braid](
+        evaluator: JsonPathEvaluator[Json],
+        root: Json,
+        current: Json
+    ): Boolean
+
+    def &&(that: LogicalType): And =
+      And(this, that)
+
+    def ||(that: LogicalType): Or =
+      Or(this, that)
+
+    def unary_! : Not =
+      Not(this)
+  }
 
   object LogicalType {
 
@@ -139,14 +185,20 @@ object Expression {
       LogicalTypeFromNodesType(nodesType)
   }
 
-  // JSONPath results as inputs, eg value(@['foobar'])
-  trait NodesType extends Expression with EvaluatesTo[List[?]] {
+  trait NodesType extends Expression {
 
     def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
     ): List[Node[Json]]
+
+    /** Convenience method for creating a LogicalType from a NodesType.
+      * @return
+      *   A logical type as existence check.
+      */
+    def exists: LogicalType =
+      LogicalType.nodesTypeToLogicalType(this)
   }
 
   object NodesType {
@@ -282,6 +334,21 @@ object Expression {
     override def toString: String = value.toString
   }
 
+  object LiteralNumber {
+
+    def apply(int: Int): LiteralNumber =
+      LiteralNumber(BigDecimal(int))
+
+    def apply(long: Long): LiteralNumber =
+      LiteralNumber(BigDecimal(long))
+
+    def apply(double: Double): LiteralNumber =
+      LiteralNumber(BigDecimal(double))
+
+    def apply(float: Float): LiteralNumber =
+      LiteralNumber(BigDecimal.decimal(float))
+  }
+
   final case class LiteralBoolean(value: Boolean) extends Literal {
 
     def asJson[Json: Braid]: Json =
@@ -290,8 +357,6 @@ object Expression {
     override def toString: String = value.toString
   }
 
-  // TODO: Expression magnets?
-  // TODO: Improve the API for JsonPath arguments
   final case class JsonPathValue(path: JsonPath.SingularQuery)
       extends Expression
       with NodesType {
@@ -303,6 +368,9 @@ object Expression {
     ): List[Node[Json]] =
       evaluator
         .evaluate(path, root, Some(current))
+
+    def value: ValueType =
+      ValueType.jsonPathValueToValueType(this)
 
     override def toString: String =
       path.toString
@@ -439,6 +507,15 @@ object Expression {
     ): Boolean =
       left(evaluator, root, current) &&
         right(evaluator, root, current)
+
+    override def toString: String =
+      s"${left match {
+        case or: Or => s"($or)"
+        case value  => value.toString
+      }} $symbol ${right match {
+        case other: BinaryOperator[_, _] => s"(${other.toString})"
+        case value                       => value.toString
+      }}"
   }
 
   final case class Or(left: LogicalType, right: LogicalType)
