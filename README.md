@@ -2,7 +2,7 @@
 
 `scala-json-path` is a Scala library for the usage of [JSON Path](https://datatracker.ietf.org/doc/rfc9535/#2.3.1). This
 library provides a direct ADT for modeling JSONPaths with support for serialization and parsing. In addition, evaluation
-of JSONPaths may be done on any type of `Json` which provides support via `JsonSupport` API.
+of JSON Paths may be done on any underlying JSON library via [Braid](https://github.com/quincyjo/braid).
 
 ## Getting Started
 
@@ -170,7 +170,7 @@ well typed according to [RFC 9535](https://tools.ietf.org/html/rfc9535) section 
 declaration.
 
 Functions must be both pure and safe to evaluate, as evaluating a JSON path is guaranteed to be error free. All error
-handling is when parsing a JSON path, and thus parsing fails if an expression is malformed.
+handling is handled when parsing a JSON path, and thus parsing fails if an expression is malformed.
 
 ```
 scala> jsonPath"$$[?value(@.foo)]"
@@ -269,13 +269,13 @@ final case class StringOrNothing(value: ValueType)
 
   override val args: List[Expression] = List(value)
 
-  override def apply[Json: JsonSupport](
-                                         evaluator: JsonPathEvaluator[Json],
-                                         root: Json,
-                                         current: Json
-                                       ): Option[Json] =
+  override def apply[Json: Braid](
+                                   evaluator: JsonPathEvaluator[Json],
+                                   root: Json,
+                                   current: Json
+                                 ): Option[Json] =
     value(evaluator, root, current).asString.map(
-      implicitly[JsonSupport[Json]].string
+      implicitly[Braid[Json]].fromString
     )
 }
 
