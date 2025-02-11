@@ -70,8 +70,7 @@ val commonSettings = Seq(
     scalaTest % Test,
     scalaTestFlatSpec % Test,
     catsCore,
-    braid,
-    braidOperations
+    braid
   ),
   scalacOptions ++= (if (!tlIsScala3.value)
                        Seq(
@@ -89,7 +88,8 @@ lazy val core = project
   .settings(
     name := "Scala Jsonpath",
     moduleName := "scala-json-path",
-    commonSettings
+    commonSettings,
+    libraryDependencies += braidOperations
   )
 
 lazy val circe = project
