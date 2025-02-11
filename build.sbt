@@ -1,20 +1,21 @@
 val Scala3 = "3.3.1"
 val Scala2_13 = "2.13.12"
 
-val scalatestVersion = "3.2.17"
+val scalatestVersion = "3.2.19"
 val scalaTest = "org.scalatest" %% "scalatest" % scalatestVersion
 val scalaTestFlatSpec =
   "org.scalatest" %% "scalatest-flatspec" % scalatestVersion
 
-val scalameta = "org.scalameta" %% "munit" % "0.7.29"
+val scalametaVersion = "1.1.0"
+val scalameta = "org.scalameta" %% "munit" % scalametaVersion
 
-val catsVersion = "2.9.0"
+val catsVersion = "2.13.0"
 val catsCore = "org.typelevel" %% "cats-core" % catsVersion
 
-val circeVersion = "0.14.6"
+val circeVersion = "0.14.10"
 val circeCore = "io.circe" %% "circe-core" % circeVersion
 
-val playJsonVersion = "3.0.1"
+val playJsonVersion = "3.0.4"
 val playJson = "org.playframework" %% "play-json" % playJsonVersion
 
 val braidVersion = "0.1.1"
