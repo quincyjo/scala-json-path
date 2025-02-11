@@ -62,18 +62,6 @@ sealed trait JsonPath extends Serializable {
     */
   def appendedAll(that: Iterable[JsonPathSegment]): JsonPath
 
-  /** Alias for [[appendedAll]].
-    *
-    * @param that
-    *   An iterable of the [[JsonPath.JsonPathSegment]] s to append.
-    * @return
-    *   This path with the given nodes appended.
-    * @see
-    *   [[appendedAll]].
-    */
-  def concat(that: Iterable[JsonPathSegment]): JsonPath =
-    appendedAll(that)
-
   /** Prepends the given [[JsonPath.JsonPathSegment]] to this path.
     *
     * @param that
