@@ -185,82 +185,91 @@ object ExpressionParseContext {
 
     sealed trait BinaryToken extends OperatorToken
 
+    sealed trait ArithmeticToken extends BinaryToken
+
+    sealed trait ComparatorToken extends BinaryToken
+
+    sealed trait LogicalToken extends BinaryToken
+
     object Not extends ExpressionToken with SymbolToken with OperatorToken {
       override def symbol: String = "!"
     }
 
-    case object And extends ExpressionToken with SymbolToken with BinaryToken {
+    case object And extends ExpressionToken with SymbolToken with LogicalToken {
       override def symbol: String = "&&"
     }
 
-    case object Or extends ExpressionToken with SymbolToken with BinaryToken {
+    case object Or extends ExpressionToken with SymbolToken with LogicalToken {
       override def symbol: String = "||"
     }
 
     case object Equal
         extends ExpressionToken
         with SymbolToken
-        with BinaryToken {
+        with ComparatorToken {
       override def symbol: String = "=="
     }
 
     case object NotEqual
         extends ExpressionToken
         with SymbolToken
-        with BinaryToken {
+        with ComparatorToken {
       override def symbol: String = "!="
     }
 
     case object LessThan
         extends ExpressionToken
         with SymbolToken
-        with BinaryToken {
+        with ComparatorToken {
       override def symbol: String = "<"
     }
 
     case object LessThanOrEqualTo
         extends ExpressionToken
         with SymbolToken
-        with BinaryToken {
+        with ComparatorToken {
       override def symbol: String = "<="
     }
 
     case object GreaterThan
         extends ExpressionToken
         with SymbolToken
-        with BinaryToken {
+        with ComparatorToken {
       override def symbol: String = ">"
     }
 
     case object GreaterThanOrEqualTo
         extends ExpressionToken
         with SymbolToken
-        with BinaryToken {
+        with ComparatorToken {
       override def symbol: String = ">="
     }
 
-    case object Plus extends ExpressionToken with SymbolToken with BinaryToken {
+    case object Plus
+        extends ExpressionToken
+        with ArithmeticToken
+        with SymbolToken {
       override def symbol: String = "+"
     }
 
     case object Minus
         extends ExpressionToken
-        with SymbolToken
-        with BinaryToken {
+        with ArithmeticToken
+        with SymbolToken {
       override def symbol: String = "-"
     }
 
     case object Multiply
         extends ExpressionToken
-        with SymbolToken
-        with BinaryToken {
+        with ArithmeticToken
+        with SymbolToken {
       override def symbol: String = "*"
     }
 
     case object Divide
         extends ExpressionToken
-        with SymbolToken
-        with BinaryToken {
+        with ArithmeticToken
+        with SymbolToken {
       override def symbol: String = "/"
     }
 

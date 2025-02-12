@@ -513,6 +513,7 @@ object Expression {
         case or: Or => s"($or)"
         case value  => value.toString
       }} $symbol ${right match {
+        case and: And                    => and.toString
         case other: BinaryOperator[_, _] => s"(${other.toString})"
         case value                       => value.toString
       }}"
@@ -534,6 +535,7 @@ object Expression {
 
     override def toString: String =
       s"$left $symbol ${right match {
+        case or: Or                      => or.toString
         case and: And                    => and.toString
         case other: BinaryOperator[_, _] => s"(${other.toString})"
         case value                       => value.toString

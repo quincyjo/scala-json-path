@@ -150,7 +150,51 @@ class ExpressionSpec
 
   it should behave like equalityOperator(LessThanOrEqualTo.apply)
 
-  // "And" should behave like binarySerialization(And.apply)("&&")
+  "And" should "serialize with the correct symbol" in {
+    val expression = JsonPathValue(JsonPath.$)
+    And(expression, expression).toString should be(
+      s"$expression && $expression"
+    )
+  }
+
+  it should "serialize according to binding priority" in {
+    val value = JsonPathValue(JsonPath.`@`)
+    val cases = Table(
+      "expression" -> "expected",
+      And(value, Or(value, value)) -> "@ && (@ || @)",
+      And(Or(value, value), value) -> "(@ || @) && @",
+      And(And(value, value), value) -> "@ && @ && @",
+      And(value, And(value, value)) -> "@ && @ && @"
+    )
+
+    forAll(cases) { (expression, expected) =>
+      expression.toString should be(expected)
+    }
+  }
+
+  "Or" should "serialize with the correct symbol" in {
+    val expression = JsonPathValue(JsonPath.$)
+    Or(expression, expression).toString should be(
+      s"$expression || $expression"
+    )
+  }
+
+  it should "serialize according to binding priority" in {
+    val value = JsonPathValue(JsonPath.`@`)
+    val cases = Table(
+      "expression" -> "expected",
+      Or(value, And(value, value)) -> "@ || @ && @",
+      Or(And(value, value), value) -> "@ && @ || @",
+      Or(Or(value, value), value) -> "@ || @ || @",
+      Or(value, Or(value, value)) -> "@ || @ || @",
+      Or(And(value, value), And(value, value)) -> "@ && @ || @ && @",
+      Or(Or(value, And(value, value)), value) -> "@ || @ && @ || @"
+    )
+
+    forAll(cases) { (expression, expected) =>
+      expression.toString should be(expected)
+    }
+  }
 
   // "Or" should behave like binarySerialization(Or.apply)("||")
 

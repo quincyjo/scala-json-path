@@ -68,12 +68,6 @@ class ExpressionParserSpec
   it should "operate from left to right" in {
     val cases = Table(
       "input" -> "expected",
-      /*
-      "5 == 5 == 5" -> Equal(
-        Equal(LiteralNumber(5), LiteralNumber(5)),
-        LiteralNumber(5)
-      ),
-       */
       "'abc' + 'def' == 'abcdef'" -> Equal(
         Plus(LiteralString("abc"), LiteralString("def")),
         LiteralString("abcdef")
@@ -108,6 +102,26 @@ class ExpressionParserSpec
       "((1 + 2) == 3)" -> Equal(
         Plus(LiteralNumber(1), LiteralNumber(2)),
         LiteralNumber(3)
+      )
+    )
+
+    forAll(cases) { (input, expected) =>
+      expressionParser.parse(input).value should be(expected)
+    }
+  }
+
+  it should "handle unary NOT (!) operator" in {
+    val cases = Table(
+      "input" -> "expected",
+      "!(1 == 2)" -> Not(Equal(LiteralNumber(1), LiteralNumber(2))),
+      "!@.foobar" -> Not(JsonPathValue(JsonPath.`@` / "foobar")),
+      "!(1 == 2) && !(3 == 4)" -> And(
+        Not(Equal(LiteralNumber(1), LiteralNumber(2))),
+        Not(Equal(LiteralNumber(3), LiteralNumber(4)))
+      ),
+      "!(1 == 2) && !@.foobar" -> And(
+        Not(Equal(LiteralNumber(1), LiteralNumber(2))),
+        Not(JsonPathValue(JsonPath.`@` / "foobar"))
       )
     )
 
@@ -164,22 +178,6 @@ class ExpressionParserSpec
 
     forAll(cases) { (input, expected) =>
       expressionParser.parse(input).value should be(expected)
-    }
-  }
-
-  it should "serialize with respect to priority" in {
-    val value = JsonPathValue(JsonPath.`@`)
-
-    val cases = Table(
-      "expression" -> "expected",
-      Or(value, And(value, value)) -> "@ || @ && @",
-      Or(And(value, value), value) -> "@ && @ || @",
-      Or(And(value, value), And(value, value)) -> "@ && @ || @ && @",
-      Or(Or(value, And(value, value)), value) -> "@ || @ && @ || @"
-    )
-
-    forAll(cases) { (expression, expected) =>
-      expression.toString should be(expected)
     }
   }
 

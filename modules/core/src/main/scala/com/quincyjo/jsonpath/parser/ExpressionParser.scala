@@ -203,14 +203,13 @@ final case class ExpressionParser(
         },
         Parsed.apply
       )
-      _ = stack
-        .push(
-          ValueAt(
-            func,
-            functionName.index,
-            context.input.substring(functionName.index, context.index + 1)
-          )
+      _ = stack.push(
+        ValueAt(
+          func,
+          functionName.index,
+          context.input.substring(functionName.index, context.index + 1)
         )
+      )
     } yield context.nextToken()
 
   private def parseFunctionExtensionParameters(
@@ -302,40 +301,26 @@ final case class ExpressionParser(
           case ExpressionToken.OpenParenthesis =>
             Parsed(value)
           case ExpressionToken.Not =>
-            value.value match {
-              case logical: LogicalType =>
-                Parsed(
-                  ValueAt(
-                    Not(logical),
-                    pending.index,
-                    pending.raw.concat(value.raw)
-                  )
+            enforceLogicalType(context, value).map { logicalType =>
+              ValueAt(
+                Not(logicalType),
+                pending.index,
+                context.input.substring(
+                  pending.index,
+                  value.index + value.raw.length
                 )
-              case other =>
-                ParseError(
-                  s"! operator requires a logical value but was '$other'",
-                  context.index,
-                  context.input
-                )
+              )
             }
           case token: ExpressionToken.BinaryToken =>
             stack
               .removeHeadOption()
               .map { left =>
-                makeBinaryOperator(
+                parseBinaryOperator(
                   context,
                   pending.copy(value = token),
                   left,
                   value
                 )
-                  .map(
-                    ValueAt(
-                      _,
-                      left.index,
-                      context.input
-                        .substring(left.index, value.index + value.raw.length)
-                    )
-                  )
               }
               .getOrElse(
                 ParseError(
@@ -363,87 +348,83 @@ final case class ExpressionParser(
         }
     }
 
-  private def makeBinaryOperator(
+  private def parseBinaryOperator(
       context: ExpressionParseContext,
       token: ValueAt[ExpressionToken.BinaryToken],
       left: ValueAt[Expression],
       right: ValueAt[Expression]
-  ): ParseResult[Expression] =
-    token.value match {
-      case ExpressionToken.Plus | ExpressionToken.Minus |
-          ExpressionToken.Multiply | ExpressionToken.Divide =>
-        makeValueOperator(context, token, left, right)
-      case _ => makeLogicalOperator(context, token, left, right)
+  ): ParseResult[ValueAt[Expression]] =
+    (token.value match {
+      case arithmetic: ExpressionToken.ArithmeticToken =>
+        parseArithmeticExpression(context, arithmetic, left, right)
+      case comparator: ExpressionToken.ComparatorToken =>
+        parseComparatorOperator(context, comparator, left, right)
+      case logical: ExpressionToken.LogicalToken =>
+        parseLogicalOperator(context, logical, left, right)
+    }).map { expression =>
+      ValueAt(
+        expression,
+        left.index,
+        context.input.substring(
+          left.index,
+          right.index + right.raw.length
+        )
+      )
     }
 
-  private def makeValueOperator(
+  private def parseArithmeticExpression(
       context: ExpressionParseContext,
-      token: ValueAt[ExpressionToken.BinaryToken],
+      token: ExpressionToken.ArithmeticToken,
       left: ValueAt[Expression],
       right: ValueAt[Expression]
-  ): ParseResult[Expression] =
-    Option(token.value)
-      .collect[(ValueType, ValueType) => BinaryOperator[
-        ValueType,
-        ValueType
-      ] & ValueType] {
-        case ExpressionToken.Plus     => Plus.apply
-        case ExpressionToken.Minus    => Minus.apply
-        case ExpressionToken.Multiply => Multiply.apply
-        case ExpressionToken.Divide   => Divide.apply
-      }
-      .map { cons =>
-        (enforceValueType(context, left), enforceValueType(context, right))
-          .mapN(cons)
-      }
-      .getOrElse(ParseError("Unknown operator", 0, ""))
-
-  private def makeLogicalOperator(
-      context: ExpressionParseContext,
-      token: ValueAt[ExpressionToken.BinaryToken],
-      left: ValueAt[Expression],
-      right: ValueAt[Expression]
-  ): ParseResult[
-    Expression & LogicalType
-  ] = {
-    Option(token.value)
-      .collect[(ValueType, ValueType) => BinaryOperator[
-        Expression,
-        Expression
-      ] & LogicalType] {
-        case ExpressionToken.Equal    => Equal.apply
-        case ExpressionToken.NotEqual => NotEqual.apply
-        case ExpressionToken.LessThan => LessThan.apply
-        case ExpressionToken.LessThanOrEqualTo =>
-          LessThanOrEqualTo.apply
-        case ExpressionToken.GreaterThan =>
-          GreaterThan.apply
-        case ExpressionToken.GreaterThanOrEqualTo =>
-          GreaterThanOrEqualTo.apply
-      }
-      .map { cons =>
-        (enforceValueType(context, left), enforceValueType(context, right))
-          .mapN(cons)
-      } orElse
-      Option(token.value)
-        .collect[(LogicalType, LogicalType) => BinaryOperator[
-          Expression,
-          Expression
-        ] & LogicalType] {
-          case ExpressionToken.And => And.apply
-          case ExpressionToken.Or  => Or.apply
+  ): ParseResult[Expression & ValueType] =
+    (enforceValueType(context, left), enforceValueType(context, right))
+      .mapN { case (left, right) =>
+        token match {
+          case ExpressionToken.Plus     => Plus(left, right)
+          case ExpressionToken.Minus    => Minus(left, right)
+          case ExpressionToken.Multiply => Multiply(left, right)
+          case ExpressionToken.Divide   => Divide(left, right)
         }
-        .map { cons =>
-          (
-            enforceLogicalType(context, left),
-            enforceLogicalType(context, right)
-          ).mapN(cons)
-        } getOrElse ParseError(
-        "Unknown operator",
-        token.index,
-        context.input
-      )
-  }
+      }
+
+  private def parseComparatorOperator(
+      context: ExpressionParseContext,
+      token: ExpressionToken.ComparatorToken,
+      left: ValueAt[Expression],
+      right: ValueAt[Expression]
+  ): ParseResult[Expression & LogicalType] =
+    (enforceValueType(context, left), enforceValueType(context, right))
+      .mapN { case (left, right) =>
+        token match {
+          case ExpressionToken.Equal =>
+            Equal(left, right)
+          case ExpressionToken.NotEqual =>
+            NotEqual(left, right)
+          case ExpressionToken.LessThan =>
+            LessThan(left, right)
+          case ExpressionToken.LessThanOrEqualTo =>
+            LessThanOrEqualTo(left, right)
+          case ExpressionToken.GreaterThan =>
+            GreaterThan(left, right)
+          case ExpressionToken.GreaterThanOrEqualTo =>
+            GreaterThanOrEqualTo(left, right)
+        }
+      }
+
+  private def parseLogicalOperator(
+      context: ExpressionParseContext,
+      token: ExpressionToken.LogicalToken,
+      left: ValueAt[Expression],
+      right: ValueAt[Expression]
+  ): ParseResult[Expression & LogicalType] =
+    (enforceLogicalType(context, left), enforceLogicalType(context, right))
+      .mapN { case (left, right) =>
+        token match {
+          case ExpressionToken.And => And(left, right)
+          case ExpressionToken.Or  => Or(left, right)
+        }
+      }
 
   private def parseValue(
       context: ExpressionParseContext
@@ -451,26 +432,34 @@ final case class ExpressionParser(
     context.currentTokenOrEndOfInput
       .flatMap {
         case ExpressionToken.ValueString =>
-          context.valueAsString.map(_.map(string => LiteralString(string)))
+          context.valueAsString.map(
+            _.map(LiteralString.apply)
+          )
         case ExpressionToken.ValueBoolean =>
           context.valueAsBoolean.map(
-            _.map(boolean => LiteralBoolean(boolean))
+            _.map(LiteralBoolean.apply)
           )
         case ExpressionToken.ValueNumber =>
           context.valueAsNumber.map(
-            _.map(number => LiteralNumber(number))
+            _.map(LiteralNumber.apply)
           )
         case ExpressionToken.Root | ExpressionToken.Current =>
           context.valueAsJsonPath.map(_.map {
             case singularQuery: JsonPath.SingularQuery =>
               JsonPathValue(singularQuery)
-            case query: JsonPath.Query => JsonPathNodes(query)
+            case query: JsonPath.Query =>
+              JsonPathNodes(query)
           })
         case otherToken =>
-          ParseError(
-            s"Unexpected token: $otherToken",
+          ParseError.invalidToken(
+            otherToken,
             context.index,
-            context.input
+            context.input,
+            ExpressionToken.ValueString,
+            ExpressionToken.ValueBoolean,
+            ExpressionToken.ValueNumber,
+            ExpressionToken.Root,
+            ExpressionToken.Current
           )
       }
 
@@ -478,30 +467,29 @@ final case class ExpressionParser(
       context: ExpressionParseContext,
       expression: ValueAt[Expression]
   ): ParseResult[ValueType] =
-    expression.value match {
-      case value: ValueType   => Parsed(value)
-      case foo: JsonPathValue => Parsed(foo)
-      case other =>
+    ValueType
+      .coerce(expression.value)
+      .map(Parsed.apply)
+      .getOrElse(
         ParseError(
-          s"Required value type but found $other",
+          s"Required value type but found ${expression.value}",
           expression.index,
           context.input
         )
-    }
+      )
 
   private def enforceLogicalType(
       context: ExpressionParseContext,
       expression: ValueAt[Expression]
   ): ParseResult[LogicalType] =
-    expression.value match {
-      case value: LogicalType => Parsed(value)
-      case foo: JsonPathValue => Parsed(foo)
-      case foo: JsonPathNodes => Parsed(foo)
-      case other =>
+    LogicalType
+      .coerce(expression.value)
+      .map(Parsed.apply)
+      .getOrElse(
         ParseError(
-          s"Required logical type but found $other",
+          s"Required logical type but found ${expression.value}",
           expression.index,
           context.input
         )
-    }
+      )
 }
