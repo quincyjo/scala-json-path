@@ -72,7 +72,7 @@ class StringEscapesSpec
       "\\u",
       "\\u1",
       "\\u12",
-      "\\u123",
+      "\\u123"
     )
 
     forAll(cases) { input =>

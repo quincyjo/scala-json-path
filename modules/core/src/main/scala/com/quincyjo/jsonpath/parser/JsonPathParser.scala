@@ -223,7 +223,8 @@ trait JsonPathParser {
     context.currentTokenOrEndOfInput.flatMap {
       case JsonPathToken.Wildcard =>
         Parsed(Wildcard)
-      case JsonPathToken.ValueString =>
+      case JsonPathToken.ValueString
+          if context.input.lift(context.index).exists(_.isLetterOrDigit) =>
         context.valueAsString
           .map(string => Attribute(string.value))
       case JsonPathToken.ValueInt =>

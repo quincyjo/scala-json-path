@@ -75,14 +75,15 @@ class JsonPathParserSpec
   it should "fail on invalid paths" in {
     val cases = Table(
       "input",
-      "$..$foobar",
-      "$.$foobar",
+      "$..'foobar'",
+      "$.'foobar'",
+      "$$foobar",
       "$'foobar'",
       "$['foobar'",
       "$[?'foobar']",
       "$[1,2,'foo''bar']",
       "$[:]",
-      "$[1:2:3:4]",
+      "$[1:2:3:4]"
     )
 
     forAll(cases) { input =>

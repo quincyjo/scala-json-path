@@ -121,7 +121,10 @@ class ExpressionSpec
 
   "NotEqual" should behave like binarySerialization(NotEqual.apply)("!=")
 
-  it should behave like nonComparableEquality(NotEqual.apply, equality => !equality)
+  it should behave like nonComparableEquality(
+    NotEqual.apply,
+    equality => !equality
+  )
 
   "GreaterThan" should behave like binarySerialization(GreaterThan.apply)(">")
 

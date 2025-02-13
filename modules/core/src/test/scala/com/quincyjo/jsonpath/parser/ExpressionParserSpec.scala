@@ -60,7 +60,7 @@ class ExpressionParserSpec
       "5 - 5" -> Minus(LiteralNumber(5), LiteralNumber(5)),
       "5 * 5" -> Multiply(LiteralNumber(5), LiteralNumber(5)),
       "5 / 5" -> Divide(LiteralNumber(5), LiteralNumber(5)),
-      "true != false" -> NotEqual(LiteralBoolean(true), LiteralBoolean(false)),
+      "true != false" -> NotEqual(LiteralBoolean(true), LiteralBoolean(false))
     )
 
     forAll(cases) { (input, expected) =>
@@ -226,7 +226,7 @@ class ExpressionParserSpec
   it should "fail if the parameters are the incorrect type" in {
     val cases = Table(
       "input",
-      "length(@..*)",
+      "length(@..*)"
     )
 
     forAll(cases) { input =>
