@@ -234,10 +234,22 @@ class ExpressionParserSpec
   it should "respect arithmetic priority" in {
     val cases = Table(
       "input" -> "expected",
-      "5 + 5 * 5" -> Plus(LiteralNumber(5), Multiply(LiteralNumber(5), LiteralNumber(5))),
-      "5 * 5 + 5" -> Plus(Multiply(LiteralNumber(5), LiteralNumber(5)), LiteralNumber(5)),
-      "5 + 5 / 5" -> Plus(LiteralNumber(5), Divide(LiteralNumber(5), LiteralNumber(5))),
-      "5 / 5 + 5" -> Plus(Divide(LiteralNumber(5), LiteralNumber(5)), LiteralNumber(5)),
+      "5 + 5 * 5" -> Plus(
+        LiteralNumber(5),
+        Multiply(LiteralNumber(5), LiteralNumber(5))
+      ),
+      "5 * 5 + 5" -> Plus(
+        Multiply(LiteralNumber(5), LiteralNumber(5)),
+        LiteralNumber(5)
+      ),
+      "5 + 5 / 5" -> Plus(
+        LiteralNumber(5),
+        Divide(LiteralNumber(5), LiteralNumber(5))
+      ),
+      "5 / 5 + 5" -> Plus(
+        Divide(LiteralNumber(5), LiteralNumber(5)),
+        LiteralNumber(5)
+      )
     )
 
     forAll(cases) { (input, expected) =>
