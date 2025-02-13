@@ -32,7 +32,7 @@ class ExpressionSpec
 
   private val evaluator = JsonBean.JsonBeanEvaluator
 
-  "JsonString" should "evaluate to a json string" in {
+  "LiteralString" should "evaluate to a json string" in {
     LiteralString("foo")
       .apply(
         evaluator,
@@ -52,7 +52,7 @@ class ExpressionSpec
     LiteralString("foo\"bar").toString should be("\"foo\\\"bar\"")
   }
 
-  "JsonNumber" should "evaluate to a json number" in {
+  "LiteralNumber" should "evaluate to a json number" in {
     LiteralNumber(42)
       .apply(evaluator, JsonBean.Null, JsonBean.Null)
       .value should be(
@@ -64,7 +64,7 @@ class ExpressionSpec
     LiteralNumber(42).toString should be("42")
   }
 
-  "JsonBoolean" should "evaluate to a json boolean" in {
+  "LiteralBoolean" should "evaluate to a json boolean" in {
     LiteralBoolean(true)
       .apply(
         evaluator,
@@ -79,6 +79,20 @@ class ExpressionSpec
   it should "serialize to a JSON boolean" in {
     LiteralBoolean(true).toString should be("true")
     LiteralBoolean(false).toString should be("false")
+  }
+
+  "LiteralNull" should "evaluate to JSON null" in {
+    LiteralNull
+      .apply(
+        evaluator,
+        JsonBean.Null,
+        JsonBean.Null
+      )
+      .value should be(JsonBean.Null)
+  }
+
+  it should "serialize to JSON null" in {
+    LiteralNull.toString should be("null")
   }
 
   "Not" should behave like unarySerialization(Not.apply)("!")
@@ -103,24 +117,11 @@ class ExpressionSpec
 
   "Equal" should behave like binarySerialization(Equal.apply)("==")
 
-  it should "compare same types" in {
-    val cases = Table(
-      ("left", "right", "expected"),
-      (LiteralNumber(42), LiteralNumber(42), true),
-      (LiteralNumber(42), LiteralNumber(5), false),
-      (LiteralNull, LiteralNull, true),
-      (LiteralBoolean(true), LiteralBoolean(true), true),
-      (LiteralBoolean(true), LiteralBoolean(false), false),
-      (LiteralString("foobar"), LiteralString("foobar"), true),
-      (LiteralString("foobar"), LiteralString("deadbeef"), false)
-    )
+  it should behave like nonComparableEquality(Equal.apply)
 
-    forAll(cases) { case (left, right, expected) =>
-      Equal(left, right)(evaluator, JsonBean.Null, JsonBean.Null) should be(
-        expected
-      )
-    }
-  }
+  "NotEqual" should behave like binarySerialization(NotEqual.apply)("!=")
+
+  it should behave like nonComparableEquality(NotEqual.apply, equality => !equality)
 
   "GreaterThan" should behave like binarySerialization(GreaterThan.apply)(">")
 
@@ -172,6 +173,55 @@ class ExpressionSpec
     }
   }
 
+  it should "be true only if both sides are true" in {
+    val value = JsonBean.obj(
+      "number" -> 42,
+      "string" -> "foobar",
+      "boolean" -> true
+    )
+
+    val cases = Table[LogicalType, LogicalType, Boolean](
+      ("left", "right", "expected result"),
+      (
+        JsonPathValue(JsonPath.relative),
+        JsonPathValue(JsonPath.relative),
+        true
+      ),
+      (
+        JsonPathValue(JsonPath.relative),
+        JsonPathValue(JsonPath.relative / "doesNotExist"),
+        false
+      ),
+      (
+        JsonPathValue(JsonPath.relative / "doesNotExist"),
+        JsonPathValue(JsonPath.relative),
+        false
+      ),
+      (
+        Equal(JsonPathValue(JsonPath.relative / "number"), LiteralNumber(42)),
+        Equal(JsonPathValue(JsonPath.relative / "string"), LiteralNumber(42)),
+        false
+      ),
+      (
+        Equal(
+          JsonPathValue(JsonPath.relative / "string"),
+          LiteralString("foobar")
+        ),
+        GreaterThan(
+          JsonPathValue(JsonPath.relative / "number"),
+          LiteralNumber(10)
+        ),
+        true
+      )
+    )
+
+    forAll(cases) { case (left, right, expected) =>
+      And(left, right)(evaluator, value, value) should be(
+        expected
+      )
+    }
+  }
+
   "Or" should "serialize with the correct symbol" in {
     val expression = JsonPathValue(JsonPath.$)
     Or(expression, expression).toString should be(
@@ -193,6 +243,63 @@ class ExpressionSpec
 
     forAll(cases) { (expression, expected) =>
       expression.toString should be(expected)
+    }
+  }
+
+  it should "be true if both either side is true" in {
+    val value = JsonBean.obj(
+      "number" -> 42,
+      "string" -> "foobar",
+      "boolean" -> true
+    )
+
+    val cases = Table[LogicalType, LogicalType, Boolean](
+      ("left", "right", "expected result"),
+      (
+        JsonPathValue(JsonPath.relative),
+        JsonPathValue(JsonPath.relative),
+        true
+      ),
+      (
+        JsonPathValue(JsonPath.relative),
+        JsonPathValue(JsonPath.relative / "doesNotExist"),
+        true
+      ),
+      (
+        JsonPathValue(JsonPath.relative / "doesNotExist"),
+        JsonPathValue(JsonPath.relative),
+        true
+      ),
+      (
+        Equal(JsonPathValue(JsonPath.relative / "number"), LiteralNumber(42)),
+        Equal(JsonPathValue(JsonPath.relative / "string"), LiteralNumber(42)),
+        true
+      ),
+      (
+        Equal(
+          JsonPathValue(JsonPath.relative / "number"),
+          LiteralString("foobar")
+        ),
+        Equal(JsonPathValue(JsonPath.relative / "string"), LiteralNumber(42)),
+        false
+      ),
+      (
+        Equal(
+          JsonPathValue(JsonPath.relative / "string"),
+          LiteralString("foobar")
+        ),
+        GreaterThan(
+          JsonPathValue(JsonPath.relative / "number"),
+          LiteralNumber(10)
+        ),
+        true
+      )
+    )
+
+    forAll(cases) { case (left, right, expected) =>
+      Or(left, right)(evaluator, value, value) should be(
+        expected
+      )
     }
   }
 
@@ -298,11 +405,43 @@ class ExpressionSpec
     }
   }
 
+  def nonComparableEquality[T <: IncludesEqualityCheck](
+      constructor: (ValueType, ValueType) => T,
+      mapEquality: Boolean => Boolean = identity
+  ): Unit = {
+    it should behave like equalityOperator(constructor, mapEquality)
+
+    it should "compare atomics by value" in {
+      val cases = Table(
+        ("left", "right", "are equal"),
+        (LiteralNumber(42), LiteralNumber(42), true),
+        (LiteralNumber(42), LiteralNumber(5), false),
+        (Expression.Null, Expression.Null, true),
+        (Expression.True, Expression.True, true),
+        (Expression.True, Expression.False, false),
+        (LiteralString("foobar"), LiteralString("foobar"), true),
+        (LiteralString("foobar"), LiteralString("deadbeef"), false)
+      )
+
+      forAll(cases) { case (left, right, areEqual) =>
+        constructor(left, right)(
+          evaluator,
+          JsonBean.Null,
+          JsonBean.Null
+        ) should be(
+          mapEquality(areEqual)
+        )
+      }
+    }
+
+  }
+
   def equalityOperator[T <: IncludesEqualityCheck](
-      constructor: (ValueType, ValueType) => T
+      constructor: (ValueType, ValueType) => T,
+      mapEquality: Boolean => Boolean = identity
   ): Unit = {
 
-    it should "compare atomic values" in {
+    it should "be equal for identical atomics" in {
       val cases = Table(
         ("left", "right"),
         (LiteralNumber(42), LiteralNumber(42)),
@@ -315,7 +454,7 @@ class ExpressionSpec
           evaluator,
           JsonBean.Null,
           JsonBean.Null
-        ) should be(true)
+        ) should be(mapEquality(true))
       }
     }
 
@@ -350,7 +489,7 @@ class ExpressionSpec
           evaluator,
           left,
           right
-        ) should be(expected)
+        ) should be(mapEquality(expected))
       }
     }
 
@@ -369,7 +508,7 @@ class ExpressionSpec
           evaluator,
           left,
           right
-        ) should be(false)
+        ) should be(mapEquality(false))
       }
     }
 
@@ -379,7 +518,7 @@ class ExpressionSpec
         evaluator,
         JsonBean.Null,
         JsonBean.Null
-      ) should be(true)
+      ) should be(mapEquality(true))
     }
 
     it should "be false if only one operand is Nothing" in {
@@ -388,7 +527,7 @@ class ExpressionSpec
         evaluator,
         JsonBean.Null,
         JsonBean.Null
-      ) should be(false)
+      ) should be(mapEquality(false))
     }
   }
 

@@ -44,6 +44,8 @@ sealed trait JsonPath extends Serializable {
   def isRelative: Boolean =
     root == Current
 
+  def isSingular: Boolean
+
   /** Appends the given [[JsonPath.JsonPathSegment]] to this path.
     *
     * @param that
@@ -313,6 +315,8 @@ object JsonPath {
       segments: List[Child]
   ) extends JsonPath {
 
+    override val isSingular: Boolean = true
+
     /** Appends the given [[JsonPath.Child]] to this path explicitly maintaining
       * a singular query.
       *
@@ -423,6 +427,8 @@ object JsonPath {
       root: JsonPathRoot,
       segments: List[JsonPathSegment]
   ) extends JsonPath {
+
+    override val isSingular: Boolean = false
 
     override def appended(segment: JsonPathSegment): Query =
       copy(segments = segments appended segment)

@@ -16,6 +16,7 @@
 
 package com.quincyjo.jsonpath
 
+import com.quincyjo.jsonpath.Expression.{Equal, JsonPathValue, LiteralBoolean}
 import com.quincyjo.jsonpath.JsonBean._
 import com.quincyjo.jsonpath.JsonPath.{Slice, Union, Wildcard}
 import org.scalatest.{LoneElement, OptionValues}
@@ -517,6 +518,67 @@ class JsonPathEvaluatorSpec
           value
         )
       }
+    }
+  }
+
+  it should "be empty for a non-array value" in {
+    val givenJson = JsonBean.obj("foo" -> JsonBean.number(1))
+    val results = JsonBeanEvaluator.slice(
+      Node(JsonPath.$, givenJson),
+      Slice.drop(2)
+    )
+    results.map(_.value) should be(empty)
+  }
+
+  "filter" should "filter elements of an array" in {
+    val json = JsonBean.arr(
+      JsonBean.True,
+      JsonBean.False,
+      JsonBean.True
+    )
+
+    JsonBeanEvaluator.filter(
+      json,
+      Node(JsonPath.$, json),
+      JsonPath.Filter(Equal(JsonPathValue(JsonPath.`@`), LiteralBoolean(true)))
+    ) should contain theSameElementsAs Seq(
+      Node(JsonPath.$ / 0, JsonBean.True),
+      Node(JsonPath.$ / 2, JsonBean.True)
+    )
+  }
+
+  it should "filter values of an object" in {
+    val json = JsonBean.obj(
+      "1" -> JsonBean.True,
+      "2" -> JsonBean.False,
+      "3" -> JsonBean.True
+    )
+
+    JsonBeanEvaluator.filter(
+      json,
+      Node(JsonPath.$, json),
+      JsonPath.Filter(Equal(JsonPathValue(JsonPath.`@`), LiteralBoolean(true)))
+    ) should contain theSameElementsAs Seq(
+      Node(JsonPath.$ / "1", JsonBean.True),
+      Node(JsonPath.$ / "3", JsonBean.True)
+    )
+  }
+
+  it should "be empty for a atomic values" in {
+    val cases = Table(
+      "json",
+      JsonBean.number(1),
+      JsonBean.True,
+      JsonBean.string("foobar"),
+      JsonBean.Null
+    )
+
+    forAll(cases) { json =>
+      JsonBeanEvaluator.filter(
+        json,
+        Node(JsonPath.$, json),
+        JsonPath.Filter(JsonPathValue(JsonPath.`@`))
+      ) should be(empty)
     }
   }
 }

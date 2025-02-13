@@ -128,7 +128,7 @@ trait JsonPathParser {
   ): ParseResult[JsonPathParseContext] =
     context.currentTokenOrEndOfInput.flatMap {
       case JsonPathToken.RecursiveDescent =>
-        parseDescendantSegment(context, builder)
+        parseDescendantSegment(context.nextToken(), builder)
       case JsonPathToken.StartSelector | JsonPathToken.DotSelector =>
         parseChildSegment(context, builder)
       case invalidToken =>
@@ -146,42 +146,29 @@ trait JsonPathParser {
       context: JsonPathParseContext,
       builder: Builder
   ): ParseResult[JsonPathParseContext] =
-    context.currentTokenOrEndOfInput
-      .flatMap {
-        case JsonPathToken.RecursiveDescent =>
-          val nextContext = context.nextToken()
-          nextContext.currentTokenOrEndOfInput.flatMap {
-            case JsonPathToken.Wildcard | JsonPathToken.ValueInt |
-                JsonPathToken.ValueString =>
-              parseShorthandSelector(nextContext).map { selector =>
-                builder.addOne(RecursiveDescent(selector))
-                nextContext
-              }
-            case JsonPathToken.StartSelector =>
-              parseBracketSelector(nextContext).map {
-                case (context, selector) =>
-                  builder.addOne(RecursiveDescent(selector))
-                  context
-              }
-            case invalidToken =>
-              ParseError.invalidToken(
-                invalidToken,
-                nextContext.index,
-                nextContext.input,
-                JsonPathToken.Wildcard,
-                JsonPathToken.ValueInt,
-                JsonPathToken.ValueString,
-                JsonPathToken.StartSelector
-              )
-          }
-        case invalidToken =>
-          ParseError.invalidToken(
-            invalidToken,
-            context.index,
-            context.input,
-            JsonPathToken.RecursiveDescent
-          )
-      }
+    context.currentTokenOrEndOfInput.flatMap {
+      case JsonPathToken.Wildcard | JsonPathToken.ValueInt |
+          JsonPathToken.ValueString => // TODO: Should quotes be allowed here?
+        parseShorthandSelector(context).map { selector =>
+          builder.addOne(RecursiveDescent(selector))
+          context
+        }
+      case JsonPathToken.StartSelector =>
+        parseBracketSelector(context).map { case (context, selector) =>
+          builder.addOne(RecursiveDescent(selector))
+          context
+        }
+      case invalidToken =>
+        ParseError.invalidToken(
+          invalidToken,
+          context.index,
+          context.input,
+          JsonPathToken.Wildcard,
+          JsonPathToken.ValueInt,
+          JsonPathToken.ValueString,
+          JsonPathToken.StartSelector
+        )
+    }
 
   private def parseChildSegment(
       context: JsonPathParseContext,
@@ -216,18 +203,7 @@ trait JsonPathParser {
   private def parseBracketSelector(
       context: JsonPathParseContext
   ): ParseResult[(JsonPathParseContext, Selector)] =
-    context.currentTokenOrEndOfInput
-      .flatMap {
-        case JsonPathToken.StartSelector =>
-          parseAnySelector(context.nextToken())
-        case invalidToken =>
-          ParseError.invalidToken(
-            invalidToken,
-            context.index,
-            context.input,
-            JsonPathToken.StartSelector
-          )
-      }
+    parseAnySelector(context.nextToken())
       .flatMap { case (context, selector) =>
         context.currentTokenOrEndOfInput.flatMap {
           case JsonPathToken.EndSelector => Parsed(context -> selector)
@@ -323,34 +299,22 @@ trait JsonPathParser {
   private def parseExpression(
       context: JsonPathParseContext
   ): ParseResult[(JsonPathParseContext, Filter)] =
-    context.currentTokenOrEndOfInput
-      .flatMap {
-        case JsonPathToken.StartFilterExpression =>
-          context.valueAsExpression.map(_.value).flatMap {
-            case logical: Expression.LogicalType =>
-              Parsed(Filter(logical))
-            case nodes: Expression.NodesType =>
-              Parsed(Filter(nodes))
-            case other =>
-              ParseError(
-                s"Filter requires a logical expression but was: $other",
-                context.index,
-                context.input
-              )
-          }
-        case invalidToken =>
-          ParseError.invalidToken(
-            invalidToken,
-            context.index,
-            context.input,
-            JsonPathToken.StartFilterExpression
-          )
-      } match {
+    context.valueAsExpression.map(_.value).flatMap {
+      case logical: Expression.LogicalType =>
+        Parsed(Filter(logical))
+      case nodes: Expression.NodesType =>
+        Parsed(Filter(nodes))
+      case other =>
+        ParseError(
+          s"Filter requires a logical expression but was: $other",
+          context.index,
+          context.input
+        )
+    } match {
       case Parsed(value) => Parsed(context.nextToken() -> value)
       case ParseError(message, index, _, cause) =>
         ParseError(message, context.index + index, context.input, cause)
     }
-  // .map(context.nextToken() -> _)
 
   private def parseUnion(
       first: ComposableSelector,
@@ -421,7 +385,7 @@ trait JsonPathParser {
         case JsonPathToken.EndSelector | JsonPathToken.Union =>
           Parsed(context -> builder)
         case JsonPathToken.Slice | JsonPathToken.ValueInt
-            if builder.knownSize > 3 =>
+            if builder.knownSize > 2 =>
           ParseError(
             s"Too many slice arguments.",
             context.index,

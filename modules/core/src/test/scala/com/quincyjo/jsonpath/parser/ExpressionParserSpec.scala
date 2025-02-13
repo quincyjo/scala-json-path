@@ -59,11 +59,29 @@ class ExpressionParserSpec
       ),
       "5 - 5" -> Minus(LiteralNumber(5), LiteralNumber(5)),
       "5 * 5" -> Multiply(LiteralNumber(5), LiteralNumber(5)),
-      "5 / 5" -> Divide(LiteralNumber(5), LiteralNumber(5))
+      "5 / 5" -> Divide(LiteralNumber(5), LiteralNumber(5)),
+      "true != false" -> NotEqual(LiteralBoolean(true), LiteralBoolean(false)),
     )
 
     forAll(cases) { (input, expected) =>
       expressionParser.parse(input).value should be(expected)
+    }
+  }
+
+  it should "fail on invalid expressions" in {
+    val cases = Table(
+      "input",
+      "5 +",
+      "+ 5",
+      "5 - 1) * 2",
+      "'foo''bar'",
+      "length(1,2'foobar')",
+      "length(1,2",
+      "5 && true"
+    )
+
+    forAll(cases) { input =>
+      expressionParser.parse(input).failed
     }
   }
 
@@ -205,6 +223,17 @@ class ExpressionParserSpec
     )
   }
 
+  it should "fail if the parameters are the incorrect type" in {
+    val cases = Table(
+      "input",
+      "length(@..*)",
+    )
+
+    forAll(cases) { input =>
+      expressionParser.parse(input).failed
+    }
+  }
+
   it should "fail if a group is empty" in {
     val raw = s"""()"""
 
@@ -238,7 +267,15 @@ class ExpressionParserSpec
         LiteralNumber(5),
         Multiply(LiteralNumber(5), LiteralNumber(5))
       ),
+      "5 - 5 * 5" -> Minus(
+        LiteralNumber(5),
+        Multiply(LiteralNumber(5), LiteralNumber(5))
+      ),
       "5 * 5 + 5" -> Plus(
+        Multiply(LiteralNumber(5), LiteralNumber(5)),
+        LiteralNumber(5)
+      ),
+      "5 * 5 - 5" -> Minus(
         Multiply(LiteralNumber(5), LiteralNumber(5)),
         LiteralNumber(5)
       ),
@@ -246,7 +283,15 @@ class ExpressionParserSpec
         LiteralNumber(5),
         Divide(LiteralNumber(5), LiteralNumber(5))
       ),
+      "5 - 5 / 5" -> Minus(
+        LiteralNumber(5),
+        Divide(LiteralNumber(5), LiteralNumber(5))
+      ),
       "5 / 5 + 5" -> Plus(
+        Divide(LiteralNumber(5), LiteralNumber(5)),
+        LiteralNumber(5)
+      ),
+      "5 / 5 - 5" -> Minus(
         Divide(LiteralNumber(5), LiteralNumber(5)),
         LiteralNumber(5)
       )

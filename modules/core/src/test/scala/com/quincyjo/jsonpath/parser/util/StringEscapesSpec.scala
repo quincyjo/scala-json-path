@@ -49,6 +49,37 @@ class StringEscapesSpec
     }
   }
 
+  it should "process strings iteratively" in {
+    val cases = Table(
+      "input" -> "expected",
+      "foobar" -> "foobar",
+      "\\\\t" -> "\\t",
+      "across \\\"time\\\" is fun" -> "across \"time\" is fun"
+    )
+
+    forAll(cases) { case (input, expected) =>
+      val result = StringEscapes.processEscapes(input).value
+      result.value should be(expected)
+      result.raw should be(input)
+    }
+  }
+
+  it should "fail on invalid escape sequences" in {
+    val cases = Table(
+      "input",
+      "\\",
+      "\\x",
+      "\\u",
+      "\\u1",
+      "\\u12",
+      "\\u123",
+    )
+
+    forAll(cases) { input =>
+      StringEscapes.processEscapes(input).isLeft should be(true)
+    }
+  }
+
   "takeQuotedString" should "take simple quoted strings" in {
     val cases = Table(
       ("input", "expected", "raw"),
@@ -88,7 +119,14 @@ class StringEscapesSpec
     }
   }
 
-  "escape" should "escape basic characters" in {
+  it should "return immediately if the first character is not a quote" in {
+    val result = StringEscapes.takeQuotedString("foobar").value
+
+    result.value should be("")
+    result.index should be(0)
+  }
+
+  "escapeSingleQuotes" should "escape basic characters" in {
     val cases = Table(
       "charcter" -> "escape sequence",
       "\b" -> "\\b",

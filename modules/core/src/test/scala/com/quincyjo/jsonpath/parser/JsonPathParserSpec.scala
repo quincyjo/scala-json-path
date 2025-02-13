@@ -36,6 +36,7 @@ class JsonPathParserSpec
       "$" -> $,
       "$.foo" -> $ / "foo",
       "$[0]" -> $ / 0,
+      "$.0" -> $ / 0,
       "$[0].foo" -> $ / 0 / "foo",
       "$[foo,bar]" -> $ / Union("foo", "bar"),
       "$[1,2]" -> $ / Union(1, 2),
@@ -61,6 +62,31 @@ class JsonPathParserSpec
 
     forAll(cases) { (input, expected) =>
       JsonPathParser.default.parse(input).value should be(expected)
+    }
+  }
+
+  it should "fail if it does not start with a valid root" in {
+    val failure = JsonPathParser.default.parse("['foo']['bar]").failed
+
+    failure.message should (include("$") and include("@"))
+    failure.index should be(0)
+  }
+
+  it should "fail on invalid paths" in {
+    val cases = Table(
+      "input",
+      "$..$foobar",
+      "$.$foobar",
+      "$'foobar'",
+      "$['foobar'",
+      "$[?'foobar']",
+      "$[1,2,'foo''bar']",
+      "$[:]",
+      "$[1:2:3:4]",
+    )
+
+    forAll(cases) { input =>
+      JsonPathParser.default.parse(input).failed
     }
   }
 
