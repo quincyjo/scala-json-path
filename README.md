@@ -275,7 +275,7 @@ final case class StringOrNothing(value: ValueType)
                                    current: Json
                                  ): Option[Json] =
     value(evaluator, root, current).asString.map(
-      implicitly[Braid[Json]].fromString
+      Braid[Json].fromString
     )
 }
 
@@ -302,6 +302,40 @@ case object MyJsonPathParser
     with StringOrNothingExtension
 
 ```
+
+### Arithmetic Operations
+
+Arithmetic operations are disabled by default. Similar to function extensions, they may be enabled via a mix-in. This
+enables parsing of arithmetic operations including: `+`, `-`, `*`, and `/`.
+
+Plus (`+`) will perform arithmetic summation if both sides are a number or null, otherwise it will coerce both sides to
+strings and concatenate them. All other arithmetic operations will attempt to coerce both sides to numbers according to
+ES rules and perform the corresponding arithmetic operation if both side are successfully coerced.
+
+```scala
+case object MyJsonPathParser extends JsonPathParser with ArithmeticOperations
+
+```
+
+```
+scala> case object MyJsonPathParser extends JsonPathParser with ArithmeticOperations
+
+object MyJsonPathParser
+
+scala> val raw = "$[?(@.price + @.tax < 50)]"
+val raw: String = $[?(@.price + @.tax < 50)]
+
+scala> JsonPathParser.default.parse(raw)
+val res0: com.quincyjo.jsonpath.parser.models.ParseResult[com.quincyjo.jsonpath.JsonPath] = com.quincyjo.jsonpath.parser.models.ParseError: Failed to parse JsonPath at index 12 in '$[?(@.price + @.tax < 50)]': Arithmetic operators are disabled.
+
+scala> MyJsonPathParser.parse(raw)
+val res1: com.quincyjo.jsonpath.parser.models.ParseResult[com.quincyjo.jsonpath.JsonPath] = Parsed($[?(@['price'] + @['tax'] < 50)])
+```
+
+Because arithmetic operations are not a standard feature, they are not defined within the `Expression` companion object.
+Instead, they are available within the `ArithmeticOperations` companion. It is also worth keeping in mind that there is
+no defined behavior of these operators within the definition of JSON path, so the behaviour of them may vary depending
+on the specific implementation of JSON Path that is being used.
 
 ## Example
 

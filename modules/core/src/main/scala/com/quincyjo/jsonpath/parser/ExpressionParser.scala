@@ -19,6 +19,7 @@ package com.quincyjo.jsonpath.parser
 import cats.data.ValidatedNel
 import cats.implicits._
 import com.quincyjo.jsonpath.Expression._
+import com.quincyjo.jsonpath.extensions.ArithmeticOperations._
 import com.quincyjo.jsonpath.extensions.Extension.InvalidArgs
 import com.quincyjo.jsonpath.extensions.{Extension, FunctionExtension}
 import com.quincyjo.jsonpath.parser.models.ExpressionParseContext.ExpressionToken
@@ -30,7 +31,8 @@ import scala.collection.mutable
 
 final case class ExpressionParser(
     extensions: List[Extension[?, ?]] = List.empty,
-    jsonPathParser: JsonPathParser
+    jsonPathParser: JsonPathParser,
+    enableArithmeticOperators: Boolean = false
 ) {
 
   def parse(string: String): ParseResult[Expression] = {
@@ -336,9 +338,17 @@ final case class ExpressionParser(
         if (
           pending.headOption.forall(_.value == ExpressionToken.OpenParenthesis)
         ) {
-          expression match {
+          expression match { // TODO: Generic type recognition for this
             case ValueAt(And(Or(l1, l2), right), index, raw) =>
               stack.push(ValueAt(Or(l1, And(l2, right)), index, raw))
+            case ValueAt(Multiply(Plus(l1, l2), right), index, raw) =>
+              stack.push(ValueAt(Plus(l1, Multiply(l2, right)), index, raw))
+            case ValueAt(Multiply(Minus(l1, l2), right), index, raw) =>
+              stack.push(ValueAt(Minus(l1, Multiply(l2, right)), index, raw))
+            case ValueAt(Divide(Plus(l1, l2), right), index, raw) =>
+              stack.push(ValueAt(Plus(l1, Divide(l2, right)), index, raw))
+            case ValueAt(Divide(Minus(l1, l2), right), index, raw) =>
+              stack.push(ValueAt(Minus(l1, Divide(l2, right)), index, raw))
             case other =>
               stack.push(other)
           }
@@ -356,7 +366,15 @@ final case class ExpressionParser(
   ): ParseResult[ValueAt[Expression]] =
     (token.value match {
       case arithmetic: ExpressionToken.ArithmeticToken =>
-        parseArithmeticExpression(context, arithmetic, left, right)
+        if (enableArithmeticOperators) {
+          parseArithmeticExpression(context, arithmetic, left, right)
+        } else {
+          ParseError(
+            "Arithmetic operators are disabled.",
+            token.index,
+            context.input
+          )
+        }
       case comparator: ExpressionToken.ComparatorToken =>
         parseComparatorOperator(context, comparator, left, right)
       case logical: ExpressionToken.LogicalToken =>

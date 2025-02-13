@@ -16,9 +16,9 @@
 
 package com.quincyjo.jsonpath
 
-import com.quincyjo.braid.operations.implicits._
-import com.quincyjo.jsonpath.JsonBean.jsonBeanBraid
 import com.quincyjo.jsonpath.Expression._
+import com.quincyjo.jsonpath.JsonBean.jsonBeanBraid
+import com.quincyjo.jsonpath.extensions.ArithmeticOperations._
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
@@ -195,102 +195,6 @@ class ExpressionSpec
       expression.toString should be(expected)
     }
   }
-
-  // "Or" should behave like binarySerialization(Or.apply)("||")
-
-  "Plus" should behave like binarySerialization(Plus.apply)("+")
-
-  it should "add two numbers" in {
-    val cases = Table[BigDecimal, BigDecimal](
-      ("left", "right"),
-      (BigDecimal(42), BigDecimal(5)),
-      (BigDecimal(42), BigDecimal(-5)),
-      (BigDecimal(42), BigDecimal(0)),
-      (BigDecimal(0), BigDecimal(42)),
-      (BigDecimal(0), BigDecimal(0)),
-      (BigDecimal(0), BigDecimal(-42))
-    )
-
-    forAll(cases) { case (left, right) =>
-      Plus(LiteralNumber(left), LiteralNumber(right))(
-        evaluator,
-        JsonBean.Null,
-        JsonBean.Null
-      ).value should be(
-        JsonBean.JNumber(left + right)
-      )
-    }
-  }
-
-  it should "coerce null to 0" in {
-    val cases = Table[BigDecimal](
-      "number",
-      BigDecimal(42),
-      BigDecimal(0),
-      BigDecimal(-42)
-    )
-
-    forAll(cases) { number =>
-      Plus(LiteralNumber(number), LiteralNull)(
-        evaluator,
-        JsonBean.Null,
-        JsonBean.Null
-      ).value should be(
-        JsonBean.JNumber(number)
-      )
-    }
-  }
-
-  it should "concat two strings" in {
-    val cases = Table[String, String](
-      ("left", "right"),
-      ("foo", "bar"),
-      ("", "bar"),
-      ("foo", ""),
-      ("", "")
-    )
-
-    forAll(cases) { case (left, right) =>
-      Plus(LiteralString(left), LiteralString(right))(
-        evaluator,
-        JsonBean.Null,
-        JsonBean.Null
-      ).value should be(JsonBean.string(left concat right))
-    }
-  }
-
-  it should "coerce values to strings if both aren't numbers or null" in {
-    val cases = Table[JsonBean, JsonBean](
-      ("left", "right"),
-      (JsonBean.number(42), JsonBean.string("foobar")),
-      (JsonBean.string("foobar"), JsonBean.number(42)),
-      (JsonBean.number(5), JsonBean.arr(JsonBean.True)),
-      (JsonBean.arr(JsonBean.True), JsonBean.number(5)),
-      (JsonBean.obj(), JsonBean.number(0))
-    )
-
-    forAll(cases) { case (left, right) =>
-      Plus(JsonPathValue(JsonPath.$), JsonPathValue(JsonPath.`@`))(
-        evaluator,
-        left,
-        right
-      ).value should be(
-        JsonBean.string(left.coerceToString concat right.coerceToString)
-      )
-    }
-  }
-
-  "Minus" should behave like binarySerialization(Minus.apply)("-")
-
-  it should behave like arithmeticOperator(Minus.apply)(_ - _)
-
-  "Multiply" should behave like binarySerialization(Multiply.apply)("*")
-
-  it should behave like arithmeticOperator(Multiply.apply)(_ * _)
-
-  "Divide" should behave like binarySerialization(Divide.apply)("/")
-
-  it should behave like arithmeticOperator(Divide.apply)(_ / _)
 
   private def unarySerialization[T <: UnaryOperator[?]](
       constructor: LogicalType => T
@@ -488,73 +392,4 @@ class ExpressionSpec
     }
   }
 
-  def arithmeticOperator[T <: ArithmeticOperator](
-      constructor: (ValueType, ValueType) => T
-  )(f: (BigDecimal, BigDecimal) => BigDecimal): Unit = {
-
-    it should "operate on two numbers" in {
-      val cases = Table[BigDecimal, BigDecimal](
-        ("left", "right"),
-        (1, 2),
-        (-1, 2),
-        (2, -1),
-        (1, 1),
-        (-1, -1),
-        (1.1, 2.2),
-        (4.4, 3.3)
-      )
-
-      forAll(cases) { case (left, right) =>
-        constructor(LiteralNumber(left), LiteralNumber(right))(
-          evaluator,
-          JsonBean.Null,
-          JsonBean.Null
-        ).value should be(JsonBean.JNumber(f(left, right)))
-      }
-    }
-
-    it should "coerce values into numbers" in {
-      val cases = Table[JsonBean, JsonBean](
-        ("left", "right"),
-        (JsonBean.Null, JsonBean.number(1)),
-        (JsonBean.boolean(true), JsonBean.number(1)),
-        (JsonBean.boolean(false), JsonBean.number(1)),
-        (JsonBean.string(""), JsonBean.number(1)),
-        (JsonBean.string("1"), JsonBean.number(1)),
-        (JsonBean.arr(), JsonBean.number(1)),
-        (JsonBean.arr(JsonBean.number(42)), JsonBean.number(1))
-      )
-
-      forAll(cases) { case (left, right) =>
-        val coercedLeft = left.coerceToNumber.value
-        val coercedRight = right.coerceToNumber.value
-        constructor(JsonPathValue(JsonPath.$), JsonPathValue(JsonPath.`@`))(
-          evaluator,
-          left,
-          right
-        ).value should be(JsonBean.JNumber(f(coercedLeft, coercedRight)))
-      }
-    }
-
-    it should "be null for NaN operands" in {
-      val cases = Table(
-        ("left", "right"),
-        (JsonBean.string("foobar"), JsonBean.number(0)),
-        (
-          JsonBean.JArray(Vector.tabulate(3)((JsonBean.JNumber(_)))),
-          JsonBean.number(0)
-        ),
-        (JsonBean.arr(JsonBean.string("foobar")), JsonBean.number(0)),
-        (JsonBean.obj(), JsonBean.number(0))
-      )
-
-      forAll(cases) { case (left, right) =>
-        constructor(JsonPathValue(JsonPath.$), JsonPathValue(JsonPath.`@`))(
-          evaluator,
-          left,
-          right
-        ) should be(empty)
-      }
-    }
-  }
 }

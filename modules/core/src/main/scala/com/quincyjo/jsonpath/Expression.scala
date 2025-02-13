@@ -19,7 +19,6 @@ package com.quincyjo.jsonpath
 import cats.data.Validated
 import com.quincyjo.braid.Braid
 import com.quincyjo.braid.implicits._
-import com.quincyjo.braid.operations.implicits.toJsonOperationOps
 import com.quincyjo.jsonpath.JsonPath.SingularQuery
 import com.quincyjo.jsonpath.parser.util.StringEscapes
 
@@ -231,9 +230,9 @@ object Expression {
       }
   }
 
-  private[jsonpath] sealed trait BinaryOperator[
-      +LeftType <: Expression,
-      +RightType <: Expression
+  private[jsonpath] trait BinaryOperator[
+      LeftType <: Expression,
+      RightType <: Expression
   ] {
     self: Expression =>
 
@@ -312,7 +311,7 @@ object Expression {
   case object LiteralNull extends Literal {
 
     override def asJson[Json: Braid]: Json =
-      implicitly[Braid[Json]].Null
+      Braid[Json].Null
 
     override def toString: String = "null"
   }
@@ -320,7 +319,7 @@ object Expression {
   final case class LiteralString(value: String) extends Literal {
 
     override def asJson[Json: Braid]: Json =
-      implicitly[Braid[Json]].fromString(value)
+      Braid[Json].fromString(value)
 
     override def toString: String =
       s"""\"${StringEscapes.escapeDoubleQuotes(value)}\""""
@@ -329,7 +328,7 @@ object Expression {
   final case class LiteralNumber(value: BigDecimal) extends Literal {
 
     def asJson[Json: Braid]: Json =
-      implicitly[Braid[Json]].fromBigDecimal(value)
+      Braid[Json].fromBigDecimal(value)
 
     override def toString: String = value.toString
   }
@@ -352,7 +351,7 @@ object Expression {
   final case class LiteralBoolean(value: Boolean) extends Literal {
 
     def asJson[Json: Braid]: Json =
-      implicitly[Braid[Json]].fromBoolean(value)
+      Braid[Json].fromBoolean(value)
 
     override def toString: String = value.toString
   }
@@ -514,7 +513,7 @@ object Expression {
         case value  => value.toString
       }} $symbol ${right match {
         case and: And                    => and.toString
-        case other: BinaryOperator[_, _] => s"(${other.toString})"
+        case other: BinaryOperator[_, _] => s"($other)"
         case value                       => value.toString
       }}"
   }
@@ -541,91 +540,4 @@ object Expression {
         case value                       => value.toString
       }}"
   }
-
-  sealed trait ArithmeticOperator
-      extends BinaryOperator[ValueType, ValueType]
-      with ValueType {
-
-    protected def arithmetic[Json: Braid](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    )(f: (BigDecimal, BigDecimal) => BigDecimal): Option[Json] =
-      left(evaluator, root, current)
-        .flatMap(_.coerceToNumber)
-        .zip(right(evaluator, root, current).flatMap(_.coerceToNumber))
-        .map { case (left, right) =>
-          implicitly[Braid[Json]].fromBigDecimal(f(left, right))
-        }
-  }
-
-  final case class Plus(left: ValueType, right: ValueType)
-      extends BinaryOperator[ValueType, ValueType]
-      with ValueType {
-
-    override def symbol: String = "+"
-
-    override def apply[Json: Braid](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Option[Json] = {
-      left(evaluator, root, current)
-        .zip(right(evaluator, root, current))
-        .map { case (leftResult, rightResult) =>
-          if (
-            (leftResult.isNumber || leftResult.isNull) &&
-            (rightResult.isNumber || rightResult.isNull)
-          )
-            implicitly[Braid[Json]].fromBigDecimal(
-              leftResult.coerceToNumber.getOrElse(BigDecimal(0)) +
-                rightResult.coerceToNumber.getOrElse(BigDecimal(0))
-            )
-          else
-            implicitly[Braid[Json]].fromString(
-              leftResult.coerceToString concat rightResult.coerceToString
-            )
-        }
-    }
-  }
-
-  final case class Minus(left: ValueType, right: ValueType)
-      extends ArithmeticOperator {
-
-    override def symbol: String = "-"
-
-    override def apply[Json: Braid](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Option[Json] =
-      arithmetic(evaluator, root, current)(_ - _)
-  }
-
-  final case class Divide(left: ValueType, right: ValueType)
-      extends ArithmeticOperator {
-
-    override def symbol: String = "/"
-
-    override def apply[Json: Braid](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Option[Json] =
-      arithmetic(evaluator, root, current)(_ / _)
-  }
-
-  final case class Multiply(left: ValueType, right: ValueType)
-      extends ArithmeticOperator {
-
-    override def symbol: String = "*"
-
-    override def apply[Json: Braid](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    ): Option[Json] =
-      arithmetic(evaluator, root, current)(_ * _)
-  }
-
 }

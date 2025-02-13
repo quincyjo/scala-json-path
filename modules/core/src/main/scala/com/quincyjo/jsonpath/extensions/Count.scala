@@ -38,7 +38,7 @@ final case class Count(nodes: NodesType)
       root: Json,
       current: Json
   ): Option[Json] = Some(
-    implicitly[Braid[Json]].fromInt(
+    Braid[Json].fromInt(
       nodes(evaluator, root, current).size
     )
   )

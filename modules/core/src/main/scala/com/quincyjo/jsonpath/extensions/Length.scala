@@ -50,7 +50,7 @@ final case class Length(value: ValueType)
           arr => Some(arr.size),
           obj => Some(obj.size)
         )
-        .map(implicitly[Braid[Json]].fromInt)
+        .map(Braid[Json].fromInt)
     }
 }
 

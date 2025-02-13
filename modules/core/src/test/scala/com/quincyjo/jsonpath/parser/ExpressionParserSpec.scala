@@ -18,6 +18,7 @@ package com.quincyjo.jsonpath.parser
 
 import com.quincyjo.jsonpath.Expression._
 import com.quincyjo.jsonpath.JsonPath
+import com.quincyjo.jsonpath.extensions.ArithmeticOperations._
 import com.quincyjo.jsonpath.extensions._
 import org.scalatest.BeforeAndAfter
 import org.scalatest.flatspec.AnyFlatSpecLike
@@ -39,7 +40,8 @@ class ExpressionParserSpec
       Search.extension,
       Value.extension
     ),
-    JsonPathParser.default
+    JsonPathParser.default,
+    enableArithmeticOperators = true
   )
 
   "parse" should "handle basic expressions" in {
@@ -209,5 +211,37 @@ class ExpressionParserSpec
     val error = expressionParser.parse(raw).failed
 
     error.message.toLowerCase should include("empty parentheses")
+  }
+
+  it should "fail to parse arithmetic expressions if they are disabled" in {
+    val newParser = expressionParser.copy(enableArithmeticOperators = false)
+
+    val cases = Table(
+      "input",
+      "5 + 5",
+      "5 - 5",
+      "5 * 5",
+      "5 / 5"
+    )
+
+    forAll(cases) { input =>
+      newParser.parse(input).failed.message.toLowerCase should include(
+        "arithmetic operators are disabled"
+      )
+    }
+  }
+
+  it should "respect arithmetic priority" in {
+    val cases = Table(
+      "input" -> "expected",
+      "5 + 5 * 5" -> Plus(LiteralNumber(5), Multiply(LiteralNumber(5), LiteralNumber(5))),
+      "5 * 5 + 5" -> Plus(Multiply(LiteralNumber(5), LiteralNumber(5)), LiteralNumber(5)),
+      "5 + 5 / 5" -> Plus(LiteralNumber(5), Divide(LiteralNumber(5), LiteralNumber(5))),
+      "5 / 5 + 5" -> Plus(Divide(LiteralNumber(5), LiteralNumber(5)), LiteralNumber(5)),
+    )
+
+    forAll(cases) { (input, expected) =>
+      expressionParser.parse(input).value should be(expected)
+    }
   }
 }

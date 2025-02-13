@@ -46,6 +46,8 @@ trait JsonPathParser {
 
   private type Builder = mutable.Builder[JsonPathSegment, List[JsonPathSegment]]
 
+  protected val enableArithmeticOperators: Boolean = false
+
   /** Parse the input string into a [[JsonPath]] if valid, or a
     * [[models.ParseError]] if not.
     * @return
@@ -70,7 +72,11 @@ trait JsonPathParser {
   ](List.empty)
 
   private lazy val expressionParser: ExpressionParser =
-    ExpressionParser(extensions.get, this)
+    ExpressionParser(
+      extensions.get,
+      this,
+      enableArithmeticOperators = enableArithmeticOperators
+    )
 
   private def parse(
       input: String,
