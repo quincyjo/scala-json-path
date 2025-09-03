@@ -16,7 +16,7 @@
 
 package com.quincyjo.jsonpath.parser.models
 
-import cats.{Applicative, Eval, Monad, MonadError, Traverse}
+import cats.{Applicative, Eval, MonadError, Traverse}
 
 import scala.util.control.NoStackTrace
 
@@ -119,7 +119,8 @@ sealed trait ParseResult[+T] {
 
 object ParseResult {
 
-  implicit val monad: Monad[ParseResult] =
+  implicit val monad
+      : MonadError[ParseResult, ParseError] & Traverse[ParseResult] =
     new MonadError[ParseResult, ParseError] with Traverse[ParseResult] {
 
       override def pure[A](x: A): ParseResult[A] =
