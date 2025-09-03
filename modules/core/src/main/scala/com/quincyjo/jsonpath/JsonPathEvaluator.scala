@@ -74,19 +74,33 @@ abstract class JsonPathEvaluator[Json: Braid] {
       path: JsonPath,
       root: Json,
       current: Option[Json]
-  ): List[Node[Json]] =
-    path.segments.foldLeft(
-      path.root match {
-        case Root =>
-          List(Node(JsonPath.$, root))
-        case Current =>
-          current.map { value =>
-            Node(JsonPath.`@`, value)
-          }.toList
-      }
-    ) { case (values, segment) =>
-      values.flatMap(step(root, _, segment))
+  ): List[Node[Json]] = {
+
+    @tailrec
+    def go(
+        values: List[Node[Json]],
+        segments: Iterable[JsonPathSegment]
+    ): List[Node[Json]] =
+      if (values.isEmpty) values
+      else
+        segments match {
+          case Nil => values
+          case head :: tail =>
+            go(
+              values.flatMap(step(root, _, head)),
+              tail
+            )
+        }
+
+    path.root match {
+      case Root =>
+        go(List(Node(JsonPath.$, root)), path.segments)
+      case Current =>
+        current.fold(List.empty[Node[Json]]) { json =>
+          go(List(Node(JsonPath.`@`, json)), path.segments)
+        }
     }
+  }
 
   final private[jsonpath] def step(
       root: Json,
