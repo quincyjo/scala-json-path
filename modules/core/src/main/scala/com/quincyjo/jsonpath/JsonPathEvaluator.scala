@@ -79,7 +79,7 @@ abstract class JsonPathEvaluator[Json: Braid] {
     @tailrec
     def go(
         values: List[Node[Json]],
-        segments: Iterable[JsonPathSegment]
+        segments: List[JsonPathSegment]
     ): List[Node[Json]] =
       if (values.isEmpty) values
       else
