@@ -25,8 +25,8 @@ val braidCirce = "com.quincyjo" %% "braid-circe" % braidVersion
 val braidPlay = "com.quincyjo" %% "braid-play" % braidVersion
 
 // skip / publish := true
-ThisBuild / tlBaseVersion := "0.2"
-ThisBuild / version := "0.2.0"
+ThisBuild / tlBaseVersion := "0.3"
+ThisBuild / version := "0.3.0"
 // Default to same as circe or SBT isn't happy.
 // https://github.com/sbt/sbt/issues/3465
 ThisBuild / scalaVersion := Scala2_13
