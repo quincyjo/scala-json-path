@@ -216,87 +216,6 @@ object Expression {
       }
   }
 
-  private[jsonpath] sealed trait UnaryOperator[ParamType <: Expression] {
-    self: Expression =>
-
-    def symbol: String
-
-    def expression: ParamType
-
-    override def toString: String =
-      expression match {
-        case binary: BinaryOperator[_, _] => s"$symbol($binary)"
-        case expression                   => s"$symbol$expression"
-      }
-  }
-
-  private[jsonpath] trait BinaryOperator[
-      LeftType <: Expression,
-      RightType <: Expression
-  ] {
-    self: Expression =>
-
-    def symbol: String
-
-    def left: LeftType
-
-    def right: RightType
-
-    override def toString: String =
-      s"$left $symbol ${right match {
-        case other: BinaryOperator[_, _] => s"(${other.toString})"
-        case value                       => value.toString
-      }}"
-  }
-
-  // Literals, singular queries, functions of ValueType
-  trait Comparable
-
-  // Extends LogicalType
-  sealed trait Comparator
-      extends BinaryOperator[ValueType, ValueType]
-      with LogicalType {
-
-    protected def compare[Json: Braid](
-        evaluator: JsonPathEvaluator[Json],
-        root: Json,
-        current: Json
-    )(f: (Int, Int) => Boolean): Boolean = {
-      val leftResult = left(evaluator, root, current)
-      val rightResult = right(evaluator, root, current)
-      leftResult
-        .zip(rightResult)
-        .flatMap { case (left, right) =>
-          left.asString
-            .zip(right.asString)
-            .map { case (l, r) => l compareTo r }
-            .orElse {
-              left.asNumber
-                .zip(right.asNumber)
-                .map { case (l, r) => l compareTo r }
-            }
-        }
-        .fold(this match {
-          case equality: IncludesEqualityCheck =>
-            equality.equalityCheck(leftResult, rightResult)
-          case _ => false
-        })(f(_, 0))
-    }
-  }
-
-  sealed trait IncludesEqualityCheck extends Comparator {
-
-    def equalityCheck[Json](
-        left: Option[Json],
-        right: Option[Json]
-    ): Boolean =
-      left -> right match {
-        case None -> None       => true
-        case Some(l) -> Some(r) => l == r
-        case _                  => false
-      }
-  }
-
   sealed trait Literal extends Expression with ValueType {
 
     def asJson[Json: Braid]: Json
@@ -406,7 +325,9 @@ object Expression {
   }
 
   final case class Equal(left: ValueType, right: ValueType)
-      extends Comparator
+      extends BinaryOperator[ValueType, ValueType]
+      with LogicalType
+      with Comparator
       with IncludesEqualityCheck {
 
     override def symbol: String = "=="
@@ -423,7 +344,9 @@ object Expression {
   }
 
   final case class NotEqual(left: ValueType, right: ValueType)
-      extends Comparator
+      extends BinaryOperator[ValueType, ValueType]
+      with LogicalType
+      with Comparator
       with IncludesEqualityCheck {
 
     override def symbol: String = "!="
@@ -440,7 +363,9 @@ object Expression {
   }
 
   final case class GreaterThan(left: ValueType, right: ValueType)
-      extends Comparator {
+      extends BinaryOperator[ValueType, ValueType]
+      with LogicalType
+      with Comparator {
 
     override val symbol: String = ">"
 
@@ -453,7 +378,9 @@ object Expression {
   }
 
   final case class GreaterThanOrEqualTo(left: ValueType, right: ValueType)
-      extends Comparator
+      extends BinaryOperator[ValueType, ValueType]
+      with LogicalType
+      with Comparator
       with IncludesEqualityCheck {
 
     override val symbol: String = ">="
@@ -467,7 +394,9 @@ object Expression {
   }
 
   final case class LessThan(left: ValueType, right: ValueType)
-      extends Comparator {
+      extends BinaryOperator[ValueType, ValueType]
+      with LogicalType
+      with Comparator {
 
     override val symbol: String = "<"
 
@@ -480,7 +409,9 @@ object Expression {
   }
 
   final case class LessThanOrEqualTo(left: ValueType, right: ValueType)
-      extends Comparator
+      extends BinaryOperator[ValueType, ValueType]
+      with LogicalType
+      with Comparator
       with IncludesEqualityCheck {
 
     override val symbol: String = "<="
@@ -540,4 +471,82 @@ object Expression {
         case value                       => value.toString
       }}"
   }
+
+  private[jsonpath] sealed trait UnaryOperator[ParamType <: Expression] {
+    self: Expression =>
+
+    def symbol: String
+
+    def expression: ParamType
+
+    override def toString: String =
+      expression match {
+        case binary: BinaryOperator[_, _] => s"$symbol($binary)"
+        case expression                   => s"$symbol$expression"
+      }
+  }
+
+  private[jsonpath] trait BinaryOperator[
+      LeftType <: Expression,
+      RightType <: Expression
+  ] {
+    self: Expression =>
+
+    def symbol: String
+
+    def left: LeftType
+
+    def right: RightType
+
+    override def toString: String =
+      s"$left $symbol ${right match {
+        case other: BinaryOperator[_, _] => s"(${other.toString})"
+        case value                       => value.toString
+      }}"
+  }
+
+  private[jsonpath] sealed trait Comparator {
+    self: BinaryOperator[ValueType, ValueType] =>
+
+    protected def compare[Json: Braid](
+        evaluator: JsonPathEvaluator[Json],
+        root: Json,
+        current: Json
+    )(f: (Int, Int) => Boolean): Boolean = {
+      val leftResult = left(evaluator, root, current)
+      val rightResult = right(evaluator, root, current)
+      leftResult
+        .zip(rightResult)
+        .flatMap { case (left, right) =>
+          left.asString
+            .zip(right.asString)
+            .map { case (l, r) => l compareTo r }
+            .orElse {
+              left.asNumber
+                .zip(right.asNumber)
+                .map { case (l, r) => l compareTo r }
+            }
+        }
+        .fold(this match {
+          case equality: IncludesEqualityCheck =>
+            equality.equalityCheck(leftResult, rightResult)
+          case _ => false
+        })(f(_, 0))
+    }
+  }
+
+  private[jsonpath] sealed trait IncludesEqualityCheck {
+    comparator: Comparator =>
+
+    def equalityCheck[Json](
+        left: Option[Json],
+        right: Option[Json]
+    ): Boolean =
+      left -> right match {
+        case None -> None       => true
+        case Some(l) -> Some(r) => l == r
+        case _                  => false
+      }
+  }
+
 }
