@@ -16,4 +16,17 @@
 
 package com.quincyjo.jsonpath
 
+/** Represents a node in a JSON document.
+  *
+  * Identified a specific value within a JSON document. It is a tuple of a
+  * [[JsonPath.SingularQuery]] pointing to its location within the root document
+  * and the JSON value at that location.
+  *
+  * @param location
+  *   The location of the node within the root document.
+  * @param value
+  *   The value at the specified location.
+  * @tparam Json
+  *   The type of the JSON value.
+  */
 final case class Node[Json](location: JsonPath.SingularQuery, value: Json)

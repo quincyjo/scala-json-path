@@ -22,10 +22,13 @@ import com.quincyjo.jsonpath.JsonPath._
 import com.quincyjo.jsonpath.parser.util.StringEscapes
 // import scala.annotation.{tailrec, targetName}
 
+/** A JSONPath query. */
 sealed trait JsonPath extends Serializable {
 
+  /** The root of the path. */
   def root: JsonPathRoot
 
+  /** The segments of the path. */
   def segments: List[JsonPathSegment]
 
   /** Returns true if this path is absolute, IE; if it has is rooted in the root

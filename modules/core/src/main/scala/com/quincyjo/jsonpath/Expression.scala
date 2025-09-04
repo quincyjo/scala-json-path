@@ -22,74 +22,244 @@ import com.quincyjo.braid.implicits._
 import com.quincyjo.jsonpath.JsonPath.SingularQuery
 import com.quincyjo.jsonpath.parser.util.StringEscapes
 
+/** Base trait for all JSON Path expressions.
+  *
+  * An Expression represents a computation that can be evaluated against a JSON
+  * document to produce a result. Expressions can be of different types,
+  * including:
+  *   - [[Expression.ValueType]]: Produces a JSON value.
+  *   - [[Expression.LogicalType]]: Produces a logical boolean result, distinct
+  *     from a JSON boolean.
+  *   - [[Expression.NodesType]]: Produces a list of JSON nodes.
+  *
+  * Expressions can be composed using various operators to create complex
+  * queries.
+  */
 sealed trait Expression {
 
+  /** Attempts to coerce this expression to the specified type.
+    *
+    * Example:
+    * {{{
+    *   val expr: Expression = LiteralBoolean(true)
+    *   val logical: Validated[String, LogicalType] = expr.as[LogicalType]
+    * }}}
+    *
+    * @tparam T
+    *   The target expression type (must have an implicit Coercible instance)
+    * @return
+    *   A Validated containing the coerced expression or an error message
+    */
   def as[T <: Expression: Expression.Coercible]: Validated[String, T] =
     Expression.coerceTo[T](this)
 }
 
+/** Companion object for the Expression trait, providing common expressions and
+  * type classes.
+  */
 object Expression {
 
+  /** The JSON `null` literal. */
   final val Null = LiteralNull
+
+  /** The JSON boolean `true` literal. */
   final val True = LiteralBoolean(true)
+
+  /** The JSON boolean `false` literal. */
   final val False = LiteralBoolean(false)
 
+  /** Type class for safely coercing between different expression types.
+    *
+    * @tparam Type
+    *   The target type to coerce to
+    */
   sealed trait Coercible[Type] extends (Expression => Validated[String, Type]) {
 
     def coerce(expression: Expression): Validated[String, Type] =
       apply(expression)
   }
 
+  /** Safely coerce an expression to a specific type.
+    *
+    * @param expression
+    *   The expression to coerce
+    * @tparam Type
+    *   The target type to coerce to
+    * @return
+    *   A Validated containing the coerced expression or an error message
+    */
   def coerceTo[Type <: Expression: Coercible](
       expression: Expression
   ): Validated[String, Type] =
     implicitly[Coercible[Type]].coerce(expression)
 
+  /** Represents an expression that evaluates to a JSON value or nothing.
+    *
+    * ValueTypes can be used in comparisons and operations that work with JSON
+    * values. They can be combined using various operators to create more
+    * complex expressions.
+    */
   trait ValueType extends Expression {
 
+    /** Evaluate this expression against a JSONPath evaluation context.
+      *
+      * @param evaluator
+      *   The evaluator to use for JSON Path evaluation
+      * @param root
+      *   The root document of the JSONPath evaluation
+      * @param current
+      *   The current node being evaluated
+      * @tparam Json
+      *   The JSON AST type
+      * @return
+      *   An Option containing the resulting JSON value, or None if the value is
+      *   undefined
+      */
     def apply[Json: Braid](
         evaluator: JsonPathEvaluator[Json],
         root: Json,
         current: Json
     ): Option[Json]
 
+    /** Compare this value type to another value type for equality.
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   An Equal expression representing the comparison
+      */
     def isEqualTo(that: ValueType): Equal =
       Equal(this, that)
 
+    /** Alias for [[com.quincyjo.jsonpath.Expression.ValueType.isEqualTo()]]
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   An Equal expression representing the comparison
+      * @see
+      *   [[com.quincyjo.jsonpath.Expression.ValueType.isEqualTo()]]
+      */
     def ===(that: ValueType): Equal =
       isEqualTo(that)
 
+    /** Compare this value type to another value type for inequality.
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   A NotEqual expression representing the comparison
+      */
     def isNotEqualTo(that: ValueType): NotEqual =
       NotEqual(this, that)
 
+    /** Alias for [[com.quincyjo.jsonpath.Expression.ValueType.isNotEqualTo()]]
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   A NotEqual expression representing the comparison
+      * @see
+      *   [[com.quincyjo.jsonpath.Expression.ValueType.isNotEqualTo()]]
+      */
     def =!=(that: ValueType): NotEqual =
       isNotEqualTo(that)
 
+    /** Compare this value type to another value type for greater than.
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   A GreaterThan expression representing the comparison
+      */
     def isGreaterThan(that: ValueType): GreaterThan =
       GreaterThan(this, that)
 
+    /** Alias for [[com.quincyjo.jsonpath.Expression.ValueType.isGreaterThan()]]
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   A GreaterThan expression representing the comparison
+      * @see
+      *   [[com.quincyjo.jsonpath.Expression.ValueType.isGreaterThan()]]
+      */
     def >(that: ValueType): GreaterThan =
       isGreaterThan(that)
 
+    /** Compare this value type to another value type for greater than or equal
+      * to.
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   A GreaterThanOrEqualTo expression representing the comparison
+      */
     def isGreaterThanOrEqualTo(that: ValueType): GreaterThanOrEqualTo =
       GreaterThanOrEqualTo(this, that)
 
+    /** Alias for
+      * [[com.quincyjo.jsonpath.Expression.ValueType.isGreaterThanOrEqualTo()]]
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   A GreaterThanOrEqualTo expression representing the comparison
+      * @see
+      *   [[com.quincyjo.jsonpath.Expression.ValueType.isGreaterThanOrEqualTo()]]
+      */
     def >=(that: ValueType): GreaterThanOrEqualTo =
       isGreaterThanOrEqualTo(that)
 
+    /** Compare this value type to another value type for less than.
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   A LessThan expression representing the comparison
+      */
     def isLessThan(that: ValueType): LessThan =
       LessThan(this, that)
 
+    /** Alias for [[com.quincyjo.jsonpath.Expression.ValueType.isLessThan()]]
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   A LessThan expression representing the comparison
+      * @see
+      *   [[com.quincyjo.jsonpath.Expression.ValueType.isLessThan()]]
+      */
     def <(that: ValueType): LessThan =
       isLessThan(that)
 
+    /** Compare this value type to another value type for less than or equal to.
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   A LessThanOrEqualTo expression representing the comparison
+      */
     def isLessThanOrEqualTo(that: ValueType): LessThanOrEqualTo =
       LessThanOrEqualTo(this, that)
 
+    /** Alias for
+      * [[com.quincyjo.jsonpath.Expression.ValueType.isLessThanOrEqualTo()]]
+      *
+      * @param that
+      *   The value type to compare to
+      * @return
+      *   A LessThanOrEqualTo expression representing the comparison
+      * @see
+      *   [[com.quincyjo.jsonpath.Expression.ValueType.isLessThanOrEqualTo()]]
+      */
     def <=(that: ValueType): LessThanOrEqualTo =
       isLessThanOrEqualTo(that)
   }
 
+  /** Companion object for ValueType providing type class instances and
+    * utilities.
+    */
   object ValueType {
 
     implicit val coerceToValueType: Expression.Coercible[ValueType] =
@@ -137,6 +307,12 @@ object Expression {
     ): ValueType = ValueTypeFromNodesType(jsonPathValue)
   }
 
+  /** Represents a logical expression that evaluates to either logical true or
+    * logical false.
+    *
+    * LogicalTypes can be combined using logical operators (&&, ||, !) to create
+    * complex boolean expressions for filtering and conditions.
+    */
   trait LogicalType extends Expression {
 
     def apply[Json: Braid](
@@ -145,16 +321,38 @@ object Expression {
         current: Json
     ): Boolean
 
+    /** Create a logical AND with this and the given value.
+      *
+      * @param that
+      *   The value to AND with
+      * @return
+      *   A And expression representing the AND operation
+      */
     def &&(that: LogicalType): And =
       And(this, that)
 
+    /** Create a logical OR with this and the given value.
+      *
+      * @param that
+      *   The value to OR with
+      * @return
+      *   A Or expression representing the OR operation
+      */
     def ||(that: LogicalType): Or =
       Or(this, that)
 
+    /** Create a logical NOT with this value.
+      *
+      * @return
+      *   A Not expression representing the NOT operation
+      */
     def unary_! : Not =
       Not(this)
   }
 
+  /** Companion object for LogicalType providing type class instances and
+    * utilities.
+    */
   object LogicalType {
 
     implicit val coerceToValueType: Expression.Coercible[LogicalType] =
@@ -179,6 +377,7 @@ object Expression {
     // TODO: Are wrapping case classes the best way to represent this?
     private final case class LogicalTypeFromNodesType(nodesType: NodesType)
         extends LogicalType {
+
       override def apply[Json: Braid](
           evaluator: JsonPathEvaluator[Json],
           root: Json,
@@ -194,6 +393,12 @@ object Expression {
       LogicalTypeFromNodesType(nodesType)
   }
 
+  /** Represents an expression that evaluates to a list of JSONPath nodes.
+    *
+    * NodesTypes are typically the result of JSON Path queries and can be
+    * converted to LogicalType (checking for existence) or ValueType if it is a
+    * singular query.
+    */
   trait NodesType extends Expression {
 
     def apply[Json: Braid](
@@ -203,6 +408,7 @@ object Expression {
     ): List[Node[Json]]
 
     /** Convenience method for creating a LogicalType from a NodesType.
+      *
       * @return
       *   A logical type as existence check.
       */
@@ -210,6 +416,9 @@ object Expression {
       LogicalType.nodesTypeToLogicalType(this)
   }
 
+  /** Companion object for NodesType providing type class instances and
+    * utilities.
+    */
   object NodesType {
 
     implicit val coerceToValueType: Expression.Coercible[NodesType] =
@@ -226,14 +435,23 @@ object Expression {
         case nodesType: NodesType =>
           Validated.valid(nodesType)
         case _: LogicalType =>
-          Validated.invalid("LogicalType cannot be coerced to LogicalType.")
+          Validated.invalid("LogicalType cannot be coerced to NodesType.")
         case _: ValueType =>
-          Validated.invalid("ValueType cannot be coerced to LogicalType.")
+          Validated.invalid("ValueType cannot be coerced to NodesType.")
       }
   }
 
+  /** Base trait for literal JSON values.
+    *
+    * Literals are atomic JSON values that can be used in expressions.
+    */
   sealed trait Literal extends Expression with ValueType {
 
+    /** Convert this literal to a JSON value of the given JSON type.
+      *
+      * @tparam Json
+      *   The JSON type to convert to.
+      */
     def asJson[Json: Braid]: Json
 
     override def apply[Json: Braid](
@@ -243,6 +461,7 @@ object Expression {
     ): Option[Json] = Some(asJson[Json])
   }
 
+  /** The JSON `null` literal value. */
   case object LiteralNull extends Literal {
 
     override def asJson[Json: Braid]: Json =
@@ -251,6 +470,11 @@ object Expression {
     override def toString: String = "null"
   }
 
+  /** A JSON string literal value.
+    *
+    * @param value
+    *   The string value
+    */
   final case class LiteralString(value: String) extends Literal {
 
     override def asJson[Json: Braid]: Json =
@@ -260,6 +484,11 @@ object Expression {
       s"""\"${StringEscapes.escapeDoubleQuotes(value)}\""""
   }
 
+  /** A JSON number literal value.
+    *
+    * @param value
+    *   The numeric value as a BigDecimal
+    */
   final case class LiteralNumber(value: BigDecimal) extends Literal {
 
     def asJson[Json: Braid]: Json =
@@ -268,6 +497,9 @@ object Expression {
     override def toString: String = value.toString
   }
 
+  /** Factory methods for creating numeric literals from different numeric
+    * types.
+    */
   object LiteralNumber {
 
     def apply(int: Int): LiteralNumber =
@@ -283,6 +515,11 @@ object Expression {
       LiteralNumber(BigDecimal.decimal(float))
   }
 
+  /** A JSON boolean literal value.
+    *
+    * @param value
+    *   The boolean value
+    */
   final case class LiteralBoolean(value: Boolean) extends Literal {
 
     def asJson[Json: Braid]: Json =
@@ -291,6 +528,12 @@ object Expression {
     override def toString: String = value.toString
   }
 
+  /** An expression that evaluates a JSON Path query that must return at most a
+    * single value via a singular query.
+    *
+    * @param path
+    *   The JSON Path query to evaluate
+    */
   final case class JsonPathValue(path: JsonPath.SingularQuery)
       extends Expression
       with NodesType {
@@ -310,6 +553,12 @@ object Expression {
       path.toString
   }
 
+  /** An expression that evaluates a JSON Path query that may return multiple
+    * nodes.
+    *
+    * @param path
+    *   The JSON Path query to evaluate
+    */
   final case class JsonPathNodes(path: JsonPath)
       extends Expression
       with NodesType {
@@ -326,6 +575,11 @@ object Expression {
       path.toString
   }
 
+  /** Logical NOT operation.
+    *
+    * @param expression
+    *   The expression to negate
+    */
   final case class Not(expression: LogicalType)
       extends UnaryOperator[LogicalType]
       with LogicalType {
@@ -340,6 +594,13 @@ object Expression {
       !expression(evaluator, root, current)
   }
 
+  /** Equality comparison between two ValueType expressions.
+    *
+    * @param left
+    *   The left-hand side expression
+    * @param right
+    *   The right-hand side expression
+    */
   final case class Equal(left: ValueType, right: ValueType)
       extends BinaryOperator[ValueType, ValueType]
       with LogicalType
@@ -359,6 +620,13 @@ object Expression {
       )
   }
 
+  /** Inequality comparison between two ValueType expressions.
+    *
+    * @param left
+    *   The left-hand side expression
+    * @param right
+    *   The right-hand side expression
+    */
   final case class NotEqual(left: ValueType, right: ValueType)
       extends BinaryOperator[ValueType, ValueType]
       with LogicalType
@@ -378,6 +646,13 @@ object Expression {
       )
   }
 
+  /** Greater than comparison between two ValueType expressions.
+    *
+    * @param left
+    *   The left-hand side expression
+    * @param right
+    *   The right-hand side expression
+    */
   final case class GreaterThan(left: ValueType, right: ValueType)
       extends BinaryOperator[ValueType, ValueType]
       with LogicalType
@@ -393,6 +668,13 @@ object Expression {
       compare(evaluator, root, current)(_ > _)
   }
 
+  /** Greater than or equal to comparison between two ValueType expressions.
+    *
+    * @param left
+    *   The left-hand side expression
+    * @param right
+    *   The right-hand side expression
+    */
   final case class GreaterThanOrEqualTo(left: ValueType, right: ValueType)
       extends BinaryOperator[ValueType, ValueType]
       with LogicalType
@@ -409,6 +691,13 @@ object Expression {
       compare(evaluator, root, current)(_ >= _)
   }
 
+  /** Less than comparison between two ValueType expressions.
+    *
+    * @param left
+    *   The left-hand side expression
+    * @param right
+    *   The right-hand side expression
+    */
   final case class LessThan(left: ValueType, right: ValueType)
       extends BinaryOperator[ValueType, ValueType]
       with LogicalType
@@ -424,6 +713,13 @@ object Expression {
       compare(evaluator, root, current)(_ < _)
   }
 
+  /** Less than or equal to comparison between two ValueType expressions.
+    *
+    * @param left
+    *   The left-hand side expression
+    * @param right
+    *   The right-hand side expression
+    */
   final case class LessThanOrEqualTo(left: ValueType, right: ValueType)
       extends BinaryOperator[ValueType, ValueType]
       with LogicalType
@@ -440,6 +736,13 @@ object Expression {
       compare(evaluator, root, current)(_ <= _)
   }
 
+  /** Logical and (&&) between two LogicalType expressions.
+    *
+    * @param left
+    *   The left-hand side expression
+    * @param right
+    *   The right-hand side expression
+    */
   final case class And(left: LogicalType, right: LogicalType)
       extends BinaryOperator[LogicalType, LogicalType]
       with LogicalType {
@@ -465,6 +768,13 @@ object Expression {
       }}"
   }
 
+  /** Logical or (||) between two LogicalType expressions.
+    *
+    * @param left
+    *   The left-hand side expression
+    * @param right
+    *   The right-hand side expression
+    */
   final case class Or(left: LogicalType, right: LogicalType)
       extends BinaryOperator[LogicalType, LogicalType]
       with LogicalType {
