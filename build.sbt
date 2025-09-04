@@ -129,7 +129,7 @@ lazy val testBehaviours = project
   )
 
 lazy val unidocs = project
-  .in(file("unidocs"))
+  .in(file("modules/unidocs"))
   .enablePlugins(TypelevelUnidocPlugin)
   .settings(
     name := "scala-json-path-docs",
