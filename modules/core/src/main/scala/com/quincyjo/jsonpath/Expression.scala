@@ -131,14 +131,14 @@ object Expression {
     def isEqualTo(that: ValueType): Equal =
       Equal(this, that)
 
-    /** Alias for [[com.quincyjo.jsonpath.Expression.ValueType.isEqualTo()]]
+    /** Alias for [[#isEqualTo]]
       *
       * @param that
       *   The value type to compare to
       * @return
       *   An Equal expression representing the comparison
       * @see
-      *   [[com.quincyjo.jsonpath.Expression.ValueType.isEqualTo()]]
+      *   [[#isEqualTo]]
       */
     def ===(that: ValueType): Equal =
       isEqualTo(that)
@@ -153,14 +153,14 @@ object Expression {
     def isNotEqualTo(that: ValueType): NotEqual =
       NotEqual(this, that)
 
-    /** Alias for [[com.quincyjo.jsonpath.Expression.ValueType.isNotEqualTo()]]
+    /** Alias for [[#isNotEqualTo]]
       *
       * @param that
       *   The value type to compare to
       * @return
       *   A NotEqual expression representing the comparison
       * @see
-      *   [[com.quincyjo.jsonpath.Expression.ValueType.isNotEqualTo()]]
+      *   [[#isNotEqualTo]]
       */
     def =!=(that: ValueType): NotEqual =
       isNotEqualTo(that)
@@ -175,14 +175,14 @@ object Expression {
     def isGreaterThan(that: ValueType): GreaterThan =
       GreaterThan(this, that)
 
-    /** Alias for [[com.quincyjo.jsonpath.Expression.ValueType.isGreaterThan()]]
+    /** Alias for [[#isGreaterThan]]
       *
       * @param that
       *   The value type to compare to
       * @return
       *   A GreaterThan expression representing the comparison
       * @see
-      *   [[com.quincyjo.jsonpath.Expression.ValueType.isGreaterThan()]]
+      *   [[#isGreaterThan]]
       */
     def >(that: ValueType): GreaterThan =
       isGreaterThan(that)
@@ -198,15 +198,14 @@ object Expression {
     def isGreaterThanOrEqualTo(that: ValueType): GreaterThanOrEqualTo =
       GreaterThanOrEqualTo(this, that)
 
-    /** Alias for
-      * [[com.quincyjo.jsonpath.Expression.ValueType.isGreaterThanOrEqualTo()]]
+    /** Alias for [[#isGreaterThanOrEqualTo]]
       *
       * @param that
       *   The value type to compare to
       * @return
       *   A GreaterThanOrEqualTo expression representing the comparison
       * @see
-      *   [[com.quincyjo.jsonpath.Expression.ValueType.isGreaterThanOrEqualTo()]]
+      *   [[#isGreaterThanOrEqualTo]]
       */
     def >=(that: ValueType): GreaterThanOrEqualTo =
       isGreaterThanOrEqualTo(that)
@@ -221,14 +220,14 @@ object Expression {
     def isLessThan(that: ValueType): LessThan =
       LessThan(this, that)
 
-    /** Alias for [[com.quincyjo.jsonpath.Expression.ValueType.isLessThan()]]
+    /** Alias for [[#isLessThan]]
       *
       * @param that
       *   The value type to compare to
       * @return
       *   A LessThan expression representing the comparison
       * @see
-      *   [[com.quincyjo.jsonpath.Expression.ValueType.isLessThan()]]
+      *   [[#isLessThan]]
       */
     def <(that: ValueType): LessThan =
       isLessThan(that)
@@ -243,15 +242,14 @@ object Expression {
     def isLessThanOrEqualTo(that: ValueType): LessThanOrEqualTo =
       LessThanOrEqualTo(this, that)
 
-    /** Alias for
-      * [[com.quincyjo.jsonpath.Expression.ValueType.isLessThanOrEqualTo()]]
+    /** Alias for [[#isLessThanOrEqualTo]]
       *
       * @param that
       *   The value type to compare to
       * @return
       *   A LessThanOrEqualTo expression representing the comparison
       * @see
-      *   [[com.quincyjo.jsonpath.Expression.ValueType.isLessThanOrEqualTo()]]
+      *   [[#isLessThanOrEqualTo]]
       */
     def <=(that: ValueType): LessThanOrEqualTo =
       isLessThanOrEqualTo(that)
