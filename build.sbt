@@ -82,7 +82,7 @@ val commonSettings = Seq(
 )
 
 lazy val root = tlCrossRootProject
-  .aggregate(core, circe, play)
+  .aggregate(core, circe, play, unidocs)
 
 lazy val core = project
   .in(file("modules/core"))
@@ -126,4 +126,12 @@ lazy val testBehaviours = project
       scalaTest,
       scalaTestFlatSpec
     )
+  )
+
+lazy val unidocs = project
+  .in(file("unidocs"))
+  .enablePlugins(TypelevelUnidocPlugin)
+  .settings(
+    name := "scala-json-path-docs",
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core)
   )
