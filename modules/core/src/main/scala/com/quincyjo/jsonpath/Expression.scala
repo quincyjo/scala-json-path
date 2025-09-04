@@ -34,12 +34,10 @@ object Expression {
   final val True = LiteralBoolean(true)
   final val False = LiteralBoolean(false)
 
-  final case class Coercible[Type](
-      coerce: Expression => Validated[String, Type]
-  ) extends (Expression => Validated[String, Type]) {
+  sealed trait Coercible[Type] extends (Expression => Validated[String, Type]) {
 
-    def apply(expression: Expression): Validated[String, Type] =
-      coerce(expression)
+    def coerce(expression: Expression): Validated[String, Type] =
+      apply(expression)
   }
 
   def coerceTo[Type <: Expression: Coercible](
@@ -95,7 +93,13 @@ object Expression {
   object ValueType {
 
     implicit val coerceToValueType: Expression.Coercible[ValueType] =
-      Expression.Coercible[ValueType](coerce)
+      new Expression.Coercible[ValueType] {
+
+        override def apply(
+            expression: Expression
+        ): Validated[String, ValueType] =
+          ValueType.coerce(expression)
+      }
 
     def coerce(expression: Expression): Validated[String, ValueType] =
       expression match {
@@ -154,7 +158,13 @@ object Expression {
   object LogicalType {
 
     implicit val coerceToValueType: Expression.Coercible[LogicalType] =
-      Expression.Coercible[LogicalType](coerce)
+      new Expression.Coercible[LogicalType] {
+
+        override def apply(
+            expression: Expression
+        ): Validated[String, LogicalType] =
+          LogicalType.coerce(expression)
+      }
 
     def coerce(expression: Expression): Validated[String, LogicalType] =
       expression match {
@@ -203,7 +213,13 @@ object Expression {
   object NodesType {
 
     implicit val coerceToValueType: Expression.Coercible[NodesType] =
-      Expression.Coercible[NodesType](coerce)
+      new Expression.Coercible[NodesType] {
+
+        override def apply(
+            expression: Expression
+        ): Validated[String, NodesType] =
+          NodesType.coerce(expression)
+      }
 
     def coerce(expression: Expression): Validated[String, NodesType] =
       expression match {
@@ -548,5 +564,4 @@ object Expression {
         case _                  => false
       }
   }
-
 }
