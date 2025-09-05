@@ -34,7 +34,7 @@ final case class Length(value: ValueType)
     extends FunctionExtension[ValueType]
     with ValueType {
 
-  override val name: String = "length"
+  override val name: String = Length.extensionName
 
   override val args: List[Expression] = List(value)
 
@@ -56,8 +56,10 @@ final case class Length(value: ValueType)
 
 object Length {
 
+  private val extensionName: String = "length"
+
   val extension: Extension[ValueType, Length] =
-    Extension("length")(Length.apply)
+    Extension(extensionName)(Length.apply)
 
   trait LengthExtension extends WithExtension { self: JsonPathParser =>
 

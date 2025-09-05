@@ -33,7 +33,7 @@ final case class Value(nodes: NodesType)
     extends FunctionExtension[NodesType]
     with ValueType {
 
-  override val name: String = "value"
+  override val name: String = Value.extensionName
 
   override val args: List[Expression] = List(nodes)
 
@@ -46,8 +46,10 @@ final case class Value(nodes: NodesType)
 
 object Value {
 
+  private val extensionName: String = "value"
+
   val extension: Extension[NodesType, Value] =
-    Extension("value")(Value.apply)
+    Extension(extensionName)(Value.apply)
 
   trait ValueExtension extends WithExtension { self: JsonPathParser =>
 

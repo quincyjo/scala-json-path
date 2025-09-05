@@ -37,7 +37,7 @@ final case class Match(target: ValueType, regex: ValueType)
     extends FunctionExtension2[ValueType, ValueType]
     with LogicalType {
 
-  override val name: String = "match"
+  override val name: String = Match.extensionName
 
   override val args: List[Expression] = List(target, regex)
 
@@ -58,8 +58,10 @@ final case class Match(target: ValueType, regex: ValueType)
 
 object Match {
 
+  private val extensionName: String = "match"
+
   val extension: Extension[(ValueType, ValueType), Match] =
-    Extension("match") { args => Match(args._1, args._2) }
+    Extension(extensionName) { args => Match(args._1, args._2) }
 
   trait MatchExtension extends WithExtension { self: JsonPathParser =>
 
