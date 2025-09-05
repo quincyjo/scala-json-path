@@ -353,7 +353,7 @@ object Expression {
     */
   object LogicalType {
 
-    implicit val coerceToValueType: Expression.Coercible[LogicalType] =
+    implicit val coerceToLogicalType: Expression.Coercible[LogicalType] =
       new Expression.Coercible[LogicalType] {
 
         override def apply(
@@ -419,7 +419,7 @@ object Expression {
     */
   object NodesType {
 
-    implicit val coerceToValueType: Expression.Coercible[NodesType] =
+    implicit val coerceToNodesType: Expression.Coercible[NodesType] =
       new Expression.Coercible[NodesType] {
 
         override def apply(
