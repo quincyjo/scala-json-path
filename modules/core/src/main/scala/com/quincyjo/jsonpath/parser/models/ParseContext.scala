@@ -37,9 +37,6 @@ abstract class ParseContext[Token <: ParserToken] {
 
   private var currentValue: Option[ValueAt[_]] = None
 
-  def currentToken: Option[Token] =
-    currentTokenResult.value.getOrElse(None)
-
   def nextToken(): ParseContext[Token]
 
   def hasNext: Boolean =
@@ -55,8 +52,6 @@ abstract class ParseContext[Token <: ParserToken] {
 
   protected def tokenAt(i: Int): ParseResult[Token]
 
-  def step: ParseResult[Int] = Parsed(0)
-
   def nextIndex: ParseResult[Int] =
     OptionT
       .fromOption[ParseResult](currentValue)
@@ -70,8 +65,8 @@ abstract class ParseContext[Token <: ParserToken] {
               }
             case token: SymbolToken =>
               Parsed(input.indexWhere(!_.isWhitespace, index + token.length))
-            case _ =>
-              ParseError(s"Unexpected token $currentToken", index, input)
+            case token =>
+              ParseError(s"Unexpected token $token", index, input)
           }
       )
       .semiflatMap {
