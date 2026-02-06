@@ -563,7 +563,7 @@ object JsonPath {
         selector2: SingularSelectorWrapper,
         selectors: SingularSelectorWrapper*
     ): Children =
-      new Children(Union(selector, selector2, selectors *))
+      new Children(Union(selector, selector2, selectors*))
   }
 
   /** A description of a selection of properties of a JSON value, such as an

@@ -234,8 +234,8 @@ object StringEscapes {
           dindex: Int,
           codepoint: Int
       ): Either[InvalidStringEncoding, (Char, Int)] = {
-        //supports BMP + surrogate escapes
-        //but only in four hex-digit code units (uxxxx)
+        // supports BMP + surrogate escapes
+        // but only in four hex-digit code units (uxxxx)
         if (dindex >= 4) {
           val usRead = uindex - startindex
           val digitsRead = dindex
@@ -252,8 +252,8 @@ object StringEscapes {
 
       if (uindex >= len)
         Left(InvalidStringEncoding(src, uindex - 1))
-      //allow one or more `u` characters between the
-      //backslash and the code unit
+      // allow one or more `u` characters between the
+      // backslash and the code unit
       else if (src(uindex) == 'u') loop(uindex + 1)
       else loopCP(0, 0)
     }

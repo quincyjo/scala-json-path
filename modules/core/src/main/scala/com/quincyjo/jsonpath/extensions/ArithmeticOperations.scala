@@ -58,9 +58,9 @@ object ArithmeticOperations {
 
     override def toString: String =
       s"${left match {
-        case lowPriority: LowPriority => s"($lowPriority)"
-        case value                    => value.toString
-      }} $symbol $serializeRight"
+          case lowPriority: LowPriority => s"($lowPriority)"
+          case value                    => value.toString
+        }} $symbol $serializeRight"
   }
 
   private[jsonpath] sealed trait LowPriority extends ArithmeticOperator {

@@ -757,13 +757,13 @@ object Expression {
 
     override def toString: String =
       s"${left match {
-        case or: Or => s"($or)"
-        case value  => value.toString
-      }} $symbol ${right match {
-        case and: And                    => and.toString
-        case other: BinaryOperator[_, _] => s"($other)"
-        case value                       => value.toString
-      }}"
+          case or: Or => s"($or)"
+          case value  => value.toString
+        }} $symbol ${right match {
+          case and: And                    => and.toString
+          case other: BinaryOperator[_, _] => s"($other)"
+          case value                       => value.toString
+        }}"
   }
 
   /** Logical or (||) between two LogicalType expressions.
@@ -789,11 +789,11 @@ object Expression {
 
     override def toString: String =
       s"$left $symbol ${right match {
-        case or: Or                      => or.toString
-        case and: And                    => and.toString
-        case other: BinaryOperator[_, _] => s"(${other.toString})"
-        case value                       => value.toString
-      }}"
+          case or: Or                      => or.toString
+          case and: And                    => and.toString
+          case other: BinaryOperator[_, _] => s"(${other.toString})"
+          case value                       => value.toString
+        }}"
   }
 
   private[jsonpath] sealed trait UnaryOperator[ParamType <: Expression] {
@@ -824,9 +824,9 @@ object Expression {
 
     override def toString: String =
       s"$left $symbol ${right match {
-        case other: BinaryOperator[_, _] => s"(${other.toString})"
-        case value                       => value.toString
-      }}"
+          case other: BinaryOperator[_, _] => s"(${other.toString})"
+          case value                       => value.toString
+        }}"
   }
 
   private[jsonpath] sealed trait Comparator {

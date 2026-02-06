@@ -1,12 +1,12 @@
-val Scala3 = "3.3.1"
-val Scala2_13 = "2.13.12"
+val Scala3 = "3.3.7"
+val Scala2_13 = "2.13.18"
 
 val scalatestVersion = "3.2.19"
 val scalaTest = "org.scalatest" %% "scalatest" % scalatestVersion
 val scalaTestFlatSpec =
   "org.scalatest" %% "scalatest-flatspec" % scalatestVersion
 
-val scalametaVersion = "1.1.0"
+val scalametaVersion = "1.2.2"
 val scalameta = "org.scalameta" %% "munit" % scalametaVersion
 
 val catsVersion = "2.13.0"
