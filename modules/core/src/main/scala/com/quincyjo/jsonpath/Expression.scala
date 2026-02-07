@@ -25,8 +25,8 @@ import com.quincyjo.jsonpath.parser.util.StringEscapes
 /** Base trait for all JSON Path expressions.
   *
   * An Expression represents a computation that can be evaluated against a JSON
-  * document to produce a result. Expressions can be of different types,
-  * including:
+  * document to produce a result. Expressions belong to one of the following
+  * types:
   *   - [[Expression.ValueType]]: Produces a JSON value.
   *   - [[Expression.LogicalType]]: Produces a logical boolean result, distinct
   *     from a JSON boolean.
@@ -60,13 +60,13 @@ sealed trait Expression {
 object Expression {
 
   /** The JSON `null` literal. */
-  final val Null = LiteralNull
+  final val Null: LiteralNull.type = LiteralNull
 
   /** The JSON boolean `true` literal. */
-  final val True = LiteralBoolean(true)
+  final val True: LiteralBoolean = LiteralBoolean(true)
 
   /** The JSON boolean `false` literal. */
-  final val False = LiteralBoolean(false)
+  final val False: LiteralBoolean = LiteralBoolean(false)
 
   /** Type class for safely coercing between different expression types.
     *
@@ -75,6 +75,13 @@ object Expression {
     */
   sealed trait Coercible[Type] extends (Expression => Validated[String, Type]) {
 
+    /** Attempt to coerce an expression to the target type.
+      *
+      * @param expression
+      *   The expression to coerce.
+      * @return
+      *   A Validated containing the coerced expression or an error message.
+      */
     def coerce(expression: Expression): Validated[String, Type] =
       apply(expression)
   }
@@ -93,7 +100,7 @@ object Expression {
   ): Validated[String, Type] =
     implicitly[Coercible[Type]].coerce(expression)
 
-  /** Represents an expression that evaluates to a JSON value or nothing.
+  /** An expression that evaluates to a JSON value or nothing.
     *
     * ValueTypes can be used in comparisons and operations that work with JSON
     * values. They can be combined using various operators to create more
@@ -260,6 +267,7 @@ object Expression {
     */
   object ValueType {
 
+    /** Evidence that expressions can be coerced to a ValueType. */
     implicit val coerceToValueType: Expression.Coercible[ValueType] =
       new Expression.Coercible[ValueType] {
 
@@ -269,6 +277,14 @@ object Expression {
           ValueType.coerce(expression)
       }
 
+    /** Coerce an expression to a [[ValueType]]. Namely, [[NodesType]] s with
+      * singular query can be coerced to represent their resulting value.
+      *
+      * @param expression
+      *   The expression to coerce.
+      * @return
+      *   The coerced expression, or an error message if the coercion fails.
+      */
     def coerce(expression: Expression): Validated[String, ValueType] =
       expression match {
         case valueType: ValueType => Validated.Valid(valueType)
@@ -353,6 +369,7 @@ object Expression {
     */
   object LogicalType {
 
+    /** Evidence that expressions can be coerced to a LogicalType. */
     implicit val coerceToLogicalType: Expression.Coercible[LogicalType] =
       new Expression.Coercible[LogicalType] {
 
@@ -362,6 +379,14 @@ object Expression {
           LogicalType.coerce(expression)
       }
 
+    /** Coerce an expression to a [[LogicalType]]. Namely, [[NodesType]] s can
+      * be coerced to a [[LogicalType]] as an existence check.
+      *
+      * @param expression
+      *   The expression to coerce.
+      * @return
+      *   The coerced expression, or an error message if the coercion fails.
+      */
     def coerce(expression: Expression): Validated[String, LogicalType] =
       expression match {
         case logicalType: LogicalType =>
@@ -419,6 +444,7 @@ object Expression {
     */
   object NodesType {
 
+    /** Evidence that expressions can be coerced to a NodesType. */
     implicit val coerceToNodesType: Expression.Coercible[NodesType] =
       new Expression.Coercible[NodesType] {
 

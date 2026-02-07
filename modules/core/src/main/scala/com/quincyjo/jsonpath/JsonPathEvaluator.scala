@@ -24,6 +24,11 @@ import com.quincyjo.jsonpath.JsonPath._
 import scala.annotation.tailrec
 import scala.collection.mutable
 
+/** Evaluates a [[JsonPath]] against a JSON value.
+  *
+  * @tparam Json
+  *   the JSON AST type
+  */
 abstract class JsonPathEvaluator[Json: Braid] {
 
   /** Apply this JsonPath to a JSON, returning a list of JSON values matching
@@ -58,7 +63,7 @@ abstract class JsonPathEvaluator[Json: Braid] {
     }
 
   /** Apply the JsonPath to the provided context. Unlike
-    * [[evaluate(JsonPath,Json)]], this API is mean for when the root JSON and
+    * [[evaluate(JsonPath,Json)]], this API is meant for when the root JSON and
     * the current JSON node may not be the same. Namely, this is when a JSON
     * path is part of another JsonPath via an expression.
     * @param path

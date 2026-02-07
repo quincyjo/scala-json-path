@@ -26,6 +26,17 @@ import com.quincyjo.jsonpath.extensions.Extension.{
 }
 import com.quincyjo.jsonpath.parser.models.ValueAt
 
+/** An extension to provide a function extension to a
+  * [[com.quincyjo.jsonpath.parser.JsonPathParser]]. This allows a parser to
+  * safely parse and validate a call its function extension.
+  *
+  * @param name
+  *   The name of the extension function
+  * @param cons
+  *   The constructor for the extension function
+  * @param parseArgs
+  *   The arguments parser for the extension function
+  */
 final case class Extension[
     ArgsType,
     ExtensionType <: FunctionExtension[ArgsType]

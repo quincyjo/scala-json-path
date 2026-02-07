@@ -21,9 +21,10 @@ import com.quincyjo.jsonpath.parser.models.ValueAt
 import java.lang
 import scala.util.control.NoStackTrace
 
-/** Handles decoding strings according to RFC 9535. This includes support for
-  * escaped sequences for `\b`, `\t`, `\n`, `\f`, `\r`, `\`, `/`, `'`, `"`, and
-  * `uXXXX`.
+/** Handles decoding JSON-style string escapes. This includes support for escape
+  * sequences such as `\b`, `\t`, `\n`, `\f`, `\r`, `\\`, `\/`, `\'`, `\"`, and
+  * Unicode escapes of the form `uXXXX`.
+  *
   * @see
   *   [[https://datatracker.ietf.org/doc/rfc9535]] section 2.3.1.1.
   */
