@@ -350,7 +350,7 @@ class ExpressionSpec
     }
   }
 
-  def comparator[T <: Comparator](
+  def comparator[T <: Comparator & LogicalType](
       constructor: (ValueType, ValueType) => T
   )(f: (Int, Int) => Boolean): Unit = {
 
@@ -408,7 +408,7 @@ class ExpressionSpec
     }
   }
 
-  def nonComparableEquality[T <: IncludesEqualityCheck](
+  def nonComparableEquality[T <: IncludesEqualityCheck & LogicalType](
       constructor: (ValueType, ValueType) => T,
       mapEquality: Boolean => Boolean = identity
   ): Unit = {
@@ -439,7 +439,7 @@ class ExpressionSpec
 
   }
 
-  def equalityOperator[T <: IncludesEqualityCheck](
+  def equalityOperator[T <: IncludesEqualityCheck & LogicalType](
       constructor: (ValueType, ValueType) => T,
       mapEquality: Boolean => Boolean = identity
   ): Unit = {

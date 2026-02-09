@@ -24,6 +24,17 @@ import com.quincyjo.jsonpath.JsonPathEvaluator
 import com.quincyjo.jsonpath.parser.JsonPathParser
 
 /** Mix-in to provide arithmetic operations to a JSON path parser.
+  *
+  * This allows a [[com.quincyjo.jsonpath.parser.JsonPathParser]] to support the
+  * following arithmetic operators (`+`, `-`, `*`, `/`). These operators are
+  * evaluated in a similar fashion as one might expect form Javascript, but not
+  * that there is no defined behavior for them in the JSONPath spec, so behavior
+  * may differ between implementations.
+  *
+  * Parsing of arithmetic operators respects priority of operators, as with
+  * disjunction (`||`) and conjunction (`&&`). For example, `1 + 2 * 3` will be
+  * parsed as `1 + (2 * 3)`. During serialization, parentheses will be added to
+  * preserve the order of operations when necessary.
   */
 trait ArithmeticOperations { self: JsonPathParser =>
 
@@ -58,9 +69,9 @@ object ArithmeticOperations {
 
     override def toString: String =
       s"${left match {
-        case lowPriority: LowPriority => s"($lowPriority)"
-        case value                    => value.toString
-      }} $symbol $serializeRight"
+          case lowPriority: LowPriority => s"($lowPriority)"
+          case value                    => value.toString
+        }} $symbol $serializeRight"
   }
 
   private[jsonpath] sealed trait LowPriority extends ArithmeticOperator {

@@ -38,7 +38,7 @@ final case class Search(target: ValueType, regex: ValueType)
     extends FunctionExtension2[ValueType, ValueType]
     with LogicalType {
 
-  override val name: String = "search"
+  override val name: String = Search.extensionName
 
   override val args: List[Expression] = List(target, regex)
 
@@ -59,8 +59,10 @@ final case class Search(target: ValueType, regex: ValueType)
 
 object Search {
 
+  private val extensionName: String = "search"
+
   val extension: Extension[(ValueType, ValueType), Search] =
-    Extension("search") { args => Search(args._1, args._2) }
+    Extension(extensionName) { args => Search(args._1, args._2) }
 
   trait SearchExtension extends WithExtension { self: JsonPathParser =>
 

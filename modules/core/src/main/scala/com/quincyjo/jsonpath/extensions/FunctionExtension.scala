@@ -66,5 +66,407 @@ object FunctionExtension {
       P6 <: Expression
   ] = FunctionExtension[(P1, P2, P3, P4, P5, P6)]
 
-  // TODO: Fully expand to 22 or determine alternate pattern, EG Shapeless
+  type FunctionExtension7[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression
+  ] = FunctionExtension[(P1, P2, P3, P4, P5, P6, P7)]
+
+  type FunctionExtension8[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression
+  ] = FunctionExtension[(P1, P2, P3, P4, P5, P6, P7, P8)]
+
+  type FunctionExtension9[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression
+  ] = FunctionExtension[(P1, P2, P3, P4, P5, P6, P7, P8, P9)]
+
+  type FunctionExtension10[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression
+  ] = FunctionExtension[(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10)]
+
+  type FunctionExtension11[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression
+  ] = FunctionExtension[(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11)]
+
+  type FunctionExtension12[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression
+  ] = FunctionExtension[(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12)]
+
+  type FunctionExtension13[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression,
+      P13 <: Expression
+  ] =
+    FunctionExtension[(P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13)]
+
+  type FunctionExtension14[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression,
+      P13 <: Expression,
+      P14 <: Expression
+  ] = FunctionExtension[
+    (P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14)
+  ]
+
+  type FunctionExtension15[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression,
+      P13 <: Expression,
+      P14 <: Expression,
+      P15 <: Expression
+  ] = FunctionExtension[
+    (P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, P15)
+  ]
+
+  type FunctionExtension16[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression,
+      P13 <: Expression,
+      P14 <: Expression,
+      P15 <: Expression,
+      P16 <: Expression
+  ] = FunctionExtension[
+    (P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, P15, P16)
+  ]
+
+  type FunctionExtension17[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression,
+      P13 <: Expression,
+      P14 <: Expression,
+      P15 <: Expression,
+      P16 <: Expression,
+      P17 <: Expression
+  ] = FunctionExtension[
+    (P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14, P15, P16, P17)
+  ]
+
+  type FunctionExtension18[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression,
+      P13 <: Expression,
+      P14 <: Expression,
+      P15 <: Expression,
+      P16 <: Expression,
+      P17 <: Expression,
+      P18 <: Expression
+  ] = FunctionExtension[
+    (
+        P1,
+        P2,
+        P3,
+        P4,
+        P5,
+        P6,
+        P7,
+        P8,
+        P9,
+        P10,
+        P11,
+        P12,
+        P13,
+        P14,
+        P15,
+        P16,
+        P17,
+        P18
+    )
+  ]
+
+  type FunctionExtension19[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression,
+      P13 <: Expression,
+      P14 <: Expression,
+      P15 <: Expression,
+      P16 <: Expression,
+      P17 <: Expression,
+      P18 <: Expression,
+      P19 <: Expression
+  ] = FunctionExtension[
+    (
+        P1,
+        P2,
+        P3,
+        P4,
+        P5,
+        P6,
+        P7,
+        P8,
+        P9,
+        P10,
+        P11,
+        P12,
+        P13,
+        P14,
+        P15,
+        P16,
+        P17,
+        P18,
+        P19
+    )
+  ]
+
+  type FunctionExtension20[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression,
+      P13 <: Expression,
+      P14 <: Expression,
+      P15 <: Expression,
+      P16 <: Expression,
+      P17 <: Expression,
+      P18 <: Expression,
+      P19 <: Expression,
+      P20 <: Expression
+  ] = FunctionExtension[
+    (
+        P1,
+        P2,
+        P3,
+        P4,
+        P5,
+        P6,
+        P7,
+        P8,
+        P9,
+        P10,
+        P11,
+        P12,
+        P13,
+        P14,
+        P15,
+        P16,
+        P17,
+        P18,
+        P19,
+        P20
+    )
+  ]
+
+  type FunctionExtension21[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression,
+      P13 <: Expression,
+      P14 <: Expression,
+      P15 <: Expression,
+      P16 <: Expression,
+      P17 <: Expression,
+      P18 <: Expression,
+      P19 <: Expression,
+      P20 <: Expression,
+      P21 <: Expression
+  ] = FunctionExtension[
+    (
+        P1,
+        P2,
+        P3,
+        P4,
+        P5,
+        P6,
+        P7,
+        P8,
+        P9,
+        P10,
+        P11,
+        P12,
+        P13,
+        P14,
+        P15,
+        P16,
+        P17,
+        P18,
+        P19,
+        P20,
+        P21
+    )
+  ]
+
+  type FunctionExtension22[
+      P1 <: Expression,
+      P2 <: Expression,
+      P3 <: Expression,
+      P4 <: Expression,
+      P5 <: Expression,
+      P6 <: Expression,
+      P7 <: Expression,
+      P8 <: Expression,
+      P9 <: Expression,
+      P10 <: Expression,
+      P11 <: Expression,
+      P12 <: Expression,
+      P13 <: Expression,
+      P14 <: Expression,
+      P15 <: Expression,
+      P16 <: Expression,
+      P17 <: Expression,
+      P18 <: Expression,
+      P19 <: Expression,
+      P20 <: Expression,
+      P21 <: Expression,
+      P22 <: Expression
+  ] = FunctionExtension[
+    (
+        P1,
+        P2,
+        P3,
+        P4,
+        P5,
+        P6,
+        P7,
+        P8,
+        P9,
+        P10,
+        P11,
+        P12,
+        P13,
+        P14,
+        P15,
+        P16,
+        P17,
+        P18,
+        P19,
+        P20,
+        P21,
+        P22
+    )
+  ]
 }

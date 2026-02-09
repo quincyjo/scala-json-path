@@ -16,11 +16,11 @@
 
 package com.quincyjo.jsonpath.parser.models
 
-import cats.{Applicative, Eval, Monad, MonadError, Traverse}
+import cats.{Applicative, Eval, MonadError, Traverse}
 
 import scala.util.control.NoStackTrace
 
-/** Models a parsed right which may have failed.
+/** Models a result for parsing a JSONPath which may have failed.
   *
   * @tparam T
   *   The type that was parsed.
@@ -119,7 +119,8 @@ sealed trait ParseResult[+T] {
 
 object ParseResult {
 
-  implicit val monad: Monad[ParseResult] =
+  implicit val monad
+      : MonadError[ParseResult, ParseError] & Traverse[ParseResult] =
     new MonadError[ParseResult, ParseError] with Traverse[ParseResult] {
 
       override def pure[A](x: A): ParseResult[A] =
@@ -177,6 +178,13 @@ object ParseResult {
     }
 }
 
+/** A successful parse result holding the parsed value.
+  *
+  * @param value
+  *   The parsed value.
+  * @tparam T
+  *   The type of the parsed value.
+  */
 final case class Parsed[T](value: T) extends ParseResult[T] {
 
   override val isSuccess: Boolean = true
@@ -197,6 +205,17 @@ final case class Parsed[T](value: T) extends ParseResult[T] {
   override def get: T = value
 }
 
+/** A parse failure containing message, position and input context.
+  *
+  * @param message
+  *   The error message.
+  * @param index
+  *   The index of the error in the input.
+  * @param input
+  *   The input context.
+  * @param cause
+  *   The cause of the parse error, if any.
+  */
 final case class ParseError(
     message: String,
     index: Int,

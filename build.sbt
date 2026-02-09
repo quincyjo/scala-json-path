@@ -1,12 +1,12 @@
-val Scala3 = "3.3.1"
-val Scala2_13 = "2.13.12"
+val Scala3 = "3.3.7"
+val Scala2_13 = "2.13.18"
 
 val scalatestVersion = "3.2.19"
 val scalaTest = "org.scalatest" %% "scalatest" % scalatestVersion
 val scalaTestFlatSpec =
   "org.scalatest" %% "scalatest-flatspec" % scalatestVersion
 
-val scalametaVersion = "1.1.0"
+val scalametaVersion = "1.2.2"
 val scalameta = "org.scalameta" %% "munit" % scalametaVersion
 
 val catsVersion = "2.13.0"
@@ -25,8 +25,8 @@ val braidCirce = "com.quincyjo" %% "braid-circe" % braidVersion
 val braidPlay = "com.quincyjo" %% "braid-play" % braidVersion
 
 // skip / publish := true
-ThisBuild / tlBaseVersion := "0.2"
-ThisBuild / version := "0.2.0"
+ThisBuild / tlBaseVersion := "0.3"
+ThisBuild / version := "0.3.0"
 // Default to same as circe or SBT isn't happy.
 // https://github.com/sbt/sbt/issues/3465
 ThisBuild / scalaVersion := Scala2_13
@@ -82,7 +82,7 @@ val commonSettings = Seq(
 )
 
 lazy val root = tlCrossRootProject
-  .aggregate(core, circe, play)
+  .aggregate(core, circe, play, unidocs)
 
 lazy val core = project
   .in(file("modules/core"))
@@ -126,4 +126,12 @@ lazy val testBehaviours = project
       scalaTest,
       scalaTestFlatSpec
     )
+  )
+
+lazy val unidocs = project
+  .in(file("modules/unidocs"))
+  .enablePlugins(TypelevelUnidocPlugin)
+  .settings(
+    name := "scala-json-path-docs",
+    ScalaUnidoc / unidoc / unidocProjectFilter := inProjects(core)
   )

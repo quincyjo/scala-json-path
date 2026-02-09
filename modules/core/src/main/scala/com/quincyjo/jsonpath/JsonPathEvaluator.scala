@@ -24,6 +24,11 @@ import com.quincyjo.jsonpath.JsonPath._
 import scala.annotation.tailrec
 import scala.collection.mutable
 
+/** Evaluates a [[JsonPath]] against a JSON value.
+  *
+  * @tparam Json
+  *   the JSON AST type
+  */
 abstract class JsonPathEvaluator[Json: Braid] {
 
   /** Apply this JsonPath to a JSON, returning a list of JSON values matching
@@ -58,7 +63,7 @@ abstract class JsonPathEvaluator[Json: Braid] {
     }
 
   /** Apply the JsonPath to the provided context. Unlike
-    * [[evaluate(JsonPath,Json)]], this API is mean for when the root JSON and
+    * [[evaluate(JsonPath,Json)]], this API is meant for when the root JSON and
     * the current JSON node may not be the same. Namely, this is when a JSON
     * path is part of another JsonPath via an expression.
     * @param path
@@ -74,19 +79,33 @@ abstract class JsonPathEvaluator[Json: Braid] {
       path: JsonPath,
       root: Json,
       current: Option[Json]
-  ): List[Node[Json]] =
-    path.segments.foldLeft(
-      path.root match {
-        case Root =>
-          List(Node(JsonPath.$, root))
-        case Current =>
-          current.map { value =>
-            Node(JsonPath.`@`, value)
-          }.toList
-      }
-    ) { case (values, segment) =>
-      values.flatMap(step(root, _, segment))
+  ): List[Node[Json]] = {
+
+    @tailrec
+    def go(
+        values: List[Node[Json]],
+        segments: List[JsonPathSegment]
+    ): List[Node[Json]] =
+      if (values.isEmpty) values
+      else
+        segments match {
+          case Nil => values
+          case head :: tail =>
+            go(
+              values.flatMap(step(root, _, head)),
+              tail
+            )
+        }
+
+    path.root match {
+      case Root =>
+        go(List(Node(JsonPath.$, root)), path.segments)
+      case Current =>
+        current.fold(List.empty[Node[Json]]) { json =>
+          go(List(Node(JsonPath.`@`, json)), path.segments)
+        }
     }
+  }
 
   final private[jsonpath] def step(
       root: Json,

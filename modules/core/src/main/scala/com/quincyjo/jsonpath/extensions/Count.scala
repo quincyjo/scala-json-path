@@ -29,7 +29,7 @@ final case class Count(nodes: NodesType)
     extends FunctionExtension[NodesType]
     with ValueType {
 
-  override val name: String = "count"
+  override val name: String = Count.extensionName
 
   override val args: List[Expression] = List(nodes)
 
@@ -46,8 +46,10 @@ final case class Count(nodes: NodesType)
 
 object Count {
 
+  private val extensionName: String = "count"
+
   val extension: Extension[NodesType, Count] =
-    Extension("count")(Count.apply)
+    Extension(extensionName)(Count.apply)
 
   trait CountExtension extends WithExtension { self: JsonPathParser =>
 

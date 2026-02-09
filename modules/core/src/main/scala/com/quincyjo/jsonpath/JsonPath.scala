@@ -22,13 +22,16 @@ import com.quincyjo.jsonpath.JsonPath._
 import com.quincyjo.jsonpath.parser.util.StringEscapes
 // import scala.annotation.{tailrec, targetName}
 
+/** A JSONPath query. */
 sealed trait JsonPath extends Serializable {
 
+  /** The root of the path. */
   def root: JsonPathRoot
 
+  /** The segments of the path. */
   def segments: List[JsonPathSegment]
 
-  /** Returns true if this path is absolute, IE; if it has is rooted in the root
+  /** Returns true if this path is absolute, i.e., if it is rooted in the root
     * document.
     * @return
     *   A boolean indicating if this path is absolute.
@@ -36,8 +39,8 @@ sealed trait JsonPath extends Serializable {
   def isAbsolute: Boolean =
     root == Root
 
-  /** Returns true if this path is relative, IE; if it is rooted in the current
-    * document.
+  /** Returns true if this path is relative, i.e., if it is rooted in the
+    * current document.
     * @return
     *   A boolean indicating if this path is dynamic.
     */
@@ -271,9 +274,13 @@ sealed trait JsonPath extends Serializable {
 
 object JsonPath {
 
+  /** A JSON path pointing at the root document, IE, `$`.
+    */
   final val absolute: SingularQuery =
     SingularQuery(Root, Nil)
 
+  /** A JSON path pointing at the relative document, IE, `@`.
+    */
   final val relative: SingularQuery =
     SingularQuery(Current, Nil)
 
@@ -433,13 +440,13 @@ object JsonPath {
     override def appended(segment: JsonPathSegment): Query =
       copy(segments = segments appended segment)
 
-    override def prepended(that: JsonPathSegment): JsonPath =
+    override def prepended(that: JsonPathSegment): Query =
       copy(segments = segments prepended that)
 
-    override def appendedAll(that: Iterable[JsonPathSegment]): JsonPath =
+    override def appendedAll(that: Iterable[JsonPathSegment]): Query =
       copy(segments = segments appendedAll that)
 
-    override def prependedAll(that: Iterable[JsonPathSegment]): JsonPath =
+    override def prependedAll(that: Iterable[JsonPathSegment]): Query =
       copy(segments = segments prependedAll that)
 
     def /(selector: SingularSelector): Query =
@@ -484,14 +491,19 @@ object JsonPath {
     }
   }
 
+  /** The root of a [[JsonPath]] which can be either the root of a JSON or the
+    * current node.
+    */
   sealed trait JsonPathRoot
 
   object JsonPathRoot {
 
+    /** Points to the root document. */
     case object Root extends JsonPathRoot {
       override def toString: String = "$"
     }
 
+    /** Points to the current node. */
     case object Current extends JsonPathRoot {
       override def toString: String = "@"
     }
@@ -521,8 +533,8 @@ object JsonPath {
       apply(selector.value)
   }
 
-  /** [[JsonPathSegment]] that applies a [[Selector]] to a JSON to match zero or
-    * more of its leaf nodes or children.
+  /** [[JsonPathSegment]] that applies a [[SingularSelector]] to a JSON to match
+    * at most one of its leaf nodes or children.
     *
     * @param selector
     *   The [[SingularSelector]] which this node contains.
@@ -539,13 +551,31 @@ object JsonPath {
     def apply(selector: SingularSelectorWrapper): Child =
       new Child(selector.value)
 
+    /** Creates a [[JsonPath.Child]] with an attribute selector.
+      * @param attribute
+      *   The name of the attribute.
+      * @return
+      *   A new [[JsonPath.Child]] with the given attribute.
+      */
     def attribute(attribute: String): Child =
       new Child(Attribute(attribute))
 
+    /** Creates a [[JsonPath.Child]] with an index selector.
+      * @param index
+      *   The index.
+      * @return
+      *   A new [[JsonPath.Child]] with the given index.
+      */
     def index(index: Int): Child =
       new Child(Index(index))
   }
 
+  /** [[JsonPathSegment]] that applies a [[MultiSelector]] to a JSON to match
+    * zero or more of its leaf nodes or children.
+    *
+    * @param selector
+    *   The [[MultiSelector]] which this node contains.
+    */
   final case class Children(selector: MultiSelector) extends JsonPathSegment {
 
     override val isSingular: Boolean = false
@@ -560,7 +590,7 @@ object JsonPath {
         selector2: SingularSelectorWrapper,
         selectors: SingularSelectorWrapper*
     ): Children =
-      new Children(Union(selector, selector2, selectors *))
+      new Children(Union(selector, selector2, selectors*))
   }
 
   /** A description of a selection of properties of a JSON value, such as an
@@ -624,6 +654,9 @@ object JsonPath {
     }
   }
 
+  /** Describes a selector that may select more than one property of a JSON
+    * node.
+    */
   sealed trait MultiSelector extends Selector
 
   /** Selects the given attribute by name from a JSON object.
@@ -853,6 +886,11 @@ object JsonPath {
       }
   }
 
+  /** A filter expression which selects all nodes for which the given
+    * [[Expression.LogicalType]] expresion evaluates to true.
+    * @param expression
+    *   The expression to evaluate against each node.
+    */
   final case class Filter(expression: Expression.LogicalType)
       extends MultiSelector
       with ComposableSelector {

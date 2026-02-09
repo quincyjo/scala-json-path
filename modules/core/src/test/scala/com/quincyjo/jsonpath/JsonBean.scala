@@ -52,10 +52,10 @@ object JsonBean {
 
     override def toString: String =
       s"""{ ${underlying
-        .map { case (key, value) =>
-          s""""$key": $value"""
-        }
-        .mkString(", ")} }"""
+          .map { case (key, value) =>
+            s""""$key": $value"""
+          }
+          .mkString(", ")} }"""
   }
 
   final case class JArray(values: Vector[JsonBean]) extends JsonBean {

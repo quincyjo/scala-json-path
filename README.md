@@ -1,8 +1,11 @@
 # scala-json-path
 
-`scala-json-path` is a Scala library for the usage of [JSON Path](https://datatracker.ietf.org/doc/rfc9535/#2.3.1). This
-library provides a direct ADT for modeling JSONPaths with support for serialization and parsing. In addition, evaluation
-of JSON Paths may be done on any underlying JSON library via [Braid](https://github.com/quincyjo/braid).
+`scala-json-path` is a Scala library for the usage of [JSONPath](https://datatracker.ietf.org/doc/rfc9535) built
+on [Cats](https://typelevel.org/cats/) and [Braid](https://github.com/quincyjo/braid) that is exception free and fully
+[RFC 9535](https://datatracker.ietf.org/doc/rfc9535) compliant.
+This library provides a direct ADT for modeling JSONPaths with support for serialization, parsing and evaluation.
+Evaluation is implemented generically against any underlying JSON library
+via [Braid](https://github.com/quincyjo/braid).
 
 ## Getting Started
 
@@ -48,7 +51,8 @@ JSONPaths may be defined using the ADT API directly, or via a simple DSL.
 resolve to more than one node, and the second is guaranteed to resolve to at most one node. `JsonPath.Query` is not
 directly constructable, but the `JsonPath` model handles switching between the two as it is built.
 
-```
+<!-- @formatter:off -->
+```scala
 scala> JsonPath.$ / "foobar" / 5 
 val res0: com.quincyjo.jsonpath.JsonPath.SingularQuery = $['foobar'][5]
 
@@ -58,10 +62,10 @@ val res1: com.quincyjo.jsonpath.JsonPath.Query = $[*][:3]
 scala> JsonPath.`@` */ Wildcard // <-- Recursive descent DSL
 val res2: com.quincyjo.jsonpath.JsonPath.Query = @..*
 
-cala> JsonPath.$ /? GreaterThan(Count(JsonPathNodes(JsonPath.`@`)), LiteralNumber(1
-0)) // <-- Filter DSL
+scala> JsonPath.$ /? GreaterThan(Count(JsonPathNodes(JsonPath.`@`)), LiteralNumber(10)) // <-- Filter DSL
 val res3: com.quincyjo.jsonpath.JsonPath.Query = $[?(count(@) > 10)]
 ```
+<!-- @formatter:on -->
 
 ### Parsing
 
@@ -69,46 +73,59 @@ Parsing is provided via `JsonPathReader`, which reads `JsonPath`s from strings. 
 the `parser` package object. Parse results are exposed via the sum of `Parsed[T]` and `ParseError`. This library is
 built on top of Cats, and `ParseResult` is both a `MonadError` and `Traverse`able.
 
-```
+<!-- @formatter:off -->
+```scala
 scala> import com.quincyjo.jsonpath
 
 scala> jsonpath.parser.parse("$.foobar[5][-3:][\"1\",1]")
-val res0:
-  com.quincyjo.jsonpath.parser.ParseResult[com.quincyjo.jsonpath.JsonPath] = Parsed($.foobar[5][-3:]["1",1])
+val res0: ParseResult[com.quincyjo.jsonpath.JsonPath] = Parsed($.foobar[5][-3:]["1",1])
+
+scala> jsonpath.parser.parse("some.invalid.path")
+val res1: ParseResult[com.quincyjo.jsonpath.JsonPath] = ParseError: Failed to parse JsonPath at index 0 in 'some.invalid.path': A JSON Path must start with either '$' or '@'
 ```
+<!-- @formatter:on -->
 
 #### Escape Sequences
 
 Parsing and serialization of JSONPaths handles escape sequences as specified
-in [RFC 9535](https://tools.ietf.org/html/rfc9535) section 3.1.1.
+in [RFC 9535 section 2.3.1.2](https://datatracker.ietf.org/doc/html/rfc9535#section-2.3.1.2). This is mostly the same as
+how escape sequences are handled in Scala, but with a few differences. Most notably, solidus (`/`) may optionally be
+escaped with a backslash (`\`) while this is an invalid escape sequence in Scala.
 
 When defining a name selector via the ADT, the provided string is accepted as is and is not processed further. If for
 some reason processing of escapes is required on a `String` in code, the API is exposed via the `StringEscapes` object.
 
-```
+<!-- @formatter:off -->
+```scala
 scala> StringEscapes.processEscapes(s"\\\"") // Literal '\"'
 val res0: Either[InvalidStringEncoding, ValueAt[String]] = Right(ValueAt(",0,\"))
+        
+scala> StringEscapes.processEscapes("\\a") // Literal '\a', an invalid escape
+val res1: Either[InvalidStringEncoding, ValueAt[String]] = Left(InvalidStringEncoding: Invalid escape in string '\a' at index 0)
 
 scala> JsonPathParser.default.parse("$['\\\"']") // Parse a JSONPath from a string, handling escapes
-val res1: ParseResult[JsonPath] = Parsed($['"'])
+val res2: ParseResult[JsonPath] = Parsed($['"'])
 
 scala> JsonPath.Attribute("\t") // Raw tab character passed to an Attribute, is not processed.
-val res2: JsonPath.Attribute = '\t' // <-- toString escapes it.
+val res3: JsonPath.Attribute = '\t' // <-- toString escapes it.
 
 scala> JsonPath.Attribute("\\t") // Raw string of `\t` is not processed.
-val res3: JsonPath.Attribute = '\\t' // <-- Reverse solidus is escaped
+val res4: JsonPath.Attribute = '\\t' // <-- Reverse solidus is escaped
 ```
+<!-- @formatter:on -->
 
 ### Literals
 
 Literal strings are provided via `jsonpath.literal` package.
 
-```
+<!-- @formatter:off -->
+```scala
 scala> import com.quincyjo.jsonpath.literal.JsonPathStringContext
 
 scala> jsonPath"""@[1:2:3]["foobar"]"""
-val res0: com.quincyjo.jsonpath.JsonPath = @[1:2:3].foobar
+val res0: com.quincyjo.jsonpath.JsonPath = @[1:2:3]['foobar']
 ```
+<!-- @formatter:on -->
 
 ### Evaluation
 
@@ -116,16 +133,18 @@ Evaluation of a `JsonPath` is performed by a `JsonPathEvaluator`, which is imple
 [Braid](https://github.com/quincyjo/braid) is in scope for your JSON library of choice, an evaluator may be defined
 as below:
 
-```
+```scala
 import JsonBean.jsonBeanBraid // Implicit instance of Braid[JsonBean]
 
 final case object JsonBeanEvaluator extends JsonPathEvaluator[JsonBean]
+
 ```
 
 Evaluation returns a `List` of the matching nodes of the path in the given JSON. A node is defined as the tuple its
-location via a singular query (a JSON path that points to at most one node) and the value at that location.
+location via a singular query (a JSONPath that points to at most one node) and the value at that location.
 
-```
+<!-- @formatter:off -->
+```scala
 scala> val json = Json.obj("foobar" -> Json.arr(Json.fromString("deadbeef"), Json.Tr ue, Json.fromInt(42)))
 val json: io.circe.Json =
 {
@@ -158,6 +177,7 @@ List(Node($['foobar'],[
   42
 ]), Node($['foobar'][0],"deadbeef"), Node($['foobar'][1],true), Node($['foobar'][2],42))
 ```
+<!-- @formatter:on -->
 
 Singular queries may also be evaluated explicitly via `JsonPathEvaluator.singular`, which returns `Option[Node[Json]]`
 instead.
@@ -166,13 +186,14 @@ instead.
 
 Expressions have their own AST which can be used to describe expressions in either JSONPath scripts or filters.
 Expressions are evaluated against a JsonPath context and return a result based on their expression type. Expressions are
-well typed according to [RFC 9535](https://tools.ietf.org/html/rfc9535) section 2.4.3, both at parse time and via AST
-declaration.
+well typed according to [RFC 9535 section 2.4.3](https://datatracker.ietf.org/doc/html/rfc9535#section-2.4.3), both at
+parse time and via AST declaration.
 
-Functions must be both pure and safe to evaluate, as evaluating a JSON path is guaranteed to be error free. All error
-handling is handled when parsing a JSON path, and thus parsing fails if an expression is malformed.
+Functions are always safe to evaluate, as evaluating a JSONPath is guaranteed to be error free. All error handling is
+handled when parsing a JSONPath, and thus parsing fails if an expression is malformed.
 
-```
+<!-- @formatter:off -->
+```scala
 scala> jsonPath"$$[?value(@.foo)]"
 com.quincyjo.jsonpath.parser.models.ParseError: Failed to parse JsonPath at index 4 in '$[?value(@.foo)]': Filter requires a logical expression but was: value(@['foo'])
 
@@ -194,6 +215,7 @@ scala> $ /? Match(JsonPathNodes(`@` */ Wildcard), LiteralString("deadbeef"))
         found   : com.quincyjo.jsonpath.Expression.JsonPathNodes
         required: com.quincyjo.jsonpath.Expression.ValueType
 ```
+<!-- @formatter:on -->
 
 ### Types
 
@@ -203,7 +225,7 @@ All expressions have a declared type which is one of the following.
   `Option[Json]` with the `Json` type being determined at evaluation. May be coerced from a singular query.
 - `LogicalType`: Either a logical true or false, which is distinct from JSON booleans. May be coerced from any
   `NodesType` as an existence check.
-- `NodesType`: Any JSON path, which evaluates to the matching nodes.
+- `NodesType`: Any JSONPath, which evaluates to the matching nodes.
 
 Expressions used in a filter selector must be of type `LogicalType`, and function extensions must have a declared
 type and their parameters are type-checked during parsing.
@@ -212,7 +234,8 @@ There are implicit `def`s in scope for each type to enable implicit conversions 
 automatically whenever an expression type is used as a parameter. There are also utility methods on relevant types to
 make this explicit.
 
-```
+<!-- @formatter:off -->
+```scala
 scala> JsonPath.$ /? JsonPathNodes(JsonPath.`@` / "bar") // <-- NodesType to Logical Type
 val res0: com.quincyjo.jsonpath.JsonPath.Query = $[?(@['bar'])]
 
@@ -222,16 +245,19 @@ val res1: com.quincyjo.jsonpath.JsonPath.Query = $[?(@['name'] == "Jane Doe")]
 scala> JsonPath.$ / "products" */ Wildcard /? JsonPathValue(`@` / "restrictions").exists
 val res2: com.quincyjo.jsonpath.JsonPath.Query = $['products']..*[?(@['restrictions'])]
 ```
+<!-- @formatter:on -->
 
 Syntax implicits are available via `ExpressionsSyntax` to make writing expressions easier.
 
-```
+<!-- @formatter:off -->
+```scala
 scala> import com.quincyjo.jsonpath.syntax.ExpressionSyntax._
 import com.quincyjo.jsonpath.syntax.ExpressionSyntax._
 
 scala> JsonPath.$ */ "products" /? (`@` / "price" < 100)
 val res0: com.quincyjo.jsonpath.JsonPath.Query = $..['products'][?(@['price'] < 100)]
 ```
+<!-- @formatter:on -->
 
 ## Function Extensions
 
@@ -240,8 +266,10 @@ defining a `JsonPath`, and may be parsed by mixing in a `WithExtension` for the 
 
 ### Default Function Extensions
 
-The default function extensions are enabled in the default `JsonPathParser`, `JsonPathParser.default`. A mix-in to add
-these extensions to any `JsonPathParser` is provided via the `StandardExtensions` trait.
+The default function extensions as defined
+in [RFC 9535 section 2.4](https://datatracker.ietf.org/doc/html/rfc9535#section-2.4) are enabled in the default
+`JsonPathParser`, `JsonPathParser.default`. A mix-in to add these extensions to any `JsonPathParser` is provided via the
+`StandardExtensions` trait.
 
 The following extensions are provided by default:
 
@@ -258,14 +286,21 @@ The following extensions are provided by default:
 
 ### Adding Function Extensions
 
-First, define the new function extension. This can immediately be used when defining JSON paths programmatically.
+Custom function extensions can be defined as needed. Keep in mind that all JSONPath evaluations have no error state, so
+any custom function extensions must be exception free. A common pattern for invalid arguments is to return `None` in the
+case of `ValueType` extensions such as the default `Match` and `Search` extensions when the regex parameters is not
+valid.
+
+The following example shows how to define a new function extension and add it to a custom parser.
+
+First, define the new function extension. This can immediately be used when defining a JSONPath programmatically.
 
 ```scala
-final case class StringOrNothing(value: ValueType)
+final case class StringOrNull(value: ValueType)
   extends FunctionExtension[ValueType]
     with ValueType {
 
-  override val name: String = "stringOrNothing"
+  override val name: String = StringOrNull.extensionName
 
   override val args: List[Expression] = List(value)
 
@@ -273,21 +308,24 @@ final case class StringOrNothing(value: ValueType)
                                    evaluator: JsonPathEvaluator[Json],
                                    root: Json,
                                    current: Json
-                                 ): Option[Json] =
-    value(evaluator, root, current).asString.map(
-      Braid[Json].fromString
-    )
+                                 ): Option[Json] = Some {
+    value(evaluator, root, current)
+      .filter(Braid[Json].isString)
+      .getOrElse(Braid[Json].Null)
+  }
 }
 
-object StringOrNothing {
+object StringOrNull {
 
-  val extension: Extension[NodesType, StringOrNothing] =
-    Extension("stringOrNothing")(StringOrNothing.apply)
+  val extensionName: String = "stringOrNull"
 
-  trait StringOrNothingExtension extends WithExtension {
+  val extension: Extension[NodesType, StringOrNull] =
+    Extension(extensionName)(StringOrNull.apply)
+
+  trait StringOrNullExtension extends WithExtension {
     self: JsonPathParser =>
 
-    addExtension(StringOrNothing.extension)
+    addExtension(StringOrNull.extension)
   }
 }
 
@@ -305,19 +343,21 @@ case object MyJsonPathParser
 
 ### Arithmetic Operations
 
-Arithmetic operations are disabled by default. Similar to function extensions, they may be enabled via a mix-in. This
-enables parsing of arithmetic operations including: `+`, `-`, `*`, and `/`.
+Arithmetic operations are disabled by default as they are not part of the JSONPath specification. Similar to function
+extensions, they may be enabled via a mix-in. This enables parsing of arithmetic operations including: `+`, `-`, `*`,
+and `/`.
 
 Plus (`+`) will perform arithmetic summation if both sides are a number or null, otherwise it will coerce both sides to
 strings and concatenate them. All other arithmetic operations will attempt to coerce both sides to numbers according to
-ES rules and perform the corresponding arithmetic operation if both side are successfully coerced.
+ES coercion rules and perform the corresponding arithmetic operation if both side are successfully coerced.
 
 ```scala
 case object MyJsonPathParser extends JsonPathParser with ArithmeticOperations
 
 ```
 
-```
+<!-- @formatter:off -->
+```scala
 scala> case object MyJsonPathParser extends JsonPathParser with ArithmeticOperations
 
 object MyJsonPathParser
@@ -331,17 +371,19 @@ val res0: com.quincyjo.jsonpath.parser.models.ParseResult[com.quincyjo.jsonpath.
 scala> MyJsonPathParser.parse(raw)
 val res1: com.quincyjo.jsonpath.parser.models.ParseResult[com.quincyjo.jsonpath.JsonPath] = Parsed($[?(@['price'] + @['tax'] < 50)])
 ```
+<!-- @formatter:on -->
 
 Because arithmetic operations are not a standard feature, they are not defined within the `Expression` companion object.
 Instead, they are available within the `ArithmeticOperations` companion. It is also worth keeping in mind that there is
-no defined behavior of these operators within the definition of JSON path, so the behaviour of them may vary depending
-on the specific implementation of JSON Path that is being used.
+no defined behavior of these operators within the definition of JSONPath, so the behaviour of them may vary depending
+on the specific implementation of JSONPath that is being used.
 
 ## Example
 
 The below example uses Circe JSON.
 
-```
+<!-- @formatter:off -->
+```scala
 scala> val json = Json.obj(
      |   "products" -> Json.obj(
      |     "fruit" -> Json.arr(
@@ -425,3 +467,4 @@ List(Node($['products']['fruit'][0],{
   "quantity" : 4
 }))
 ```
+<!-- @formatter:on -->
